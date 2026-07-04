@@ -4,9 +4,12 @@
     "core/agents/dirty_xhigh.md": ["xhigh-default"],
     "core/channels/dirty_stack.txt": ["stack-in-core"],
     "overlays/dirty_paths_domain.md": ["machine-paths", "domain-names"],
-    "project-template/dirty_creds.txt": ["creds-password", "creds-token", "creds-p-flag"]
+    "project-template/dirty_creds.txt": ["creds-password", "creds-token", "creds-p-flag"],
+    "overlays/dirty_nobom.ps1": ["ps1-bom"],
+    "overlays/dirty_echo.ps1": ["creds-echo"]
   },
   "clean": [
-    "clean/clean_sample.md"
+    "clean/clean_sample.md",
+    "clean/clean_script.ps1"
   ]
 }

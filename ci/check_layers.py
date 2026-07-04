@@ -4,7 +4,8 @@
 Scans the layered distribution (core/, overlays/, project-template/) and reports
 content that violates the purity contract of its layer: leaked credentials,
 machine paths, domain names, stack terms in the generic core, hardcoded models,
-and unmarked xhigh reasoning defaults.
+unmarked xhigh reasoning defaults, missing UTF-8 BOM in script files, and
+credentials echoed into console output.
 
 Pure standard library, cross-platform, Python 3.9+.
 
@@ -43,6 +44,10 @@ ALLOW_MARKER = "airules:allow"
 # The one file where model names are expected by design.
 MODEL_MAP_REL = os.path.join("core", "channels", "model-map.yaml")
 
+# Rule id for the file-level (not line-level) BOM check below.
+PS1_BOM_RULE_ID = "ps1-bom"
+UTF8_BOM = b"\xef\xbb\xbf"
+
 
 # Each rule: id, compiled regex, severity, layers it applies to, description.
 # ``layers`` uses the top-level directory name; the special value "*" means the
@@ -70,6 +75,20 @@ def _build_rules():
             "severity": "error",
             "layers": ("*",),
             "description": "Possible hardcoded api key / token / secret.",
+        },
+        {
+            "id": "creds-echo",
+            "regex": r'(?i)(write-host|write-output|echo)[^\r\n]*\$(password|passwd|pass)\b',
+            "severity": "error",
+            "layers": ("*",),
+            "description": "Password variable leaked into console output.",
+        },
+        {
+            "id": "creds-echo",
+            "regex": r'(?i)/P\W{0,3}\$\w*(password|pass)\w*',
+            "severity": "error",
+            "layers": ("*",),
+            "description": "Password variable leaked via /P command-line flag.",
         },
         # --- machine paths: core + overlays ---
         {
@@ -232,6 +251,31 @@ def scan_file(path, rel_path, rules):
                 yield (rel_path, lineno, rule["id"], fragment)
 
 
+def check_ps1_bom(path, rel_path):
+    """Whole-file check: every *.ps1 in the distribution layers must start
+    with a UTF-8 BOM. Returns a single (rel_path, 1, rule_id, message) tuple
+    or None. Not part of the line-oriented RULES list because it inspects raw
+    bytes rather than decoded text lines."""
+    norm = rel_path.replace("\\", "/")
+    if not norm.endswith(".ps1"):
+        return None
+    top = norm.split("/", 1)[0]
+    if top not in SCAN_LAYERS:
+        return None
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(3)
+    except OSError:
+        return None
+    if head == UTF8_BOM:
+        return None
+    first_line = read_text(path)
+    first_line = first_line.splitlines()[0] if first_line else ""
+    if _line_suppresses(first_line, PS1_BOM_RULE_ID):
+        return None
+    return (rel_path, 1, PS1_BOM_RULE_ID, "missing UTF-8 BOM")
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, _dirs, files in os.walk(base_dir):
@@ -288,6 +332,9 @@ def run_scan(paths):
     for abs_path in paths:
         rel_path = os.path.relpath(abs_path, REPO_ROOT)
         violations.extend(scan_file(abs_path, rel_path, RULES))
+        bom_hit = check_ps1_bom(abs_path, rel_path)
+        if bom_hit is not None:
+            violations.append(bom_hit)
     _report(violations)
     return len(violations)
 
@@ -310,6 +357,9 @@ def run_selftest():
         hits = set()
         for item in scan_file(abs_path, rel_for_rules, RULES):
             hits.add(item[2])
+        bom_hit = check_ps1_bom(abs_path, rel_for_rules)
+        if bom_hit is not None:
+            hits.add(bom_hit[2])
         actual[rel_from_fixtures] = hits
 
     all_pass = True
