@@ -51,7 +51,8 @@ Index в момент применения, а не предзагружаетс
 | делегирование, субагент, выбор модели/усилия | `subagents-model-routing` | (оркестратор) |
 | спека, изменение поведения, предложение, OpenSpec | `sdd-integrations` | analytic / architect |
 | рефакторинг, дубли, мёртвый код | {{DOMAIN_ROUTES}} | refactoring |
-| проверка, ревью, верификация | {{DOMAIN_ROUTES}} | code-reviewer |
+| проверка, ревью, верификация | `verification-matrix` | code-reviewer |
+| режим работы, разведка/правка, экстренный фикс | `collaboration-modes` | (оркестратор) |
 | отладка, баг, воспроизведение ошибки | {{DOMAIN_ROUTES}} | error-fixer |
 | {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
 
