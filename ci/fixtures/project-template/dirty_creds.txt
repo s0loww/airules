@@ -1,0 +1,4 @@
+Dirty fixture: leaked credentials in project layer.
+password=secret123 is a hardcoded credential.
+api_key: AbCd1234EfGh is a leaked token.
+Connection string fragment /P"realsecret is also a credential.

@@ -1,0 +1,2 @@
+Dirty fixture: stack term in generic core.
+This method uses BSL and the COMConnector, which do not belong in core.

@@ -1,0 +1,8 @@
+#!/bin/sh
+# airules layer-purity gate. Blocks a commit if staged files violate a layer rule.
+python ci/check_layers.py --staged
+status=$?
+if [ "$status" -ne 0 ]; then
+	echo "airules: layer-purity check failed (ci/check_layers.py --staged). Commit aborted." >&2
+	exit 1
+fi

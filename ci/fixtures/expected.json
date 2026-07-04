@@ -1,0 +1,12 @@
+{
+  "dirty": {
+    "core/rules/dirty_models.md": ["model-hardcode"],
+    "core/agents/dirty_xhigh.md": ["xhigh-default"],
+    "core/channels/dirty_stack.txt": ["stack-in-core"],
+    "overlays/dirty_paths_domain.md": ["machine-paths", "domain-names"],
+    "project-template/dirty_creds.txt": ["creds-password", "creds-token", "creds-p-flag"]
+  },
+  "clean": [
+    "clean/clean_sample.md"
+  ]
+}
