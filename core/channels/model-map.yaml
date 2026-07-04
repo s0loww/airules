@@ -14,6 +14,11 @@ channels:
     medium: sonnet
     low:    haiku
     # fast не определён: роли с override=fast работают на своём базовом tier
+    orchestrator: fable
+    # orchestrator — НЕ тир ролей: это класс модели головного агента. Если
+    # сессия идёт на модели этого тира, автоматически включается режим
+    # экономии (core/rules/orchestrator-economy.md): исполнение — субагентам
+    # на канальных тирах, оркестратору — решения и сверка.
 
   codex:
     high:   { model: gpt-5.5, reasoning: high }

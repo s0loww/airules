@@ -49,6 +49,7 @@ Index в момент применения, а не предзагружаетс
 | --- | --- | --- |
 | скрипт, автоматизация, DryRun/Apply, миграция данных | `script-contract` | developer |
 | делегирование, субагент, выбор модели/усилия | `subagents-model-routing` | (оркестратор) |
+| экономия токенов, дорогая модель оркестратора | `orchestrator-economy` | (оркестратор) |
 | спека, изменение поведения, предложение, OpenSpec | `sdd-integrations` | analytic / architect |
 | рефакторинг, дубли, мёртвый код | {{DOMAIN_ROUTES}} | refactoring |
 | проверка, ревью, верификация | `verification-matrix` | code-reviewer |
