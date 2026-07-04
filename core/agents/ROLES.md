@@ -23,6 +23,8 @@
 | code-reviewer | high | ro | — | Ревью кода — только по явному запросу пользователя |
 | performance-optimizer | high | ro | — | Поиск узких мест, анализ производительности; правки отдаёт developer |
 
+Тела ролей — `core/agents/roles/<role>.md`; канальные представления генерирует инсталлятор (см. `core/channels/adapters.md`).
+
 ## Семантика override
 
 `override` — опциональный per-role тир поверх базового. Сейчас определён
