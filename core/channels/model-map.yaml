@@ -1,0 +1,39 @@
+# Карта tier -> модель по каналам.
+#
+# Единственное место в core, где допустимы имена конкретных моделей. Роль
+# несёт tier (см. core/agents/ROLES.md), инсталлятор резолвит модель канала
+# по tier при раскладке дистрибутива в целевой проект. Для каналов без
+# устоявшегося стандарта модели значения-плейсхолдеры {{...}} — их
+# запрашивают у пользователя на установке и подставляют вместо плейсхолдера.
+
+tiers: [high, medium, low]        # + опциональный override-тир fast (см. ROLES.md)
+
+channels:
+  claude:
+    high:   opus
+    medium: sonnet
+    low:    haiku
+    # fast не определён: роли с override=fast работают на своём базовом tier
+
+  codex:
+    high:   { model: gpt-5.5, reasoning: high }
+    medium: { model: gpt-5.4, reasoning: medium }
+    low:    { model: gpt-5.4-mini, reasoning: low }
+    fast:   { model: gpt-5.3-codex-spark, reasoning: low }
+    # максимальный reasoning-тир канала выдаётся только вручную, как эскалация
+    # по явному решению пользователя на конкретную сложную задачу, не дефолтом
+
+  cursor:
+    high:   "{{CURSOR_MODEL_HIGH}}"
+    medium: "{{CURSOR_MODEL_MEDIUM}}"
+    low:    "{{CURSOR_MODEL_LOW}}"
+
+  other:
+    high:   "{{MODEL_HIGH}}"
+    medium: "{{MODEL_MEDIUM}}"
+    low:    "{{MODEL_LOW}}"
+
+# Правило резолва: взять tier роли из core/agents/ROLES.md -> найти
+# channels.<канал>.<tier> -> получить модель. Значение-плейсхолдер {{...}}
+# означает подстановку ответа пользователя вместо него. Канал может
+# определить override-тир fast — тогда роли с override=fast получают его.
