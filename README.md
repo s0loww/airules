@@ -33,8 +33,11 @@
 ## Чистота слоёв
 
 Чистота слоёв контролируется CI: скрипт `ci/check_layers.py` ищет утечки
-кредов, машинных путей, доменных имён, стековых терминов в ядре и хардкода
-моделей. Проверка запускается автоматически из pre-commit хука
+кредов (включая эхо пароля в вывод), машинных путей (драйв-корни, UNC,
+POSIX), доменных имён, стековых терминов в ядре, хардкода моделей вне
+`model-map.yaml`/`model-profiles.md`, `xhigh`-дефолтов без маркера эскалации
+и отсутствие UTF-8 BOM в `*.ps1`. Полный перечень — `docs/LAYERS.md`.
+Проверка запускается автоматически из pre-commit хука
 (`.githooks/pre-commit`). Включить хуки после клона:
 
 ```sh
@@ -51,11 +54,14 @@ git config core.hooksPath .githooks
 ## Статус
 
 Готовые слои: роутинг ролей и моделей (`core/agents`, `core/channels`),
-контракты скриптов и COM (`core/rules/script-contract.md`,
-`overlays/1c/`), интеграция OpenSpec (`core/rules/sdd-integrations.md`,
-`project-template/openspec/`), канальные адаптеры
-(`core/channels/adapters.md`) и инсталлятор (`ONBOARD.md` +
-`core/templates/AGENTS.md`, синхронизация по манифесту — `docs/SYNC.md`).
+модельные профили поведения (`core/channels/model-profiles.md`), контракты
+скриптов и COM (`core/rules/script-contract.md`, `overlays/1c/`), интеграция
+OpenSpec (`core/rules/sdd-integrations.md`, `project-template/openspec/`),
+канальные адаптеры (`core/channels/adapters.md`) и инсталлятор (`ONBOARD.md`
++ `core/templates/AGENTS.md`, синхронизация по манифесту — `docs/SYNC.md`).
+Тела правил и ролей ядра — на английском (языковая политика —
+`docs/CONTRIBUTING.md`).
 
-Дальше: проработка агентов и скиллов. Контент overlays и проектных практик
-приходит следующими этапами, каждый — через входной фильтр (`docs/LAYERS.md`).
+Дальше: доперевод оставшихся русскоязычных файлов (см. `docs/TODO.md`) и
+контент overlays следующими этапами, каждый — через входной фильтр
+(`docs/LAYERS.md`).
