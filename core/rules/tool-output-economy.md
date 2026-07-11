@@ -49,7 +49,17 @@ instead of requesting everything at once.
   check's output as evidence (syntax check, static analysis, schema
   validation), consume the full output — or wrap with `rtk err` **only** if
   the pass/fail verdict and every error/warning line survive; when in doubt,
-  run raw.
+  run raw. Measured caveat: `rtk err` reliably keeps the verdict and stderr
+  but can drop stdout detail lines (e.g. a checker that prints violations to
+  stdout and only the summary to stderr loses the violations). Verify once
+  per checker before relying on it; already-terse checkers gain nothing —
+  run them raw.
+- For noisy project-specific tools, prefer a **project filter**
+  (`.rtk/filters.toml`, committed with the repo) over generic `rtk err`: it
+  states explicitly which lines survive. Project filters require one-time
+  user approval per machine (`rtk trust` — a safety gate against malicious
+  filters in cloned repos); the agent must not run `rtk trust` itself —
+  surfacing the need to the user is the correct move.
 - Commands whose output is machine-parsed downstream (reports consumed by
   scripts).
 

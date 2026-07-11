@@ -1,0 +1,23 @@
+# rtk project-filter recipe for the 1C overlay.
+# Copy the [filters.*] blocks you need into the target project's
+# .rtk/filters.toml (see core/rules/tool-output-economy.md). The user must
+# approve project filters once per machine: `rtk trust` (the agent must not
+# run it itself).
+#
+# Measured on role-validate.ps1: 631 -> 100 chars (-84%), WARN/ERR lines and
+# the "Result: N error(s), M warning(s)" verdict survive.
+schema_version = 1
+
+# 1C validators (overlay skill scripts): drop the OK noise, keep WARN/ERR
+# and the result line. Verdict and exit code pass through.
+[filters.onec-validate]
+description = "1C validate scripts: keep WARN/ERR and the result line"
+match_command = "(role|form|meta|cf|cfe|skd|subsystem|epf|mxl|interface)-validate\\.ps1"
+strip_ansi = true
+strip_lines_matching = ["^\\s{2}OK\\s", "^\\s*$", "^Validating:"]
+max_lines = 40
+on_empty = "validation: all OK"
+
+# Info scripts produce structured inventories the agent usually needs in
+# full — do not filter them. Mutation scripts under -Apply are never wrapped
+# (their full log is the verification artifact; see tool-output-economy).

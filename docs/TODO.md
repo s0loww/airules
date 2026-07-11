@@ -41,10 +41,13 @@ ROLES.md, agent-template.md), `core/templates/AGENTS.md`, `core/commands/*`,
 
 ## Разное
 
-- `tool-output-economy` (rtk): замерить пользу на 1С-тулчейне (вывод
-  BSL LS / vanessa / 1cv8-логи через `rtk err`/`rtk log`) и, если фильтры
-  дают выигрыш, добавить рецепт в оверлей; hook-режим (`rtk init -g`) —
-  осознанное решение пользователя, в ONBOARD не автоматизировать.
+- `tool-output-economy` (rtk): рецепт проектного фильтра для валидаторов
+  оверлея добавлен и замерен (−84% на role-validate, WARN/вердикт
+  сохраняются) — `overlays/1c/tools/rtk-filters.example.toml` (2026-07-12).
+  Осталось замерить BSL LS / vanessa / 1cv8-логи (`rtk log`/фильтры);
+  hook-режим (`rtk init -g`) — решение пользователя, в ONBOARD не
+  автоматизировать. Проектный `rtk init` в airules-раскладке запрещён
+  (конфликт с CLAUDE.md-каноном — грабля в adapters).
 - simple-версии правил (`*.simple.md` для слабых агентов) не портированы —
   решить формат (без CJK-мантр, согласовать с `subagent-pipeline.md`).
 - `subagent-pipeline`: рассмотреть вынос Handoff-формата в отдельное правило
