@@ -1,0 +1,482 @@
+﻿#requires -Version 5.1
+[CmdletBinding()]
+param(
+    [Parameter(Position = 0)]
+    [ValidateSet('bootstrap', 'doctor', 'analyze', 'deploy', 'test')]
+    [string]$Command = 'doctor',
+
+    [string]$Profile = (Join-Path (Get-Location) 'agent-1c.json'),
+    [switch]$Apply
+)
+
+$ErrorActionPreference = 'Stop'
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+$script:Steps = New-Object System.Collections.ArrayList
+$script:Warnings = New-Object System.Collections.ArrayList
+$script:Artifacts = New-Object System.Collections.ArrayList
+$script:ExitCode = 0
+$script:StartedAt = [DateTime]::UtcNow
+$script:ToolRoot = Join-Path $env:LOCALAPPDATA 'agent-1c\tools'
+$script:LockPath = Join-Path $PSScriptRoot 'toolchain.lock.json'
+
+function Add-Step {
+    param([string]$Name, [string]$Status, [string]$Message)
+    [void]$script:Steps.Add([ordered]@{ name = $Name; status = $Status; message = $Message })
+}
+
+function Resolve-ProjectPath {
+    param([string]$PathValue, [string]$ProjectRoot)
+    if ([IO.Path]::IsPathRooted($PathValue)) { return [IO.Path]::GetFullPath($PathValue) }
+    return [IO.Path]::GetFullPath((Join-Path $ProjectRoot $PathValue))
+}
+
+function Read-EnvSection {
+    param([string]$Path, [string]$Section)
+    $values = @{}
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) { return $values }
+    $currentSection = ''
+    foreach ($line in Get-Content -LiteralPath $Path -Encoding UTF8) {
+        $text = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($text) -or $text.StartsWith('#')) { continue }
+        if ($text -match '^\[(.+)\]$') { $currentSection = $Matches[1].Trim(); continue }
+        if ($currentSection -ne $Section) { continue }
+        if ($text -match '^([^=]+?)\s*=\s*(.*)$') {
+            $key = $Matches[1].Trim()
+            $value = $Matches[2].Trim().Trim('"').Trim("'")
+            $values[$key] = $value
+        }
+    }
+    return $values
+}
+
+function Resolve-TargetCredentials {
+    param($Target)
+    $result = [ordered]@{ user = $null; password = $null; path = $null }  # airules:allow creds-password (field init, not a hardcoded secret)
+    $envValues = @{}
+    if ($Target.envFile) {
+        $envPath = Resolve-ProjectPath $Target.envFile $script:ProjectRoot
+        $envValues = Read-EnvSection $envPath ([string]$Target.envSection)
+    }
+    if ($Target.userEnv) {
+        $envUser = [Environment]::GetEnvironmentVariable([string]$Target.userEnv)
+        if ($envUser) { $result.user = $envUser }
+    }
+    if (-not $result.user -and $envValues.ContainsKey('Login')) { $result.user = $envValues['Login'] }
+    if ($Target.passwordEnv) {
+        $envPassword = [Environment]::GetEnvironmentVariable([string]$Target.passwordEnv)  # airules:allow creds-password (reads env var, no literal secret)
+        if ($envPassword) { $result.password = $envPassword }  # airules:allow creds-password (assignment from env, no literal secret)
+    }
+    if (-not $result.password -and $envValues.ContainsKey('Pass')) { $result.password = $envValues['Pass'] }  # airules:allow creds-password (reads .env value, no literal secret)
+    if ($Target.path) { $result.path = Resolve-ProjectPath $Target.path $script:ProjectRoot }
+    elseif ($envValues.ContainsKey('Path')) { $result.path = $envValues['Path'] }
+    elseif ($envValues.ContainsKey('File')) { $result.path = $envValues['File'] }
+    return $result
+}
+
+function Quote-IfNeeded {
+    param([string]$Value)
+    if ($Value -match '[\s"]') { return '"' + ($Value -replace '"', '\"') + '"' }
+    return $Value
+}
+
+function Format-DeployCommandLine {
+    param([string]$Exe, $Arguments, [string]$Secret)
+    $line = (Quote-IfNeeded $Exe) + ' ' + (($Arguments | ForEach-Object { [string]$_ }) -join ' ')
+    if (-not [string]::IsNullOrEmpty($Secret)) { $line = $line.Replace($Secret, '<hidden>') }
+    return $line
+}
+
+function Get-VrunnerPath {
+    $command = Get-Command 'vrunner' -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+    $candidates = @(
+        (Join-Path $script:ToolRoot 'onescript\bin\vrunner.bat'),
+        (Join-Path $script:ToolRoot 'onescript\bin\vrunner')
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+    return $null
+}
+
+function Get-Platform {
+    param($ProfileData)
+    if ($ProfileData.platform.executable) {
+        $explicit = Resolve-ProjectPath $ProfileData.platform.executable $script:ProjectRoot
+        if (Test-Path -LiteralPath $explicit -PathType Leaf) { return Get-Item -LiteralPath $explicit }
+    }
+
+    $candidates = @()
+    foreach ($root in @('C:\Program Files\1cv8', 'C:\Program Files (x86)\1cv8')) {
+        if (Test-Path -LiteralPath $root) {
+            $candidates += Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+                Where-Object { -not $ProfileData.platform.versionPrefix -or $_.Name.StartsWith([string]$ProfileData.platform.versionPrefix) } |
+                ForEach-Object { Get-Item -LiteralPath (Join-Path $_.FullName 'bin\1cv8.exe') -ErrorAction SilentlyContinue }
+        }
+    }
+    return $candidates | Sort-Object { try { [version]$_.Directory.Parent.Name } catch { [version]'0.0' } } -Descending | Select-Object -First 1
+}
+
+function Get-BslExecutable {
+    $lock = Get-Content -LiteralPath $script:LockPath -Raw | ConvertFrom-Json
+    $base = Join-Path $script:ToolRoot ("bsl-language-server\" + $lock.bslLanguageServer.version)
+    return Join-Path $base $lock.bslLanguageServer.executable
+}
+
+function Install-BslLanguageServer {
+    $lock = Get-Content -LiteralPath $script:LockPath -Raw | ConvertFrom-Json
+    $target = Join-Path $script:ToolRoot ("bsl-language-server\" + $lock.bslLanguageServer.version)
+    $exe = Join-Path $target $lock.bslLanguageServer.executable
+    if (Test-Path -LiteralPath $exe) {
+        Add-Step 'bootstrap.bsl' 'skipped' ("Уже установлен: " + $exe)
+        return $exe
+    }
+
+    New-Item -ItemType Directory -Path $target -Force | Out-Null
+    $archive = Join-Path $env:TEMP ("bsl-language-server-" + $lock.bslLanguageServer.version + '.zip')
+    Invoke-WebRequest -Uri $lock.bslLanguageServer.url -OutFile $archive -UseBasicParsing
+    $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+    if ($actualHash -ne $lock.bslLanguageServer.sha256) {
+        throw "Контрольная сумма BSL LS не совпала. Ожидалась $($lock.bslLanguageServer.sha256), получена $actualHash"
+    }
+    Expand-Archive -LiteralPath $archive -DestinationPath $target -Force
+    if (-not (Test-Path -LiteralPath $exe)) { throw "BSL LS распакован, но executable не найден: $exe" }
+    Add-Step 'bootstrap.bsl' 'ok' ("Установлен BSL LS " + $lock.bslLanguageServer.version)
+    return $exe
+}
+
+function Get-TargetArguments {
+    param($Target, $ResolvedPath)
+    if ($Target.kind -eq 'file') {
+        if ([string]::IsNullOrWhiteSpace($ResolvedPath)) { throw 'Путь файловой ИБ не определён (testTarget.path пуст и не найден Path в envFile).' }
+        return @('/F', ('"' + $ResolvedPath + '"'))
+    }
+    if ($Target.kind -eq 'server') { return @('/S', ('"' + $Target.server + '/' + $Target.ref + '"')) }
+    throw 'Тестовая цель не настроена.'
+}
+
+function Add-Credentials {
+    param([System.Collections.ArrayList]$Arguments, $Credentials)
+    if ($Credentials.user) { [void]$Arguments.Add('/N'); [void]$Arguments.Add((Quote-IfNeeded $Credentials.user)) }
+    if ($Credentials.password) { [void]$Arguments.Add('/P'); [void]$Arguments.Add((Quote-IfNeeded $Credentials.password)) }
+}
+
+function Invoke-Doctor {
+    $platform = Get-Platform $script:ProfileData
+    if ($platform) { Add-Step 'doctor.platform' 'ok' $platform.FullName } else { Add-Step 'doctor.platform' 'error' '1cv8.exe не найден'; $script:ExitCode = 2 }
+
+    $bsl = Get-BslExecutable
+    if (Test-Path -LiteralPath $bsl) {
+        $lock = Get-Content -LiteralPath $script:LockPath -Raw | ConvertFrom-Json
+        Add-Step 'doctor.bsl' 'ok' ("$bsl (закреплена версия $($lock.bslLanguageServer.version))")
+    } else {
+        Add-Step 'doctor.bsl' 'warning' 'BSL LS не установлен; выполните bootstrap'
+        [void]$script:Warnings.Add('BSL LS недоступен')
+    }
+
+    $vrunner = Get-VrunnerPath
+    if ($vrunner) { Add-Step 'doctor.vanessa-runner' 'ok' $vrunner } else { Add-Step 'doctor.vanessa-runner' 'optional' 'Не установлен' }
+}
+
+function Invoke-Analyze {
+    $bsl = Get-BslExecutable
+    if (-not (Test-Path -LiteralPath $bsl)) { throw 'BSL LS не установлен. Сначала выполните bootstrap.' }
+    $source = Resolve-ProjectPath $script:ProfileData.sourceDir $script:ProjectRoot
+    if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw "Каталог исходников не найден: $source" }
+    $out = Join-Path $script:RunDir 'bsl'
+    New-Item -ItemType Directory -Path $out -Force | Out-Null
+    $stdout = Join-Path $out 'stdout.log'
+    $stderr = Join-Path $out 'stderr.log'
+    $arguments = @('analyze', '--srcDir', ('"' + $source + '"'), '--workspaceDir', ('"' + $script:ProjectRoot + '"'), '--outputDir', ('"' + $out + '"'), '--reporter', 'json', '--reporter', 'junit', '--reporter', 'sarif', '--silent')
+    $process = Start-Process -FilePath $bsl -ArgumentList $arguments -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    $code = $process.ExitCode
+    [void]$script:Artifacts.Add($out)
+    if ($code -ne 0) { Add-Step 'analyze.bsl' 'error' "BSL LS завершился с кодом $code"; $script:ExitCode = $code }
+    else {
+        $jsonReport = Join-Path $out 'bsl-json.json'
+        $severityCounts = @{}
+        if (Test-Path -LiteralPath $jsonReport) {
+            $analysis = Get-Content -LiteralPath $jsonReport -Raw | ConvertFrom-Json
+            foreach ($diagnostic in ($analysis.fileinfos | ForEach-Object { @($_.diagnostics) })) {
+                if ($diagnostic.severity) {
+                    if (-not $severityCounts.ContainsKey($diagnostic.severity)) { $severityCounts[$diagnostic.severity] = 0 }
+                    $severityCounts[$diagnostic.severity]++
+                }
+            }
+        }
+        $summary = ($severityCounts.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ', '
+        if ($severityCounts.ContainsKey('Error') -and $severityCounts['Error'] -gt 0) {
+            Add-Step 'analyze.bsl' 'error' "Найдены ошибки: $summary. Отчёты: $out"
+            $script:ExitCode = 4
+        } else {
+            Add-Step 'analyze.bsl' 'ok' "Результат: $summary. Отчёты: $out"
+        }
+    }
+}
+
+function Invoke-Deploy {
+    $target = $script:ProfileData.testTarget
+    if (-not $target -or $target.kind -eq 'none') { Add-Step 'deploy' 'planned' 'Тестовая ИБ не настроена; мутации отсутствуют'; return }
+    if ($target.environment -eq 'production') { throw 'Deploy в production запрещён политикой agent-1c.' }
+    $platform = Get-Platform $script:ProfileData
+    if (-not $platform) { throw '1cv8.exe не найден.' }
+    $source = Resolve-ProjectPath $script:ProfileData.sourceDir $script:ProjectRoot
+
+    $extensionName = $null
+    if ($script:ProfileData.extension -and $script:ProfileData.extension.name) { $extensionName = [string]$script:ProfileData.extension.name }
+
+    $credentials = Resolve-TargetCredentials $target
+    $planMessage = "Загрузить XML из $source и обновить тестовую ИБ ($($target.kind))"
+    if ($extensionName) { $planMessage += "; расширение $extensionName (-Extension)" }
+    Add-Step 'deploy.plan' 'ok' $planMessage
+
+    $log = Join-Path $script:RunDir 'deploy.log'
+    $args = New-Object System.Collections.ArrayList
+    [void]$args.Add('DESIGNER')
+    foreach ($arg in (Get-TargetArguments $target $credentials.path)) { [void]$args.Add($arg) }
+    Add-Credentials $args $credentials
+    [void]$args.Add('/DisableStartupDialogs')
+    [void]$args.Add('/LoadConfigFromFiles'); [void]$args.Add(('"' + $source + '"'))
+    if ($extensionName) {
+        [void]$args.Add('-Extension'); [void]$args.Add((Quote-IfNeeded $extensionName))
+        [void]$args.Add('-Format'); [void]$args.Add('Hierarchical')
+    }
+    [void]$args.Add('/UpdateDBCfg')
+    if ($extensionName) { [void]$args.Add('-Extension'); [void]$args.Add((Quote-IfNeeded $extensionName)) }
+    [void]$args.Add('/Out'); [void]$args.Add(('"' + $log + '"'))
+
+    $redactedCommand = Format-DeployCommandLine $platform.FullName $args $credentials.password
+    Add-Step 'deploy.command' 'planned' $redactedCommand
+
+    if (-not $Apply) { Add-Step 'deploy.apply' 'dry-run' 'Для применения требуется -Apply'; return }
+
+    $process = Start-Process -FilePath $platform.FullName -ArgumentList $args -Wait -PassThru -NoNewWindow
+    [void]$script:Artifacts.Add($log)
+    if ($process.ExitCode -ne 0) { throw "Deploy завершился с кодом $($process.ExitCode). См. $log" }
+    Add-Step 'deploy.apply' 'ok' "Тестовая ИБ обновлена; лог: $log"
+}
+
+function Get-OneScriptBin {
+    return Join-Path $script:ToolRoot 'onescript\bin'
+}
+
+function Get-VanessaEpfPath {
+    # Приоритет: свежий vanessa-automation (GitHub-релиз). bddRunner из opm-пакета add (6.8.0, 2021)
+    # несовместим с платформой 8.3.27 — падает на разборе версии режима совместимости при загрузке плагинов.
+    $vanessaRoot = Join-Path $script:ToolRoot 'vanessa'
+    if (Test-Path -LiteralPath $vanessaRoot -PathType Container) {
+        $found = Get-ChildItem -LiteralPath $vanessaRoot -Directory |
+            Sort-Object Name -Descending |
+            ForEach-Object { Get-Item -LiteralPath (Join-Path $_.FullName 'vanessa-automation-single.epf') -ErrorAction SilentlyContinue } |
+            Select-Object -First 1
+        if ($found) { return $found.FullName }
+    }
+    $fallback = Join-Path $script:ToolRoot 'onescript\lib\add\bddRunner.epf'
+    if (Test-Path -LiteralPath $fallback -PathType Leaf) { return $fallback }
+    return $null
+}
+
+function ConvertTo-JsonScalar {
+    param($Value)
+    $json = ConvertTo-Json -InputObject ([string]$Value) -Compress
+    return $json.Substring(1, $json.Length - 2)
+}
+
+function Expand-TemplateToFile {
+    param([string]$TemplatePath, [hashtable]$Replacements, [string]$OutputPath)
+    $text = Get-Content -LiteralPath $TemplatePath -Raw -Encoding UTF8
+    foreach ($key in $Replacements.Keys) {
+        $text = $text.Replace('{{' + $key + '}}', (ConvertTo-JsonScalar $Replacements[$key]))
+    }
+    # UTF-8 строго С BOM: VAParams читает 1С — ЧтениеТекста определяет кодировку по BOM,
+    # без BOM на ru-Windows файл читается как windows-1251 и JSON с кириллическими ключами не парсится
+    # (симптом: модалка «Не удалось прочитать файл настроек JSON»).
+    $encoding = New-Object System.Text.UTF8Encoding($true)
+    [System.IO.File]::WriteAllText($OutputPath, $text, $encoding)
+}
+
+function Remove-SecretFromFiles {
+    param([string[]]$Files, [string]$Secret)
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    foreach ($file in $Files) {
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { continue }
+        $content = Get-Content -LiteralPath $file -Raw -ErrorAction SilentlyContinue
+        if (-not $content) { continue }
+        $masked = $content
+        if (-not [string]::IsNullOrEmpty($Secret)) { $masked = $masked.Replace($Secret, '<hidden>') }
+        # Пароль тест-клиента передаётся аргументом /P с кавычками (ДопПараметры VAParams) — маскируем и его след  # airules:allow creds-p-flag (masking pattern, not a secret)
+        $masked = [regex]::Replace($masked, '/P"[^"]*"', '/P"<hidden>"')  # airules:allow creds-p-flag (masking pattern, not a secret)
+        if ($masked -ne $content) {
+            [System.IO.File]::WriteAllText($file, $masked, $encoding)
+        }
+    }
+}
+
+function Invoke-Test {
+    $vrunner = Get-VrunnerPath
+    if (-not $vrunner) { Add-Step 'test.vanessa' 'unavailable' 'Vanessa Runner не установлен или не добавлен в PATH'; $script:ExitCode = 3; return }
+    $vanessaEpf = Get-VanessaEpfPath
+    if (-not $vanessaEpf) { Add-Step 'test.vanessa' 'unavailable' 'Vanessa-Automation не установлена: положите vanessa-automation-single.epf в %LOCALAPPDATA%\agent-1c\tools\vanessa\<версия>\'; $script:ExitCode = 3; return }
+
+    $target = $script:ProfileData.testTarget
+    if (-not $target -or $target.kind -eq 'none') { Add-Step 'test.vanessa' 'planned' 'Тестовая ИБ не настроена; смоук пропущен'; return }
+    if ($target.environment -eq 'production') { throw 'Тестирование в production запрещено политикой agent-1c.' }
+    if ($target.kind -ne 'file') { throw 'Vanessa-смоук настроен только для файловой ИБ (testTarget.kind = file).' }
+
+    $platform = Get-Platform $script:ProfileData
+    if (-not $platform) { throw '1cv8.exe не найден.' }
+    $v8version = $platform.Directory.Parent.Name
+
+    $credentials = Resolve-TargetCredentials $target
+    if ([string]::IsNullOrWhiteSpace($credentials.path)) { throw 'Путь файловой ИБ не определён (testTarget.path пуст и не найден Path в envFile).' }
+
+    $featuresRel = 'tools/agent-1c/vanessa-suite/features'
+    $settingsTemplateRel = 'tools/agent-1c/vanessa-suite/vanessa-settings.template.json'
+    $addTemplateRel = 'tools/agent-1c/vanessa-suite/vanessa-add-params.template.json'
+    $testClientTimeout = 300
+    $ordinaryApp = 0
+    if ($script:ProfileData.vanessa) {
+        $vanessaCfg = $script:ProfileData.vanessa
+        if ($vanessaCfg.featuresDir) { $featuresRel = [string]$vanessaCfg.featuresDir }
+        if ($vanessaCfg.settingsTemplate) { $settingsTemplateRel = [string]$vanessaCfg.settingsTemplate }
+        if ($vanessaCfg.addParamsTemplate) { $addTemplateRel = [string]$vanessaCfg.addParamsTemplate }
+        if ($vanessaCfg.testClientTimeoutSeconds) { $testClientTimeout = [int]$vanessaCfg.testClientTimeoutSeconds }
+        if ($null -ne $vanessaCfg.ordinaryApp) { $ordinaryApp = [int]$vanessaCfg.ordinaryApp }
+    }
+
+    $featuresDir = Resolve-ProjectPath $featuresRel $script:ProjectRoot
+    $settingsTemplate = Resolve-ProjectPath $settingsTemplateRel $script:ProjectRoot
+    $addTemplate = Resolve-ProjectPath $addTemplateRel $script:ProjectRoot
+    if (-not (Test-Path -LiteralPath $featuresDir -PathType Container)) { throw "Каталог фич не найден: $featuresDir" }
+    if (-not (Test-Path -LiteralPath $settingsTemplate -PathType Leaf)) { throw "Шаблон настроек не найден: $settingsTemplate" }
+    if (-not (Test-Path -LiteralPath $addTemplate -PathType Leaf)) { throw "Шаблон Vanessa-ADD не найден: $addTemplate" }
+
+    $outputDir = Join-Path $script:RunDir 'reports'
+    New-Item -ItemType Directory -Path (Join-Path $outputDir 'junit') -Force | Out-Null
+
+    # Имена БЕЗ ведущей точки: VA не читает settings-файл с именем, начинающимся с точки
+    # (симптом: модалка «Не удалось прочитать файл настроек JSON»).
+    $settingsTmp = Join-Path $script:RunDir 'vrunner-settings.tmp.json'
+    $addTmp = Join-Path $script:RunDir 'vanessa-add-params.tmp.json'
+    $stdout = Join-Path $script:RunDir 'vanessa-stdout.log'
+    $stderr = Join-Path $script:RunDir 'vanessa-stderr.log'
+
+    $ibConnection = '/F' + ($credentials.path -replace '\\', '/')
+    $ibFileConnection = 'File="' + $credentials.path + '";'
+
+    Add-Step 'test.plan' 'ok' "Смоук Vanessa-Automation против $($ibConnection) под '$($credentials.user)'; epf: $vanessaEpf; фичи: $featuresDir; тонкий клиент: $([bool]($ordinaryApp -eq 0))"
+
+    $previousPath = $env:PATH
+    $hadPwdVar = Test-Path Env:\RUNNER_DBPWD
+    $previousPwd = if ($hadPwdVar) { $env:RUNNER_DBPWD } else { $null }
+    try {
+        Expand-TemplateToFile $settingsTemplate ([ordered]@{
+            IB_CONNECTION = $ibConnection
+            LOGIN         = $credentials.user
+            V8VERSION     = $v8version
+        }) $settingsTmp
+
+        # ДанныеКлиентовТестирования: vrunner передаёт /P только тест-МЕНЕДЖЕРУ; профиль
+        # «Этот клиент» VA собирает без пароля → интерактивное окно логина → таймаут.
+        # Поэтому логин/пароль тест-клиента уходят в ДопПараметры временного VAParams
+        # (файл живёт до выхода vrunner, затирается и удаляется в finally).
+        Expand-TemplateToFile $addTemplate ([ordered]@{
+            V8VERSION          = $v8version
+            OUTPUT_DIR         = ($outputDir -replace '\\', '/')
+            FEATURES_DIR       = ($featuresDir -replace '\\', '/')
+            TESTCLIENT_TIMEOUT = [string]$testClientTimeout
+            IB_FILE_CONNECTION = $ibFileConnection
+            LOGIN              = [string]$credentials.user
+            PASSWORD           = [string]$credentials.password  # airules:allow creds-password (template value from resolved credentials, no literal secret)
+        }) $addTmp
+
+        $env:PATH = (Get-OneScriptBin) + ';' + $env:PATH
+        if ($credentials.password) { $env:RUNNER_DBPWD = $credentials.password } else { $env:RUNNER_DBPWD = '' }
+
+        $arguments = New-Object System.Collections.ArrayList
+        [void]$arguments.Add('vanessa')
+        [void]$arguments.Add('--settings');        [void]$arguments.Add($settingsTmp)
+        [void]$arguments.Add('--vanessasettings');  [void]$arguments.Add($addTmp)
+        [void]$arguments.Add('--pathvanessa');      [void]$arguments.Add($vanessaEpf)
+        [void]$arguments.Add('--path');             [void]$arguments.Add($featuresDir)
+        [void]$arguments.Add('--ordinaryapp');      [void]$arguments.Add([string]$ordinaryApp)
+        [void]$arguments.Add('--v8version');        [void]$arguments.Add($v8version)
+        [void]$arguments.Add('--workspace');        [void]$arguments.Add($script:RunDir)
+        [void]$arguments.Add('--additional-keys');  [void]$arguments.Add('DisableFirstRunHelper')
+
+        $displayCommand = (Quote-IfNeeded $vrunner) + ' ' + (($arguments | ForEach-Object { Quote-IfNeeded ([string]$_) }) -join ' ')
+        Add-Step 'test.command' 'planned' ($displayCommand + '  [секрет: RUNNER_DBPWD=<hidden> в окружении + /P с кавычками во временном VAParams (затирается в finally)]')
+
+        $process = Start-Process -FilePath $vrunner -ArgumentList $arguments -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $code = $process.ExitCode
+
+        Remove-SecretFromFiles @($stdout, $stderr, (Join-Path $outputDir 'vanessaonline.txt'), (Join-Path $outputDir 'message.txt')) $credentials.password
+        [void]$script:Artifacts.Add($outputDir)
+        [void]$script:Artifacts.Add($stdout)
+
+        $statusPath = Join-Path $outputDir 'buildstatus.log'
+        $statusText = ''
+        if (Test-Path -LiteralPath $statusPath -PathType Leaf) { $statusText = (Get-Content -LiteralPath $statusPath -Raw -ErrorAction SilentlyContinue) }
+        if ($statusText) { $statusText = $statusText.Trim() }
+
+        if ($code -eq 0) {
+            Add-Step 'test.vanessa' 'ok' "Смоук пройден (exit 0). buildstatus: '$statusText'. Отчёты: $outputDir"
+        } else {
+            Add-Step 'test.vanessa' 'error' "Смоук завершился с кодом $code. buildstatus: '$statusText'. Логи: $stdout / $stderr; отчёты: $outputDir"
+            $script:ExitCode = $code
+        }
+    } finally {
+        if (Test-Path -LiteralPath $settingsTmp -PathType Leaf) { Remove-Item -LiteralPath $settingsTmp -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $addTmp -PathType Leaf) {
+            # VAParams содержит пароль тест-клиента — затираем содержимое перед удалением
+            try { [System.IO.File]::WriteAllText($addTmp, '{}') } catch {}
+            Remove-Item -LiteralPath $addTmp -Force -ErrorAction SilentlyContinue
+        }
+        $env:PATH = $previousPath
+        if ($hadPwdVar) { $env:RUNNER_DBPWD = $previousPwd } else { Remove-Item Env:\RUNNER_DBPWD -ErrorAction SilentlyContinue }
+    }
+}
+
+try {
+    $profilePath = [IO.Path]::GetFullPath($Profile)
+    if (-not (Test-Path -LiteralPath $profilePath)) { throw "Профиль не найден: $profilePath" }
+    $script:ProjectRoot = Split-Path -Parent $profilePath
+    $script:ProfileData = Get-Content -LiteralPath $profilePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($script:ProfileData.schemaVersion -ne 1) { throw 'Неподдерживаемая версия профиля.' }
+    $resultRoot = Resolve-ProjectPath $script:ProfileData.resultDir $script:ProjectRoot
+    $script:RunDir = Join-Path $resultRoot ((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '-' + $Command)
+    New-Item -ItemType Directory -Path $script:RunDir -Force | Out-Null
+
+    switch ($Command) {
+        'bootstrap' { [void](Install-BslLanguageServer); Invoke-Doctor }
+        'doctor' { Invoke-Doctor }
+        'analyze' { Invoke-Analyze }
+        'deploy' { Invoke-Deploy }
+        'test' { Invoke-Test }
+    }
+} catch {
+    $script:ExitCode = 1
+    Add-Step $Command 'error' $_.Exception.Message
+} finally {
+    if ($script:RunDir) {
+        $report = [ordered]@{
+            schemaVersion = 1
+            projectId = if ($script:ProfileData) { $script:ProfileData.projectId } else { $null }
+            command = $Command
+            apply = [bool]$Apply
+            startedAtUtc = $script:StartedAt.ToString('o')
+            finishedAtUtc = [DateTime]::UtcNow.ToString('o')
+            exitCode = $script:ExitCode
+            steps = @($script:Steps)
+            warnings = @($script:Warnings)
+            artifacts = @($script:Artifacts)
+        }
+        $reportPath = Join-Path $script:RunDir 'result.json'
+        $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding UTF8
+        Write-Host "Отчёт: $reportPath"
+    }
+}
+
+exit $script:ExitCode

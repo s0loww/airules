@@ -17,3 +17,8 @@
   `img-grid-analysis` (сетка пропорций для макетов).
 - `tools/com-tools/` — библиотека COM-автоматизации (8 модулей `OneC-*`);
   при установке копируется в целевой проект, см. `ONBOARD.md` §5.
+- `tools/agent-1c/` — профиле-ориентированный контур bootstrap / doctor / analyze
+  (BSL LS) / deploy (DryRun + `-Extension` для расширений) / test
+  (Vanessa-Automation), со скелетом смоук-набора `vanessa-suite/`. Проектные факты
+  (пути, базы, креды, имя расширения) — в профиле `agent-1c.json` целевого проекта,
+  не в контуре. Установка и «до боевого состояния» — `tools/agent-1c/DEPLOYMENT.md`.

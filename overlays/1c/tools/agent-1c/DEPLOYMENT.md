@@ -1,0 +1,420 @@
+# Развёртывание agent-1c — до боевого состояния
+
+Полный рецепт подключения контура agent-1c к 1С-проекту и доведения его до
+состояния, когда `agent-1c.ps1 test` зелёный на живой тестовой ИБ. Контур
+покрывает четыре стадии: обнаружение платформы → статический анализ (BSL LS) →
+безопасный деплой тестовой ИБ → смоук Vanessa-Automation.
+
+Среда: Windows PowerShell 5.1+ и установленная платформа 1С:Предприятие. Платформа
+и лицензии автоматически не ставятся. Все версии инструментов закреплены в
+`toolchain.lock.json` (reference-снимок; на момент написания — BSL LS 1.0.3,
+OneScript 1.9.4, opm 1.6.5, vanessa-runner 2.6.1, Vanessa-Automation single
+1.2.043.28). Версия платформы в примерах ниже (`8.3.27`) — иллюстрация: подставьте
+свою.
+
+---
+
+## 0. Раскладка в целевом проекте
+
+Скопируйте каталог `tools/agent-1c/` (со скелетом `vanessa-suite/`) из оверлея
+`overlays/1c/tools/agent-1c/` в целевой проект — рекомендуемое место
+`tools/agent-1c/` (см. `ONBOARD.md` §5). Профиль проекта `agent-1c.json` **не
+копируется из оверлея** — он создаётся под конкретный проект (шаг 2) и содержит
+все локальные факты (пути, имена баз, секции `.env`, имя расширения).
+
+```text
+<целевой-проект>/
+├── src/                              # исходники (конфигурация или расширение)
+├── tools/
+│   └── agent-1c/
+│       ├── agent-1c.ps1
+│       ├── toolchain.lock.json
+│       ├── profile.schema.json
+│       ├── agent-1c.example.json
+│       ├── README.md
+│       ├── DEPLOYMENT.md
+│       └── vanessa-suite/            # скелет смоук-набора
+│           ├── vanessa-settings.template.json
+│           ├── vanessa-add-params.template.json
+│           └── features/
+│               └── smoke.feature
+├── agent-1c.json                     # профиль ПРОЕКТА (не в оверлее)
+└── var/                              # локальные отчёты, в .gitignore
+```
+
+Контур не меняет глобальный PATH и не регистрирует служб. Всё скачиваемое живёт
+под `%LOCALAPPDATA%\agent-1c\tools`.
+
+---
+
+## 1. bootstrap → doctor → analyze (baseline-политика)
+
+### 1.1 Создайте профиль проекта
+
+```powershell
+Copy-Item "tools\agent-1c\agent-1c.example.json" "agent-1c.json"
+```
+
+Минимальный профиль (`sourceDir`/`resultDir` считаются относительно каталога
+профиля; для конкретной платформы задайте абсолютный `platform.executable`, иначе
+выбирается новейшая версия с `platform.versionPrefix`):
+
+```json
+{
+  "schemaVersion": 1,
+  "projectId": "my-1c-project",
+  "sourceDir": "src",
+  "resultDir": "var/agent-1c",
+  "platform": { "executable": null, "versionPrefix": "8.3.27" },
+  "testTarget": {
+    "kind": "none",
+    "environment": "test",
+    "userEnv": "MY_PROJECT_1C_USER",
+    "passwordEnv": "MY_PROJECT_1C_PASSWORD"
+  }
+}
+```
+
+Добавьте в `.gitignore` целевого проекта:
+
+```gitignore
+var/
+.env
+```
+
+Не записывайте в профиль логины, секреты, строки подключения и пути к боевым базам.
+
+### 1.2 Установите закреплённые инструменты и проверьте окружение
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" bootstrap -Profile "agent-1c.json"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" doctor    -Profile "agent-1c.json"
+```
+
+`bootstrap` ставит BSL Language Server в `%LOCALAPPDATA%\agent-1c\tools` и сверяет
+архив по SHA-256 из `toolchain.lock.json`. `doctor` c кодом `0` = обязательный
+preflight пройден; отсутствие vanessa-runner показывается как недоступная
+опциональная возможность.
+
+### 1.3 Статический анализ и baseline
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" analyze -Profile "agent-1c.json"
+```
+
+Результаты — в `var/agent-1c/<timestamp>-analyze/bsl/`: `bsl-json.json` (полный
+JSON), `bsl-junit.xml` (CI), `bsl-ls.sarif` (code scanning), `stdout.log` /
+`stderr.log`, унифицированный `result.json`. Если BSL LS нашёл диагностики уровня
+`Error`, команда возвращает код `4`, даже если сам анализатор завершился успешно.
+
+**Baseline-политика для зрелого проекта.** На большой существующей конфигурации
+код `4` в первый прогон — норма: там уже есть исторические диагностики. Не
+превращайте `4` в безусловный успех и не «чините всё сразу». Зафиксируйте базовый
+счётчик Error-диагностик как baseline (сохраните `bsl-json.json` первого прогона),
+а в CI-гейт заводите **только НОВЫЕ** диагностики относительно baseline — то есть
+изменение, добавляющее ошибки, должно падать, а исторический долг — оставаться
+отдельной задачей. Чистый (`0`) проект гейтит по абсолютному нулю.
+
+---
+
+## 2. deploy: сначала план, потом применение
+
+DryRun не меняет ИБ и всегда безопасен:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" deploy -Profile "agent-1c.json"
+```
+
+Проверьте `result.json` (шаги `deploy.plan` / `deploy.command`). Только после этого
+применяйте:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" deploy -Profile "agent-1c.json" -Apply
+```
+
+- `environment: production` **блокируется профилем** до запуска платформы — боевую
+  базу в профиль не заводить.
+- `kind: none` = тестовая ИБ ещё не настроена, мутаций нет.
+- Перед первым `-Apply` сделайте резервную копию тестовой ИБ и убедитесь, что
+  `sourceDir` в формате выгрузки конфигуратора.
+
+### 2.1 Если исходники — это РАСШИРЕНИЕ (обязательно к прочтению)
+
+Если `sourceDir` содержит **расширение** (в `Configuration.xml` → `Properties/Name`
+стоит имя расширения, а не основной конфигурации), голая команда
+`/LoadConfigFromFiles` + `/UpdateDBCfg` **перезапишет основную конфигурацию базы**.
+Это разрушительно. Задайте в профиле блок `extension`:
+
+```json
+"extension": { "name": "{{ИмяРасширения}}" }
+```
+
+Тогда `deploy` обязательно подставляет:
+
+- к `/LoadConfigFromFiles` — `-Extension {{ИмяРасширения}} -Format Hierarchical`;
+- к `/UpdateDBCfg` — `-Extension {{ИмяРасширения}}`.
+
+Проверьте в DryRun строку `deploy.command`, что `-Extension` присутствует у **обеих**
+операций, прежде чем запускать `-Apply`. Без блока `extension` контур работает с
+основной конфигурацией — для проекта-расширения это недопустимо.
+
+### 2.2 Настройка тестовой ИБ
+
+Только отдельная тестовая или локальная development-база. Секреты — в окружении
+процесса, не в профиле и не в командной строке.
+
+Файловая ИБ:
+
+```json
+"testTarget": {
+  "kind": "file",
+  "environment": "test",
+  "path": "var/test-ib",
+  "userEnv": "MY_PROJECT_1C_USER",
+  "passwordEnv": "MY_PROJECT_1C_PASSWORD"
+}
+```
+
+Серверная ИБ (`deploy` поддерживает; смоук Vanessa настроен только для файловой):
+
+```json
+"testTarget": {
+  "kind": "server",
+  "environment": "test",
+  "server": "test-1c-server",
+  "ref": "MyProject_AgentTest",
+  "userEnv": "MY_PROJECT_1C_USER",
+  "passwordEnv": "MY_PROJECT_1C_PASSWORD"
+}
+```
+
+Путь/логин/пароль можно вынести в INI-файл окружения (поля `envFile` / `envSection`,
+ключи `Path` / `Login` / `Pass`) — тогда `envFile` только читается, а не коммитится.
+Секреты в переменных окружения:
+
+```powershell
+$env:MY_PROJECT_1C_USER = "AgentTestUser"
+$env:MY_PROJECT_1C_PASSWORD = Read-Host "Пароль 1С"   # airules:allow creds-password (интерактивный ввод, литерала секрета нет)
+```
+
+Приоритет: переменные окружения (`userEnv`/`passwordEnv`) → значения из `.env`.
+Для CI используйте секретохранилище системы сборки; параметром командной строки
+секрет не передавайте.
+
+---
+
+## 3. Портативная установка тест-стека (без глобального PATH)
+
+Всё под `%LOCALAPPDATA%\agent-1c\tools`, глобальное окружение не трогается.
+
+1. **BSL LS** — уже поставлен `bootstrap` (§1.2).
+2. **OneScript + opm** — установите OneScript в portable-каталог
+   `%LOCALAPPDATA%\agent-1c\tools\onescript` (в комплекте идёт `opm`). Добавьте
+   каталог `...\onescript\bin` в PATH **текущего процесса** (там же `oscript.exe`):
+
+   ```powershell
+   $env:PATH = "$env:LOCALAPPDATA\agent-1c\tools\onescript\bin;$env:PATH"
+   ```
+
+3. **vanessa-runner** — через `opm` в тот же каталог; исполняемый файл появится как
+   `%LOCALAPPDATA%\agent-1c\tools\onescript\bin\vrunner.bat`:
+
+   ```powershell
+   opm install vanessa-runner
+   ```
+
+4. **Vanessa-Automation** — **ТОЛЬКО свежий VA-single релиз с GitHub**
+   (Pr-Mex/vanessa-automation). Скачайте zip нужной версии, распакуйте
+   `vanessa-automation-single.epf` в
+   `%LOCALAPPDATA%\agent-1c\tools\vanessa\<версия>\`. `test` сам выберет самый
+   новый каталог `vanessa\<версия>\`.
+
+   > ⚠ **Не используйте opm-пакет `add`.** Он ставит `bddRunner.epf` 6.8.0 (2021)
+   > как зависимость vrunner, и этот плагин **несовместим с платформами 8.3.27+**:
+   > падает «Преобразование значения к типу Число» при разборе режима совместимости.
+   > `test` предпочитает свежий `vanessa-automation-single.epf` и откатывается на
+   > bddRunner, только если каталога `tools\vanessa` нет — то есть без установленного
+   > VA-single смоук будет нерабочим.
+
+Проверьте стек: `doctor` покажет найденный `vrunner`; `test` при отсутствии
+VA-single честно вернёт код `3` с подсказкой, куда положить `.epf`.
+
+---
+
+## 4. Смоук-набор Vanessa (suite)
+
+Скелет — в `tools/agent-1c/vanessa-suite/`: каталог фич + два шаблона.
+
+- `features/smoke.feature` — минимальный стабильный сценарий: тонкий тест-клиент
+  подключается к тестовой ИБ, окна закрываются, **данные не меняются**. Добавляйте
+  свои `.feature` в этот каталог (или укажите другой через `vanessa.featuresDir`).
+- `vanessa-settings.template.json` — шаблон `vanessa-runner` (`--settings`, формат
+  `env.json`): `{{IB_CONNECTION}}` / `{{LOGIN}}` / `{{V8VERSION}}`. Пароля не содержит.
+- `vanessa-add-params.template.json` — шаблон VAParams (`--vanessasettings`): тонкий
+  клиент, `ДанныеКлиентовТестирования`, таймауты, jUnit, автозакрытие. Пароль —
+  только плейсхолдером `{{PASSWORD}}`.
+
+Запуск:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" test -Profile "agent-1c.json"
+```
+
+Что делает `test`:
+
+1. читает `testTarget` (путь ИБ, логин, пароль) и необязательный блок `vanessa`
+   профиля (каталог фич, шаблоны, таймаут, тип клиента);
+2. рендерит оба шаблона во **временные** файлы прогона
+   `resultDir/<timestamp>-test/` (UTF-8 **с BOM**, имена **без ведущей точки**);
+   VAParams живёт до выхода `vrunner`, в `finally` затирается (`{}`) и удаляется;
+3. добавляет `...\onescript\bin` в PATH процесса и запускает `vrunner vanessa`
+   (`--settings` / `--vanessasettings` / `--pathvanessa <VA-single.epf>` / `--path`
+   <фичи> / `--ordinaryapp 0` / `--v8version` / `--workspace` / `--additional-keys
+   DisableFirstRunHelper`);
+4. санирует логи, добавляет отчёты в артефакты, код возврата = код `vrunner`.
+
+**Пароль в репозитории не хранится никогда** — он берётся из окружения/`.env` в
+момент прогона и рендерится только во временный VAParams, который удаляется.
+
+Отчёты — в `resultDir/<timestamp>-test/`: `reports/junit/` (jUnit XML),
+`reports/buildstatus.log`, `reports/vanessaonline.txt`, `vanessa-stdout.log` /
+`vanessa-stderr.log`, `result.json`.
+
+---
+
+## 5. Грабли VA + vrunner (проверены живыми прогонами)
+
+а) **«Не удалось прочитать файл настроек JSON»** / «Ошибка при построении дерева из
+   файла …» — модалка VA возникает от нестандартных ключей `$schema` / `_comment`
+   в **VAParams** и/или от имени settings-файла **с ведущей точкой**. Поэтому
+   VAParams — без комментариев-ключей, а временные файлы прогона — без ведущей
+   точки. Кодировка обязательно **UTF-8 с BOM**: без BOM на ru-Windows 1С читает
+   файл как windows-1251 и кириллические ключи ломаются.
+
+б) **«Не получилось подключить TestClient. Прерывание по таймауту.»** — `vrunner`
+   передаёт `/P` только тест-**менеджеру**; профиль «Этот клиент» VA собирает БЕЗ
+   пароля → интерактивное окно логина → таймаут. Лечение — блок
+   `ДанныеКлиентовТестирования` во временном VAParams, где логин/пароль тест-клиента
+   уходят в `ДопПараметры`:
+
+   ```json
+   "ДанныеКлиентовТестирования": [{"Имя":"Этот клиент","Синоним":"Этот клиент","ТипКлиента":"Тонкий","ПутьКИнфобазе":"File=\"{{IB_PATH}}\";","ДопПараметры":"/N\"{{LOGIN}}\" /P\"{{PASSWORD}}\"","ИмяКомпьютера":"localhost"}]
+   ```
+
+   Поле порта **не задавать**: имя `ПортЗапуска` VA не признаёт («Параметр
+   портзапуска не загружен»), дефолтный порт 48000 рабочий.
+
+в) **Таймаут запуска.** Дефолтный `ТаймаутЗапуска1С=25` не переживает первый старт
+   тяжёлой конфигурации → ставьте `300`; `КоличествоСекундПоискаОкна=120`. В профиле
+   это `vanessa.testClientTimeoutSeconds` (по умолчанию 300).
+
+г) **Обязательные ключи статуса.** Без `ВыгружатьСтатусВыполненияСценариевВФайл`,
+   `ПутьКФайлуДляВыгрузкиСтатусаВыполненияСценариев` и
+   `ИмяФайлаЛогВыполненияСценариев` `vrunner` падает «Не найден файл статуса».
+   Все три уже есть в шаблоне VAParams.
+
+д) **Гигиена секретов.** Тест-менеджеру пароль передаётся переменной окружения
+   `RUNNER_DBPWD` (vrunner маппит в `--db-pwd`), в командной строке и `result.json`
+   его нет. Временный VAParams затирается и удаляется в `finally`. Логи санируются:
+   точное значение секрета + паттерн `/P"***"` → `<hidden>`. Файлы `.ps1` и
+   `.feature` храните в **UTF-8 с BOM** (PS 5.1 иначе портит кириллицу).
+
+---
+
+## 6. Критерий боевого состояния
+
+Контур доведён «до боевого состояния», когда команда
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" test -Profile "agent-1c.json"
+```
+
+даёт всё перечисленное:
+
+- **exit 0** у самой команды;
+- в логах — «Все фичи/сценарии выполнены!» (VA отработала сценарии);
+- сформирован **jUnit-отчёт** в `reports/junit/`;
+- `reports/buildstatus.log` = **0**;
+- после прогона в системе **не осталось процессов** `1cv8*` / `oscript` (тест-клиент
+  и менеджер корректно завершились);
+- в логах и `result.json` **нет следов пароля** (санация отработала, временный
+  VAParams удалён).
+
+Если что-то из этого не выполнено — смотрите §5 и `vanessa-stdout.log` /
+`vanessa-stderr.log` последнего прогона.
+
+---
+
+## 7. Использование в CI
+
+Минимальная последовательность Windows-runner (deploy/test — на отдельной тестовой
+ИБ):
+
+```powershell
+$ErrorActionPreference = "Stop"
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" bootstrap -Profile "agent-1c.json"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" doctor -Profile "agent-1c.json"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c.ps1" analyze -Profile "agent-1c.json"
+exit $LASTEXITCODE
+```
+
+CI-агенту нужны: Windows-сессия; установленная и лицензированная платформа 1С;
+доступ к GitHub release для первого `bootstrap` (или заранее заполненный кэш);
+права записи в `%LOCALAPPDATA%\agent-1c` и `resultDir`; отдельная тестовая ИБ для
+deploy/test. Публикуйте `var/agent-1c/**/result.json`, jUnit и SARIF как артефакты.
+Помните о baseline-политике (§1.3): гейтите новые Error-диагностики, а не абсолютное
+число на зрелом проекте.
+
+---
+
+## 8. Обновление toolchain
+
+Версии меняются только через изменение `toolchain.lock.json` (это reference-снимок,
+обновляемый по мере проверки):
+
+1. обновить версию и URL в `toolchain.lock.json`;
+2. скачать официальный артефакт, вычислить SHA-256, обновить lock;
+3. прогнать `bootstrap` на чистом кэше;
+4. прогнать `doctor` и `analyze` минимум в одном эталонном проекте;
+5. прокатать `test` вживую (смоук на тестовой ИБ).
+
+Не заменяйте закреплённый URL на `latest`: один и тот же коммит проекта должен
+разворачиваться одинаковыми инструментами.
+
+---
+
+## 9. Диагностика
+
+- **Платформа не найдена** — проверьте `C:\Program Files\1cv8\<версия>\bin\1cv8.exe`;
+  поправьте `platform.versionPrefix` или задайте `platform.executable`; повторите
+  `doctor`.
+- **BSL LS не запускается после загрузки** — не полагайтесь на глобальный PATH;
+  повторите `bootstrap`, посмотрите `stderr.log`; не удаляйте проверку SHA-256.
+- **PowerShell показывает битую кириллицу** — `agent-1c.ps1` и `.feature` должны быть
+  в UTF-8 **с BOM**; запускайте через `powershell.exe -File`, а не вложенным `-Command`.
+- **analyze вернул 4** — инструмент исправен, в исходниках есть Error-диагностики;
+  для зрелого проекта зафиксируйте baseline (§1.3).
+- **deploy не выполняется** — без `-Apply` это штатный DryRun; `kind: none` = ИБ не
+  настроена; `production` блокируется намеренно; смотрите `deploy.log`.
+- **test вернул 3** — vanessa-runner или VA-single не установлены, либо тестовая ИБ
+  не настроена; см. §3.
+- **test виснет / таймаут TestClient** — см. §5 (грабли б, в): проверьте
+  `ДанныеКлиентовТестирования` и таймаут; убедитесь, что база не занята монопольной
+  операцией (нет `1Cv8.lck`, нет процессов `designer`).
+
+---
+
+## 10. Откат
+
+Контур не меняет глобальный PATH и не регистрирует служб. Удаление из проекта:
+
+1. удалить `agent-1c.json` и каталог `tools/agent-1c`;
+2. удалить локальные результаты `var/agent-1c`;
+3. при необходимости удалить кэш `%LOCALAPPDATA%\agent-1c\tools`.
+
+Удаление кэша не влияет на установленную платформу 1С и информационные базы.
