@@ -51,6 +51,7 @@ Rule Index at the moment it applies, never preloaded.
 | script, automation, DryRun/Apply, data migration / скрипт, миграция данных | `script-contract` | developer |
 | delegation, subagent, model or effort choice / делегирование, субагент | `subagents-model-routing` | (orchestrator) |
 | token economy, expensive orchestrator model / экономия токенов | `orchestrator-economy` | (orchestrator) |
+| long command output, compression proxy, rtk / длинный вывод команд | `tool-output-economy` | (any) |
 | spec, behavior change, proposal, OpenSpec / спека, предложение | `sdd-integrations` | analytic / architect |
 | refactoring, duplicates, dead code / рефакторинг, дубли | {{DOMAIN_ROUTES}} | refactoring |
 | check, review, verification / проверка, ревью | `verification-matrix` | code-reviewer |

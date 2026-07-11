@@ -70,6 +70,10 @@ yourself what gets delegated.**
 
 - Trivial edits (quick-fix level from `collaboration-modes.md`) are not
   delegated: the overhead of launching a subagent exceeds the savings.
+- If a tool-output compression proxy is installed (`tool-output-economy.md`),
+  scouting subagents wrap their bulk reads with it — the two economies
+  stack; the orchestrator's own spot-checks stay raw (verification, not
+  navigation).
 - Answering user questions, discussion, and choosing decisions are the
   orchestrator's work; the mode does not affect them.
 - Savings grow with volume: the more files are read and written, the more

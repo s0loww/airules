@@ -41,6 +41,10 @@ ROLES.md, agent-template.md), `core/templates/AGENTS.md`, `core/commands/*`,
 
 ## Разное
 
+- `tool-output-economy` (rtk): замерить пользу на 1С-тулчейне (вывод
+  BSL LS / vanessa / 1cv8-логи через `rtk err`/`rtk log`) и, если фильтры
+  дают выигрыш, добавить рецепт в оверлей; hook-режим (`rtk init -g`) —
+  осознанное решение пользователя, в ONBOARD не автоматизировать.
 - simple-версии правил (`*.simple.md` для слабых агентов) не портированы —
   решить формат (без CJK-мантр, согласовать с `subagent-pipeline.md`).
 - `subagent-pipeline`: рассмотреть вынос Handoff-формата в отдельное правило
