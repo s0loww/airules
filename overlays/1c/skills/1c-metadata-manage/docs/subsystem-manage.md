@@ -7,7 +7,11 @@ Comprehensive subsystem management: create from JSON, edit content/properties, a
 ## 1. Compile — Create Subsystem from JSON
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-compile.ps1 -Value '<json>' -OutputDir '<ConfigDir>'
+
+# Apply: actually create and register the subsystem
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-compile.ps1 -Value '<json>' -OutputDir '<ConfigDir>' -Apply
 ```
 
 | Parameter | Description |
@@ -17,6 +21,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-man
 | `OutputDir` | Export root (where `Subsystems/`, `Configuration.xml` are) |
 | `Parent` | Path to parent subsystem XML (for nested subsystems) |
 | `NoValidate` | Skip auto-validation |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### JSON Definition
 
@@ -44,7 +49,11 @@ Minimal: only `name` required. Everything else has defaults.
 ## 2. Edit — Modify Existing Subsystem
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-edit.ps1 -SubsystemPath '<path>' -Operation <op> -Value '<value>'
+
+# Apply: actually modify the subsystem
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-edit.ps1 -SubsystemPath '<path>' -Operation <op> -Value '<value>' -Apply
 ```
 
 | Parameter | Description |
@@ -54,6 +63,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-man
 | `Value` | Value for operation |
 | `DefinitionFile` | JSON file with operation array |
 | `NoValidate` | Skip auto-validation |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Operations
 
@@ -120,11 +130,13 @@ Exit code: 0 = OK, 1 = errors.
 ## Typical Workflow
 
 ```
-1c-subsystem-manage compile   — create subsystem
+1c-subsystem-manage compile   — create subsystem (mutation: requires -Apply)
 1c-subsystem-manage validate  — check correctness
-1c-subsystem-manage edit      — add objects to content
+1c-subsystem-manage edit      — add objects to content (mutation: requires -Apply)
 1c-subsystem-manage info      — view structure
 ```
+
+Mutating steps (`compile`, `edit`) run as dry run by default: they print the plan and exit. Pass `-Apply` to write changes.
 
 ## MCP Integration
 

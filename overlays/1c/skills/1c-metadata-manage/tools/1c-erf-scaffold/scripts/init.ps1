@@ -1,5 +1,19 @@
 ﻿# erf-init v1.0 — Init 1C external report scaffold
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Создание каркаса внешнего отчёта 1С (ERF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов, которые были бы созданы, и завершается без изменений.
+
+.EXAMPLE
+	.\init.ps1 -Name "МойОтчёт" -SrcDir src -WithSKD
+
+.EXAMPLE
+	.\init.ps1 -Name "МойОтчёт" -SrcDir src -WithSKD -Apply
+#>
 param(
 	[Parameter(Mandatory)]
 	[string]$Name,
@@ -8,7 +22,9 @@ param(
 
 	[string]$SrcDir = "src",
 
-	[switch]$WithSKD
+	[switch]$WithSKD,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -87,6 +103,20 @@ $reportDir = Join-Path $SrcDir $Name
 if (Test-Path $rootFile) {
 	Write-Error "Файл уже существует: $rootFile"
 	exit 1
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create external report '$Name':" -ForegroundColor Yellow
+	Write-Host "  $rootFile"
+	Write-Host "  $(Join-Path (Join-Path $reportDir 'Ext') 'ObjectModule.bsl')"
+	if ($WithSKD) {
+		$templatesDirPlan = Join-Path $reportDir "Templates"
+		Write-Host "  $(Join-Path $templatesDirPlan 'ОсновнаяСхемаКомпоновкиДанных.xml')"
+		Write-Host "  $(Join-Path (Join-Path (Join-Path $templatesDirPlan 'ОсновнаяСхемаКомпоновкиДанных') 'Ext') 'Template.xml')"
+	}
+	Write-Host "No changes made. Re-run with -Apply to create the files."
+	exit 0
 }
 
 if (-not (Test-Path $SrcDir)) {

@@ -23,8 +23,9 @@
 .PARAMETER UserName
     Имя пользователя 1С
 
-.PARAMETER Password
-    Пароль пользователя
+.PARAMETER PasswordEnv
+    Имя переменной окружения, содержащей пароль пользователя.
+    Секреты не передаются аргументами командной строки (script-contract).
 
 .PARAMETER ConfigDir
     Каталог XML-исходников конфигурации
@@ -47,11 +48,15 @@
 .PARAMETER Format
     Формат файлов: Hierarchical или Plain (по умолчанию Hierarchical)
 
-.EXAMPLE
-    .\db-load-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\src" -Mode Full
+.PARAMETER Apply
+    Применить загрузку. Без этого флага скрипт работает в режиме DryRun:
+    показывает команду, которая была бы выполнена, и завершается без изменений.
 
 .EXAMPLE
-    .\db-load-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\src" -Mode Partial -Files "Catalogs/Номенклатура.xml,Catalogs/Номенклатура/Ext/ObjectModule.bsl"
+    .\db-load-xml.ps1 -InfoBasePath "<infobase-dir>" -ConfigDir "<config-dir>" -Mode Full
+
+.EXAMPLE
+    .\db-load-xml.ps1 -InfoBasePath "<infobase-dir>" -ConfigDir "<config-dir>" -Mode Partial -Files "Catalogs/Номенклатура.xml,Catalogs/Номенклатура/Ext/ObjectModule.bsl" -Apply
 #>
 
 [CmdletBinding()]
@@ -72,7 +77,7 @@ param(
     [string]$UserName,
 
     [Parameter(Mandatory=$false)]
-    [string]$Password,
+    [string]$PasswordEnv,
 
     [Parameter(Mandatory=$true)]
     [string]$ConfigDir,
@@ -95,11 +100,27 @@ param(
 
     [Parameter(Mandatory=$false)]
     [ValidateSet("Hierarchical", "Plain")]
-    [string]$Format = "Hierarchical"
+    [string]$Format = "Hierarchical",
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Apply
 )
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Resolve password from environment (script-contract: no secrets in CLI args) ---
+$Password = $null
+if ($PasswordEnv) {
+    $Password = [Environment]::GetEnvironmentVariable($PasswordEnv)
+    if (-not $Password) {
+        if ($Apply) {
+            Write-Host "Error: environment variable '$PasswordEnv' is not set or empty" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Warning: environment variable '$PasswordEnv' is not set - dry run continues; -Apply will fail until it is set" -ForegroundColor Yellow
+    }
+}
 
 # --- Resolve V8Path ---
 if (-not $V8Path) {
@@ -200,9 +221,16 @@ try {
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
 
-    # --- Execute ---
+    # --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
     $argDisplay = $arguments -join ' '
     if ($Password) { $argDisplay = $argDisplay.Replace($Password, '***') }
+    if (-not $Apply) {
+        Write-Host "DRY RUN: would run 1cv8.exe $argDisplay" -ForegroundColor Yellow
+        Write-Host "No changes made. Re-run with -Apply to load the configuration."
+        exit 0
+    }
+
+    # --- Execute ---
     Write-Host "Running: 1cv8.exe $argDisplay"
     $process = Start-Process -FilePath $V8Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru
     $exitCode = $process.ExitCode

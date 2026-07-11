@@ -1,5 +1,19 @@
 ﻿# cfe-init v1.0 — Create 1C configuration extension scaffold (CFE)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Создание каркаса расширения конфигурации 1С (CFE)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов, которые были бы созданы, и завершается без изменений.
+
+.EXAMPLE
+	.\cfe-init.ps1 -Name "МоёРасширение" -OutputDir src
+
+.EXAMPLE
+	.\cfe-init.ps1 -Name "МоёРасширение" -OutputDir src -Apply
+#>
 param(
 	[Parameter(Mandatory)]
 	[string]$Name,
@@ -11,7 +25,8 @@ param(
 	[string]$Version,
 	[string]$Vendor,
 	[string]$CompatibilityMode = "Version8_3_24",
-	[switch]$NoRole
+	[switch]$NoRole,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -169,6 +184,18 @@ $roleXml = @"
 	</Role>
 </MetaDataObject>
 "@
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create extension '$Name' ($Purpose):" -ForegroundColor Yellow
+	Write-Host "  $cfgFile"
+	Write-Host "  $(Join-Path (Join-Path $OutputDir 'Languages') 'Русский.xml')"
+	if (-not $NoRole) {
+		Write-Host "  $(Join-Path (Join-Path $OutputDir 'Roles') "$roleName.xml")"
+	}
+	Write-Host "No changes made. Re-run with -Apply to create the files."
+	exit 0
+}
 
 # --- Create directories ---
 if (-not (Test-Path $OutputDir)) {

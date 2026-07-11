@@ -1,10 +1,26 @@
 ﻿# skd-compile v1.0 — Compile 1C DCS from JSON
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Компиляция схемы компоновки данных 1С (СКД) из JSON-определения
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	выполняет компиляцию и валидацию JSON, показывает целевой файл
+	и завершается без записи.
+
+.EXAMPLE
+	.\skd-compile.ps1 -DefinitionFile skd.json -OutputPath "src\Reports\Отчёт\Templates\ОсновнаяСхемаКомпоновкиДанных\Ext\Template.xml"
+
+.EXAMPLE
+	.\skd-compile.ps1 -DefinitionFile skd.json -OutputPath "src\Reports\Отчёт\Templates\ОсновнаяСхемаКомпоновкиДанных\Ext\Template.xml" -Apply
+#>
 param(
 	[string]$DefinitionFile,
 	[string]$Value,
 	[Parameter(Mandatory)]
-	[string]$OutputPath
+	[string]$OutputPath,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -1622,7 +1638,13 @@ Emit-SettingsVariants
 
 X '</DataCompositionSchema>'
 
-# --- 13. Write output ---
+# --- 13. Write output (DryRun gate: mutations only under explicit -Apply) ---
+
+if (-not $Apply) {
+	Write-Host "DRY RUN: would write compiled DCS schema to $OutputPath" -ForegroundColor Yellow
+	Write-Host "No changes made. Re-run with -Apply to write the file."
+	exit 0
+}
 
 $parentDir = [System.IO.Path]::GetDirectoryName($OutputPath)
 if ($parentDir -and -not (Test-Path $parentDir)) {

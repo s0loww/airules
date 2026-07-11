@@ -1,11 +1,28 @@
 ﻿# meta-compile v1.0 — Compile 1C metadata object from JSON
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Компиляция объекта метаданных 1С из JSON-определения
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	выполняет компиляцию и валидацию JSON, показывает целевые файлы/операции
+	и завершается без записи.
+
+.EXAMPLE
+	.\meta-compile.ps1 -JsonPath catalog.json -OutputDir src
+
+.EXAMPLE
+	.\meta-compile.ps1 -JsonPath catalog.json -OutputDir src -Apply
+#>
 param(
 	[Parameter(Mandatory)]
 	[string]$JsonPath,
 
 	[Parameter(Mandatory)]
-	[string]$OutputDir
+	[string]$OutputDir,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -2640,6 +2657,18 @@ $typesNoSubDir = @("DefinedType","ScheduledJob","EventSubscription")
 # Object subdirectory: {OutputDir}/{TypePlural}/{Name}/Ext/
 $objSubDir = Join-Path $typeDir $objName
 $extDir = Join-Path $objSubDir "Ext"
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would compile $objType '$objName':" -ForegroundColor Yellow
+	Write-Host "  write: $mainXmlPath"
+	if ($objType -notin $typesNoSubDir) {
+		Write-Host "  ensure: $extDir (module stubs created if missing)"
+	}
+	Write-Host "  register: <$objType>$objName</$objType> in $(Join-Path $OutputDir 'Configuration.xml') (if present)"
+	Write-Host "No changes made. Re-run with -Apply to write the files."
+	exit 0
+}
 
 if (-not (Test-Path $typeDir)) {
 	New-Item -ItemType Directory -Path $typeDir -Force | Out-Null

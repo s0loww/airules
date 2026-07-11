@@ -378,7 +378,7 @@ If procedure already exists — add `ИначеЕсли` branch.
 
 ## Typical Workflow
 
-1. Create processor: `1c-epf-scaffold <Name>`
+1. Create processor: `1c-epf-scaffold <Name> -Apply` (dry run without `-Apply`)
 2. Register with BSP: `1c-bsp-registration <Name> <Kind> [TargetObjects]`
 3. Add commands: `1c-bsp-command <Name> <Identifier> [CommandType]`
 4. Add form/template as needed

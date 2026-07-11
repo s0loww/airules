@@ -23,8 +23,9 @@
 .PARAMETER UserName
     Имя пользователя 1С
 
-.PARAMETER Password
-    Пароль пользователя
+.PARAMETER PasswordEnv
+    Имя переменной окружения, содержащей пароль пользователя.
+    Секреты не передаются аргументами командной строки (script-contract).
 
 .PARAMETER ConfigDir
     Каталог XML-выгрузки конфигурации (git-репозиторий)
@@ -44,17 +45,18 @@
 .PARAMETER Format
     Формат файлов: Hierarchical или Plain (по умолчанию Hierarchical)
 
-.PARAMETER DryRun
-    Только показать что будет загружено (без загрузки)
+.PARAMETER Apply
+    Применить загрузку. Без этого флага скрипт работает в режиме DryRun:
+    показывает список файлов, которые были бы загружены, и завершается без изменений.
 
 .EXAMPLE
-    .\db-load-git.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\src" -Source All
+    .\db-load-git.ps1 -InfoBasePath "<infobase-dir>" -ConfigDir "<config-dir>" -Source All
 
 .EXAMPLE
-    .\db-load-git.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\src" -Source Commit -CommitRange "HEAD~3..HEAD"
+    .\db-load-git.ps1 -InfoBasePath "<infobase-dir>" -ConfigDir "<config-dir>" -Source Commit -CommitRange "HEAD~3..HEAD" -Apply
 
 .EXAMPLE
-    .\db-load-git.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\src" -DryRun
+    .\db-load-git.ps1 -InfoBasePath "<infobase-dir>" -ConfigDir "<config-dir>" -Source All -Apply
 #>
 
 [CmdletBinding()]
@@ -75,7 +77,7 @@ param(
     [string]$UserName,
 
     [Parameter(Mandatory=$false)]
-    [string]$Password,
+    [string]$PasswordEnv,
 
     [Parameter(Mandatory=$true)]
     [string]$ConfigDir,
@@ -98,11 +100,27 @@ param(
     [string]$Format = "Hierarchical",
 
     [Parameter(Mandatory=$false)]
-    [switch]$DryRun
+    [switch]$Apply
 )
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Resolve password from environment (script-contract: no secrets in CLI args) ---
+$Password = $null
+if ($PasswordEnv) {
+    $Password = [Environment]::GetEnvironmentVariable($PasswordEnv)
+    if (-not $Password) {
+        if ($Apply) {
+            Write-Host "Error: environment variable '$PasswordEnv' is not set or empty" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Warning: environment variable '$PasswordEnv' is not set - dry run continues; -Apply will fail until it is set" -ForegroundColor Yellow
+    }
+}
+
+# --- DryRun by default (script-contract: mutations only under explicit -Apply) ---
+$DryRun = -not $Apply
 
 # --- Helper: map BSL path to object XML ---
 function Get-ObjectXmlFromBsl {
@@ -271,10 +289,11 @@ if ($configFiles.Count -eq 0) {
 Write-Host "Files for loading: $($configFiles.Count)"
 foreach ($f in $configFiles) { Write-Host "  $f" }
 
-# --- DryRun: stop here ---
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
 if ($DryRun) {
     Write-Host ""
-    Write-Host "DryRun mode - no changes applied"
+    Write-Host "DRY RUN: files listed above would be loaded" -ForegroundColor Yellow
+    Write-Host "No changes made. Re-run with -Apply to load the changes."
     exit 0
 }
 

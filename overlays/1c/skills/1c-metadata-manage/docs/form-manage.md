@@ -262,7 +262,7 @@ Creates a managed form (metadata XML + Form.xml + Module.bsl) and registers it i
 #### For Configuration Objects
 
 ```
-1c-form-scaffold add <ObjectPath> <FormName> [Purpose] [Synonym] [--set-default]
+1c-form-scaffold add <ObjectPath> <FormName> [Purpose] [Synonym] [--set-default] [-Apply]
 ```
 
 | Parameter | Required | Default | Description |
@@ -272,16 +272,21 @@ Creates a managed form (metadata XML + Form.xml + Module.bsl) and registers it i
 | Purpose | no | Object | Purpose: Object, List, Choice, Record |
 | Synonym | no | = FormName | Form synonym |
 | --set-default | no | auto | Set as default form |
+| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 **Command:**
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/form-add.ps1 -ObjectPath "<ObjectPath>" -FormName "<FormName>" [-Purpose "<Purpose>"] [-Synonym "<Synonym>"] [-SetDefault]
+
+# Apply: actually create the form
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/form-add.ps1 -ObjectPath "<ObjectPath>" -FormName "<FormName>" [-Purpose "<Purpose>"] [-Synonym "<Synonym>"] [-SetDefault] -Apply
 ```
 
 #### For External Data Processors (EPF)
 
 ```
-1c-form-scaffold add-epf <ProcessorName> <FormName> [Synonym] [--main]
+1c-form-scaffold add-epf <ProcessorName> <FormName> [Synonym] [--main] [-Apply]
 ```
 
 | Parameter | Required | Default | Description |
@@ -291,10 +296,11 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold
 | Synonym | no | = FormName | Form synonym |
 | --main | no | auto | Set as default form (auto for first form) |
 | SrcDir | no | `src` | Source directory |
+| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 **Command:**
 ```powershell
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/add-form.ps1 -ProcessorName "<ProcessorName>" -FormName "<FormName>" [-Synonym "<Synonym>"] [-Main] [-SrcDir "<SrcDir>"]
+pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/add-form.ps1 -ProcessorName "<ProcessorName>" -FormName "<FormName>" [-Synonym "<Synonym>"] [-Main] [-SrcDir "<SrcDir>"] -Apply
 ```
 
 #### Purpose — Form Assignment
@@ -345,7 +351,7 @@ Remove form files and unregister from the object's root XML.
 #### From External Data Processors (EPF)
 
 ```
-1c-form-scaffold remove-epf <ProcessorName> <FormName>
+1c-form-scaffold remove-epf <ProcessorName> <FormName> [-Apply]
 ```
 
 | Parameter | Required | Default | Description |
@@ -353,10 +359,11 @@ Remove form files and unregister from the object's root XML.
 | ProcessorName | yes | — | Processor name |
 | FormName | yes | — | Form name to remove |
 | SrcDir | no | `src` | Source directory |
+| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 **Command:**
 ```powershell
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/remove-form.ps1 -ProcessorName "<ProcessorName>" -FormName "<FormName>" [-SrcDir "<SrcDir>"]
+pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/remove-form.ps1 -ProcessorName "<ProcessorName>" -FormName "<FormName>" [-SrcDir "<SrcDir>"] -Apply
 ```
 
 #### What Gets Removed
@@ -376,26 +383,28 @@ pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/r
 ### Examples
 
 ```bash
-# Document form
+# Document form — dry run first (prints the plan, no changes)
 1c-form-scaffold add Documents/SalesOrder.xml DocumentForm --purpose Object
+# Then apply
+1c-form-scaffold add Documents/SalesOrder.xml DocumentForm --purpose Object -Apply
 
 # Catalog list form
-1c-form-scaffold add Catalogs/Contractors.xml ListForm --purpose List
+1c-form-scaffold add Catalogs/Contractors.xml ListForm --purpose List -Apply
 
 # Information register record form
-1c-form-scaffold add InformationRegisters/CurrencyRates.xml RecordForm --purpose Record
+1c-form-scaffold add InformationRegisters/CurrencyRates.xml RecordForm --purpose Record -Apply
 
 # Choice form with synonym
-1c-form-scaffold add Catalogs/Products.xml ChoiceForm --purpose Choice --synonym "Product Selection"
+1c-form-scaffold add Catalogs/Products.xml ChoiceForm --purpose Choice --synonym "Product Selection" -Apply
 
 # Set as default form
-1c-form-scaffold add Documents/Order.xml NewDocumentForm --purpose Object --set-default
+1c-form-scaffold add Documents/Order.xml NewDocumentForm --purpose Object --set-default -Apply
 
 # EPF form
-1c-form-scaffold add-epf MyProcessor MainForm "Main Form" --main
+1c-form-scaffold add-epf MyProcessor MainForm "Main Form" --main -Apply
 
 # Remove EPF form
-1c-form-scaffold remove-epf MyProcessor OldForm
+1c-form-scaffold remove-epf MyProcessor OldForm -Apply
 ```
 
 ---
@@ -409,18 +418,23 @@ Takes a compact JSON definition (20–50 lines) and generates a complete, valid 
 ### Usage
 
 ```
-1c-form-compile <JsonPath> <OutputPath>
+1c-form-compile <JsonPath> <OutputPath> [-Apply]
 ```
 
 | Parameter | Required | Description |
 |-----------|:--------:|-------------|
 | JsonPath | yes | Path to the form JSON definition |
 | OutputPath | yes | Path to output Form.xml file |
+| -Apply | no | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-compile/scripts/form-compile.ps1 -JsonPath "<json>" -OutputPath "<xml>"
+
+# Apply: actually write Form.xml
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-compile/scripts/form-compile.ps1 -JsonPath "<json>" -OutputPath "<xml>" -Apply
 ```
 
 ### JSON DSL Reference
@@ -713,18 +727,23 @@ Adds elements, attributes, and/or commands to an existing Form.xml. Automaticall
 ### Usage
 
 ```
-1c-form-edit <FormPath> <JsonPath>
+1c-form-edit <FormPath> <JsonPath> [-Apply]
 ```
 
 | Parameter | Required | Description |
 |-----------|:--------:|-------------|
 | FormPath | yes | Path to existing Form.xml |
 | JsonPath | yes | Path to JSON with additions |
+| -Apply | no | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-edit/scripts/form-edit.ps1 -FormPath "<path>" -JsonPath "<path>"
+
+# Apply: actually modify Form.xml
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-form-edit/scripts/form-edit.ps1 -FormPath "<path>" -JsonPath "<path>" -Apply
 ```
 
 ### JSON Format
@@ -1058,11 +1077,13 @@ Return code: 0 = all checks passed, 1 = errors found.
 ## Typical Workflow
 
 1. `1c-form-manage patterns` — review design patterns
-2. `1c-form-manage scaffold` — create/remove form
-3. `1c-form-manage compile` — generate Form.xml from JSON
-4. `1c-form-manage edit` — add elements to existing form
+2. `1c-form-manage scaffold` — create/remove form (mutation: requires `-Apply`)
+3. `1c-form-manage compile` — generate Form.xml from JSON (mutation: requires `-Apply`)
+4. `1c-form-manage edit` — add elements to existing form (mutation: requires `-Apply`)
 5. `1c-form-manage info` — analyze form structure
 6. `1c-form-manage validate` — check correctness
+
+Mutating steps (`scaffold`, `compile`, `edit`) run as dry run by default: they print the plan and exit. Pass `-Apply` to write changes.
 
 ## MCP Integration
 

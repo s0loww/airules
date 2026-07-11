@@ -23,8 +23,9 @@
 .PARAMETER UserName
     Имя пользователя 1С
 
-.PARAMETER Password
-    Пароль пользователя
+.PARAMETER PasswordEnv
+    Имя переменной окружения, содержащей пароль пользователя.
+    Секреты не передаются аргументами командной строки (script-contract).
 
 .PARAMETER Execute
     Путь к внешней обработке для запуска
@@ -35,14 +36,20 @@
 .PARAMETER URL
     Навигационная ссылка (e1cib/...)
 
-.EXAMPLE
-    .\db-run.ps1 -InfoBasePath "C:\Bases\MyDB"
+.PARAMETER Apply
+    Выполнить запуск. Без этого флага скрипт работает в режиме DryRun:
+    показывает команду, которая была бы выполнена, и завершается без изменений.
+    Запуск в режиме Предприятия может изменять данные (обработчики при начале
+    работы, /Execute-обработка, /C-параметр), поэтому требуется явный -Apply.
 
 .EXAMPLE
-    .\db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -Execute "C:\epf\МояОбработка.epf"
+    .\db-run.ps1 -InfoBasePath "<infobase-dir>"
 
 .EXAMPLE
-    .\db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -CParam "ЗапуститьОбновление"
+    .\db-run.ps1 -InfoBasePath "<infobase-dir>" -Execute "<epf-file>" -Apply
+
+.EXAMPLE
+    .\db-run.ps1 -InfoBasePath "<infobase-dir>" -CParam "ЗапуститьОбновление" -Apply
 #>
 
 [CmdletBinding()]
@@ -63,7 +70,7 @@ param(
     [string]$UserName,
 
     [Parameter(Mandatory=$false)]
-    [string]$Password,
+    [string]$PasswordEnv,
 
     [Parameter(Mandatory=$false)]
     [string]$Execute,
@@ -72,11 +79,27 @@ param(
     [string]$CParam,
 
     [Parameter(Mandatory=$false)]
-    [string]$URL
+    [string]$URL,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Apply
 )
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Resolve password from environment (script-contract: no secrets in CLI args) ---
+$Password = $null
+if ($PasswordEnv) {
+    $Password = [Environment]::GetEnvironmentVariable($PasswordEnv)
+    if (-not $Password) {
+        if ($Apply) {
+            Write-Host "Error: environment variable '$PasswordEnv' is not set or empty" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Warning: environment variable '$PasswordEnv' is not set - dry run continues; -Apply will fail until it is set" -ForegroundColor Yellow
+    }
+}
 
 # --- Resolve V8Path ---
 if (-not $V8Path) {
@@ -130,9 +153,16 @@ if ($URL) {
 
 $argString += " /DisableStartupDialogs"
 
-# --- Execute (background, no wait) ---
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
 $argDisplay = $argString
 if ($Password) { $argDisplay = $argDisplay.Replace($Password, '***') }
+if (-not $Apply) {
+    Write-Host "DRY RUN: would run 1cv8.exe $argDisplay" -ForegroundColor Yellow
+    Write-Host "No changes made. Re-run with -Apply to launch 1C:Enterprise."
+    exit 0
+}
+
+# --- Execute (background, no wait) ---
 Write-Host "Running: 1cv8.exe $argDisplay"
 Start-Process -FilePath $V8Path -ArgumentList $argString
 Write-Host "1C:Enterprise launched" -ForegroundColor Green

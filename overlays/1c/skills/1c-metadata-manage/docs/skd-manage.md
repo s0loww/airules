@@ -14,13 +14,16 @@ Takes a JSON definition of a Data Composition Schema and generates Template.xml 
 | `DefinitionFile` | Path to JSON definition file (mutually exclusive with Value) |
 | `Value` | JSON string with DCS definition (mutually exclusive with DefinitionFile) |
 | `OutputPath` | Path to output Template.xml |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ```powershell
-# From file
+# From file — dry run first (prints the plan, no changes)
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -DefinitionFile "<json>" -OutputPath "<Template.xml>"
+# Then apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -DefinitionFile "<json>" -OutputPath "<Template.xml>" -Apply
 
 # From string (no intermediate file)
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -Value '<json-string>' -OutputPath "<Template.xml>"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -Value '<json-string>' -OutputPath "<Template.xml>" -Apply
 ```
 
 ### JSON DSL — Quick Reference
@@ -178,9 +181,14 @@ Atomic modification operations on an existing Data Composition Schema: add, remo
 | `DataSet` | (opt.) Data set name (default: first) |
 | `Variant` | (opt.) Settings variant name (default: first) |
 | `NoSelection` | (opt.) Don't add field to variant selection |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-edit/scripts/skd-edit.ps1 -TemplatePath "<path>" -Operation <op> -Value "<value>"
+
+# Apply: actually modify Template.xml
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-edit/scripts/skd-edit.ps1 -TemplatePath "<path>" -Operation <op> -Value "<value>" -Apply
 ```
 
 ### Batch Mode
@@ -188,7 +196,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-edit/scri
 Multiple values in one call via `;;` separator:
 
 ```powershell
--Operation add-field -Value "Цена: decimal(15,2) ;; Количество: decimal(15,3) ;; Сумма: decimal(15,2)"
+-Operation add-field -Value "Цена: decimal(15,2) ;; Количество: decimal(15,3) ;; Сумма: decimal(15,2)" -Apply
 ```
 
 Works for all operations except `set-query`, `set-structure`, and `add-dataSet`.
@@ -371,8 +379,8 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-validate/
 ---
 ## Typical Workflow
 
-1. **Create new DCS**: `1c-skd-compile` from JSON → `1c-skd-validate` → `1c-skd-info` for visual summary
-2. **Modify existing DCS**: `1c-skd-edit` with operations → `1c-skd-validate` → `1c-skd-info`
+1. **Create new DCS**: `1c-skd-compile -Apply` from JSON (dry run without `-Apply`) → `1c-skd-validate` → `1c-skd-info` for visual summary
+2. **Modify existing DCS**: `1c-skd-edit` with operations and `-Apply` (dry run without `-Apply`) → `1c-skd-validate` → `1c-skd-info`
 3. **Analyze structure**: `1c-skd-info` overview → `1c-skd-info -Mode trace -Name <field>` for field calculation chain → `1c-skd-info -Mode query -Name <dataset>` for query text → `1c-skd-info -Mode variant -Name <N>` for variant groupings and filters
 
 ---

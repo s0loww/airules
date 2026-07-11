@@ -1,5 +1,19 @@
 ﻿# cfe-patch-method v1.0 — Generate method interceptor for 1C extension (CFE)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Генерация перехватчика метода в модуле расширения 1С (CFE)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает целевой файл и перехватчик, и завершается без изменений.
+
+.EXAMPLE
+	.\cfe-patch-method.ps1 -ExtensionPath ext\src -ModulePath "CommonModule.ОбщегоНазначения" -MethodName "ПриЗаписи" -InterceptorType Before
+
+.EXAMPLE
+	.\cfe-patch-method.ps1 -ExtensionPath ext\src -ModulePath "CommonModule.ОбщегоНазначения" -MethodName "ПриЗаписи" -InterceptorType Before -Apply
+#>
 param(
 	[Parameter(Mandatory)]
 	[string]$ExtensionPath,
@@ -16,7 +30,9 @@ param(
 
 	[string]$Context = "НаСервере",
 
-	[switch]$IsFunction
+	[switch]$IsFunction,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -156,6 +172,20 @@ $bslCode += $bodyLines
 $bslCode += "$endKeyword"
 
 $bslText = ($bslCode -join "`r`n") + "`r`n"
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	if (Test-Path $bslFile) {
+		Write-Host "DRY RUN: would append interceptor to $bslFile" -ForegroundColor Yellow
+	} else {
+		Write-Host "DRY RUN: would create $bslFile" -ForegroundColor Yellow
+	}
+	Write-Host "     Декоратор:    $decorator(`"$MethodName`")"
+	Write-Host "     Процедура:    ${procName}()"
+	Write-Host "     Контекст:     $contextAnnotation"
+	Write-Host "No changes made. Re-run with -Apply to write the interceptor."
+	exit 0
+}
 
 # --- Check if file exists and append ---
 $bslDir = Split-Path $bslFile -Parent

@@ -1,9 +1,26 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Компиляция описания формы 1С (Form.xml) из JSON-определения
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	выполняет компиляцию и валидацию JSON, показывает целевой файл
+	и завершается без записи.
+
+.EXAMPLE
+	.\form-compile.ps1 -JsonPath form.json -OutputPath "src\Обработка\Forms\Форма\Ext\Form.xml"
+
+.EXAMPLE
+	.\form-compile.ps1 -JsonPath form.json -OutputPath "src\Обработка\Forms\Форма\Ext\Form.xml" -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$JsonPath,
 
 	[Parameter(Mandatory)]
-	[string]$OutputPath
+	[string]$OutputPath,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -1127,6 +1144,15 @@ X '</Form>'
 # --- 13. Write output ---
 
 $outPath = if ([System.IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path (Get-Location) $OutputPath }
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would write compiled form to $outPath" -ForegroundColor Yellow
+	Write-Host "     Elements+IDs: $($script:nextId - 1)"
+	Write-Host "No changes made. Re-run with -Apply to write the file."
+	exit 0
+}
+
 $outDir = [System.IO.Path]::GetDirectoryName($outPath)
 if (-not (Test-Path $outDir)) {
 	New-Item -ItemType Directory -Path $outDir -Force | Out-Null

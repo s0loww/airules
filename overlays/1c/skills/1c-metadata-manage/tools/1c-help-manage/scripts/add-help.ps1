@@ -1,10 +1,26 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Добавление справки к внешней обработке 1С (EPF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов и операций, и завершается без изменений.
+
+.EXAMPLE
+	.\add-help.ps1 -ProcessorName "МояОбработка"
+
+.EXAMPLE
+	.\add-help.ps1 -ProcessorName "МояОбработка" -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$ProcessorName,
 
 	[string]$Lang = "ru",
 
-	[string]$SrcDir = "src"
+	[string]$SrcDir = "src",
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +39,16 @@ $helpXmlPath = Join-Path $extDir "Help.xml"
 if (Test-Path $helpXmlPath) {
 	Write-Error "Справка уже существует: $helpXmlPath"
 	exit 1
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create help for '$ProcessorName':" -ForegroundColor Yellow
+	Write-Host "  $helpXmlPath"
+	Write-Host "  $(Join-Path (Join-Path $extDir 'Help') "$Lang.html")"
+	Write-Host "  add IncludeHelpInContents=false to form metadata in $(Join-Path $processorDir 'Forms') where missing"
+	Write-Host "No changes made. Re-run with -Apply to create the help files."
+	exit 0
 }
 
 # --- Кодировка ---

@@ -5,7 +5,7 @@ Adds built-in help to a 1C metadata object: help metadata file (`Help.xml`), HTM
 ## Usage
 
 ```
-1c-help-manage <ObjectName> [Lang] [SrcDir]
+1c-help-manage <ObjectName> [Lang] [SrcDir] [-Apply]
 ```
 
 | Parameter | Required | Default | Description |
@@ -13,11 +13,16 @@ Adds built-in help to a 1C metadata object: help metadata file (`Help.xml`), HTM
 | ObjectName | yes | — | Object name (e.g., data processor name) |
 | Lang | no | `ru` | Help language code |
 | SrcDir | no | `src` | Source directory |
+| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ## Command
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-help-manage/scripts/add-help.ps1 -ProcessorName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
+
+# Apply: actually create the help files
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-help-manage/scripts/add-help.ps1 -ProcessorName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"] -Apply
 ```
 
 ## What Gets Created

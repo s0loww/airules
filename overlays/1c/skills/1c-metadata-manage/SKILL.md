@@ -19,12 +19,12 @@ Use when the task is a **single lightweight query**: checking metadata info, a q
 
 ### Subagent delegation — complex / mutation tasks
 
-Delegate to the **`1c-metadata-manager`** subagent (`.codex/agents/metadata-manager.toml`) when **any** of the following is true:
+Delegate to the **`1c-metadata-manager`** subagent (the `metadata-manager` subagent definition of the active channel) when **any** of the following is true:
 
 - The task **creates, scaffolds, or compiles** metadata (objects, forms, SKD, MXL, roles, EPF, CF, CFE, databases)
 - The task **edits multiple files** or **spans multiple domains**
 - The task involves a **multi-step workflow** (create → edit → validate → fix → re-validate)
-- The task requires **reading large domain docs** (forms, meta-manage, SKD, MXL, roles, EPF, DB — each 200–800 lines)
+- The task requires **reading large domain docs** (forms, meta-manage, SKD, MXL, roles, EPF, DB — 47–1100 lines each; load only the domain file relevant to the task)
 
 The subagent already knows how to read the skill docs, execute PowerShell scripts, and validate results. Provide it with the full task description including object names, attributes, types, and any business context from the conversation.
 

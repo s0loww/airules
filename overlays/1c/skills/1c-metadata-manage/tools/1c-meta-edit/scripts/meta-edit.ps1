@@ -1,5 +1,19 @@
 ﻿# meta-edit v1.3 — Edit existing 1C metadata object XML (inline mode + complex properties + TS attribute ops + modify-ts)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Редактирование существующего объекта метаданных 1С (XML)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает план операций и завершается без записи файла.
+
+.EXAMPLE
+	.\meta-edit.ps1 -ObjectPath "src\Catalogs\Номенклатура.xml" -Operation add-attribute -Value '{"name":"Артикул","type":"string(25)"}'
+
+.EXAMPLE
+	.\meta-edit.ps1 -ObjectPath "src\Catalogs\Номенклатура.xml" -Operation add-attribute -Value '{"name":"Артикул","type":"string(25)"}' -Apply
+#>
 param(
 	[string]$DefinitionFile,
 
@@ -23,7 +37,9 @@ param(
 	[string]$Operation,
 	[string]$Value,
 
-	[switch]$NoValidate
+	[switch]$NoValidate,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -2228,44 +2244,49 @@ $def.PSObject.Properties | ForEach-Object {
 }
 
 # ============================================================
-# Section 14: Save + validate
+# Section 14: Save + validate (DryRun gate: mutations only under explicit -Apply)
 # ============================================================
 
-# Save XML
-$settings = New-Object System.Xml.XmlWriterSettings
-$settings.Encoding = New-Object System.Text.UTF8Encoding($true)  # with BOM
-$settings.Indent = $false  # preserve original whitespace
-$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+if (-not $Apply) {
+	Write-Host ""
+	Write-Host "DRY RUN: would save changes to $resolvedPath" -ForegroundColor Yellow
+} else {
+	# Save XML
+	$settings = New-Object System.Xml.XmlWriterSettings
+	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)  # with BOM
+	$settings.Indent = $false  # preserve original whitespace
+	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
 
-# Write using XmlWriter to get proper encoding declaration
-$memStream = New-Object System.IO.MemoryStream
-$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
-$script:xmlDoc.Save($writer)
-$writer.Flush()
-$writer.Close()
+	# Write using XmlWriter to get proper encoding declaration
+	$memStream = New-Object System.IO.MemoryStream
+	$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
+	$script:xmlDoc.Save($writer)
+	$writer.Flush()
+	$writer.Close()
 
-$bytes = $memStream.ToArray()
-$memStream.Close()
+	$bytes = $memStream.ToArray()
+	$memStream.Close()
 
-# Fix encoding case: utf-8 → UTF-8 (cosmetic, 1C accepts both)
-$text = [System.Text.Encoding]::UTF8.GetString($bytes)
-# Remove BOM from string if present (we'll add it as bytes)
-if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
-	$text = $text.Substring(1)
+	# Fix encoding case: utf-8 → UTF-8 (cosmetic, 1C accepts both)
+	$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+	# Remove BOM from string if present (we'll add it as bytes)
+	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+		$text = $text.Substring(1)
+	}
+	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+
+	# Write with BOM
+	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
+
+	Info "Saved: $resolvedPath"
 }
-$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
-
-# Write with BOM
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
-
-Info "Saved: $resolvedPath"
 
 # ============================================================
 # Section 15: Auto-validate
 # ============================================================
 
-if (-not $NoValidate) {
+if ($Apply -and -not $NoValidate) {
 	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\meta-validate") "scripts\meta-validate.ps1"
 	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
 	if (Test-Path $validateScript) {
@@ -2295,6 +2316,10 @@ if ($script:warnCount -gt 0) {
 $totalChanges = $script:addCount + $script:removeCount + $script:modifyCount
 if ($totalChanges -eq 0) {
 	Write-Host "  No changes applied." -ForegroundColor Yellow
+}
+
+if (-not $Apply) {
+	Write-Host "No changes made. Re-run with -Apply to save changes."
 }
 
 exit 0

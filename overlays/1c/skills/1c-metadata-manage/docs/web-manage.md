@@ -1,163 +1,130 @@
 # 1C Web Manage — Web Publishing for 1C Information Bases
 
-Publish and operate a 1C information base over HTTP via Apache (or IIS) for thin web clients, OData, HTTP services and SOAP.
+Publish and operate a 1C information base over HTTP via Apache (or IIS) for
+thin web clients, OData, HTTP services and SOAP.
 
-Five operations: **info / publish / unpublish / stop / test**. They form a stable workflow:
+> **Note**: the `1c-web-ops` script family (`web-info` / `web-publish` /
+> `web-stop` / `web-unpublish` / Playwright runner `run.mjs`) has **not been
+> ported** — there are no scripts under `tools/`. This document describes the
+> manual procedure built on the platform's own `webinst` utility (ships with
+> every 1C installation) plus direct Apache control. Porting `1c-web-ops` is a
+> tracked candidate (see distribution TODO).
+
+The stable workflow stays the same:
 
 ```
-web-info → web-publish → web-test → web-unpublish  (or web-stop to keep the publication, just halt Apache)
+inspect state → publish → smoke test → unpublish (or just stop Apache)
 ```
 
 ---
 
 ## Connection parameters
 
-All operations resolve the target infobase from `.v8-project.json` in the project root (the same file used by `db-manage`):
+Resolve the target infobase from the project profile (the same source
+`db-manage` uses; see db-manage.md "Connection parameters"): explicit
+path/server from the user → alias → git-branch match → `default: true` entry.
+If the profile is missing — stop and ask the user to register the base first.
 
-1. If the user passed an explicit infobase path/server — use it directly.
-2. If the user passed an alias — resolve via `databases[].id|alias|name`.
-3. Otherwise — match the current git branch against `databases[].branches`.
-4. Fallback — the entry marked `default: true`.
-
-**Always pass through:**
-
-- `v8path` → `-V8Path` (so we don't accidentally publish via the wrong platform version).
-- `user` / `password` → `-UserName` / `-Password` (when stored).
-- `webPath` → `-ApachePath` (when the project bundles its own Apache).
-
-If `.v8-project.json` is missing — stop and ask the user to register the base via `db-list`.
+**Credentials:** a publication can embed a user/password into `default.vrd` in
+**plain text**. Per the script contract, do not put real passwords into files
+that may be committed: keep `.vrd` files with embedded credentials outside the
+repo (or in a git-ignored location) and prefer OS-level access control on the
+publication directory.
 
 ---
 
-## 1. Web info — current state
+## 1. Inspect state
 
-Reports whether Apache is running, which infobases are published and the last error from `error.log`.
+- Apache process alive? `Get-Process -Name httpd -ErrorAction SilentlyContinue`
+  (or check the service/port: `netstat -ano | findstr :<port>`).
+- What is published? Read the publication blocks in `httpd.conf` and the
+  `default.vrd` files they point to (`<point>` entries: application name, base
+  connection string).
+- Errors? Tail `logs/error.log` under the Apache root.
 
-```powershell
-powershell.exe -NoProfile -File tools/1c-web-ops/scripts/web-info.ps1 [-ApachePath <path>]
-```
+## 2. Publish — platform utility `webinst`
 
-Default `-ApachePath` is `tools/apache24` relative to the project root.
-
-Output should answer three questions:
-
-- Is the HTTP server process alive (PID, uptime, port)?
-- What publications exist (URL, infobase reference, application name)?
-- Last 5 lines of `error.log` if any errors are present.
-
----
-
-## 2. Web publish — register the infobase
-
-Generates `default.vrd`, patches `httpd.conf`, downloads a portable Apache if needed, and starts the service.
+`webinst` lives in the platform `bin/` directory (resolve it the same way
+db-manage resolves `-V8Path`).
 
 ```powershell
-powershell.exe -NoProfile -File tools/1c-web-ops/scripts/web-publish.ps1 `
-    [-V8Path <path>] `
-    [-InfoBasePath <path> | -InfoBaseServer <name> -InfoBaseRef <name>] `
-    [-UserName <name>] [-Password <secret>] `
-    [-AppName <publication>] [-ApachePath <path>] [-Port <port>] `
-    [-Manual]
+# File infobase
+& "<v8-bin>\webinst.exe" -publish -apache24 `
+    -wsdir <AppName> `
+    -dir "<apache-htdocs>\<AppName>" `
+    -connstr "File=""<infobase-dir>"";" `
+    -confpath "<apache-root>\conf\httpd.conf"
+
+# Server infobase
+& "<v8-bin>\webinst.exe" -publish -apache24 `
+    -wsdir <AppName> `
+    -dir "<apache-htdocs>\<AppName>" `
+    -connstr "Srvr=""<cluster>"";Ref=""<base-ref>"";" `
+    -confpath "<apache-root>\conf\httpd.conf"
 ```
 
-| Parameter | Required | Description |
-|---|:--:|---|
-| `-V8Path` | no | Platform `bin/` directory (used to locate `wsap24.dll`/`wsisapi.dll`). |
-| `-InfoBasePath` | * | Path to a file infobase. |
-| `-InfoBaseServer` | * | 1C cluster name (server-mode infobase). |
-| `-InfoBaseRef` | * | Infobase reference on the cluster. |
-| `-UserName` / `-Password` | no | Credentials embedded into `default.vrd`. |
-| `-AppName` | no | Publication name; defaults to the base directory name. |
-| `-ApachePath` | no | Apache root, default `tools/apache24`. |
-| `-Port` | no | HTTP port, default `8081`. |
-| `-Manual` | no | Verify configuration only, do not download/start anything. |
+`webinst` generates `default.vrd`, adds the publication block to `httpd.conf`
+and wires the platform web extension module. Restart Apache afterwards
+(`httpd.exe -k restart` or restart the service).
 
-`*` — provide either `-InfoBasePath` **or** the pair `-InfoBaseServer` + `-InfoBaseRef`.
+**Idempotency:** re-running with the same `-wsdir` replaces the publication —
+use that to switch the embedded user or refresh the module path after a
+platform upgrade. Parallel publications of the same base under different users
+(e.g. testing role-based access) — one publication per user, distinct
+`-wsdir` names.
 
-**Idempotency.** Repeated invocation with the same `-AppName` replaces the publication. Use this to:
+After success the endpoints are:
 
-- switch the embedded user (same `-AppName`, new `-UserName`);
-- restart Apache after `web-stop` (same parameters).
+- Web client: `http://localhost:<port>/<AppName>`
+- OData: `http://localhost:<port>/<AppName>/odata/standard.odata`
+- HTTP services: `http://localhost:<port>/<AppName>/hs/<RootUrl>/...`
+- Web services: `http://localhost:<port>/<AppName>/ws/<Name>?wsdl`
 
-**Parallel publication for the same base under different users** (e.g. testing role-based access) — give each one a distinct `-AppName`:
+## 3. Stop without removing the publication
 
-- `-AppName bpdemo-ivanov` (rights of `Иванов`);
-- `-AppName bpdemo-admin` (admin).
-
-After success, report:
-
-- Web client URL: `http://localhost:<Port>/<AppName>`.
-- OData: `http://localhost:<Port>/<AppName>/odata/standard.odata`.
-- HTTP services: `http://localhost:<Port>/<AppName>/hs/<RootUrl>/...`.
-- Web services: `http://localhost:<Port>/<AppName>/ws/<Name>?wsdl`.
-
----
-
-## 3. Web stop — halt without removing the publication
-
-Stops Apache but keeps the publication entries in `httpd.conf` and the generated `default.vrd` files. The next `web-publish` call (or `web-stop -Start`) brings it back up unchanged.
+Stop Apache, keep `httpd.conf` entries and `default.vrd` in place; the next
+start brings the publication back unchanged:
 
 ```powershell
-powershell.exe -NoProfile -File tools/1c-web-ops/scripts/web-stop.ps1 [-ApachePath <path>] [-Force]
+& "<apache-root>\bin\httpd.exe" -k stop
 ```
 
-Use this when:
+Use when finishing the day, releasing the port, or before backing up file
+infobases (avoids platform locks).
 
-- finishing the working day on a developer machine;
-- temporarily releasing the port for another service;
-- before backing up infobase files to avoid platform locks.
-
----
-
-## 4. Web unpublish — remove the publication
-
-Stops Apache, removes the publication block from `httpd.conf`, deletes the corresponding `default.vrd`. The infobase itself is **not** touched.
+## 4. Unpublish
 
 ```powershell
-powershell.exe -NoProfile -File tools/1c-web-ops/scripts/web-unpublish.ps1 `
-    -AppName <publication> `
-    [-ApachePath <path>] [-KeepApacheRunning]
+& "<v8-bin>\webinst.exe" -delete -apache24 `
+    -wsdir <AppName> `
+    -confpath "<apache-root>\conf\httpd.conf"
 ```
 
-Pass `-KeepApacheRunning` if other publications must keep serving — by default the script restarts Apache after editing the config.
+Removes the publication block and the `.vrd`; the infobase itself is **not**
+touched. Restart Apache if other publications must keep serving.
 
----
+## 5. Smoke test
 
-## 5. Web test — smoke test through the web client
-
-Runs an end-to-end check against the published web client via Playwright (browser automation). Two flavours:
-
-- **Smoke** — opens the URL, waits for the start page to render, asserts no platform error banner, captures a screenshot. Used as a 30-second sanity check after `web-publish`.
-- **Scripted** — feeds an action script (Russian-language section / command names) to the runner; suitable for short reproducible scenarios in CI or manual UAT.
-
-Reference runner (Node + Playwright) lives at `tools/1c-web-ops/scripts/run.mjs`. Minimum environment:
+Minimal check after publishing — the endpoint answers and renders no platform
+error banner:
 
 ```powershell
-cd tools/1c-web-ops/scripts
-npm install
-npx playwright install chromium
+Invoke-WebRequest -Uri "http://localhost:<port>/<AppName>" -UseBasicParsing | Select-Object StatusCode
 ```
 
-Smoke command:
-
-```powershell
-node tools/1c-web-ops/scripts/run.mjs smoke http://localhost:8081/bpdemo
-```
-
-Scripted command:
-
-```powershell
-node tools/1c-web-ops/scripts/run.mjs run http://localhost:8081/bpdemo scripts/scenario.js
-```
-
-A scripted scenario is a small JS file exposing helpers like `navigateSection`, `openCommand`, `fillFields`, `clickElement`, `waitForCommand`, `captureScreenshot`. Keep scenarios deterministic — no timing-based waits, only platform-event waits.
+For a real UI smoke (start page renders, login works) use the test contour of
+`agent-1c` (see `overlays/1c/tools/agent-1c/DEPLOYMENT.md`) or drive a browser
+manually. Scripted browser scenarios previously covered by the unported
+Playwright runner should live in the project's own test contour until
+`1c-web-ops` is restored.
 
 ---
 
 ## When to delegate to `metadata-manager`
 
-- Multiple operations chained (`publish → test → unpublish`).
+- Multiple operations chained (publish → test → unpublish).
 - Configuration changes that require platform restart in between.
 - Custom Apache layout or non-default port mapping.
 
-For a single read-only `web-info` or a one-shot smoke test, run the script directly — delegation overhead is not worth it.
+For a single read-only state inspection or a one-shot smoke probe, run the
+commands directly — delegation overhead is not worth it.

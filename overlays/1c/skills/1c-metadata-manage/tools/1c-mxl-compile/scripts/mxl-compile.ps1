@@ -1,9 +1,26 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Компиляция табличного документа 1С (MXL XML) из JSON-определения
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	выполняет компиляцию и валидацию JSON, показывает целевой файл
+	и завершается без записи.
+
+.EXAMPLE
+	.\mxl-compile.ps1 -JsonPath template.json -OutputPath "src\Обработка\Templates\Макет\Ext\Template.xml"
+
+.EXAMPLE
+	.\mxl-compile.ps1 -JsonPath template.json -OutputPath "src\Обработка\Templates\Макет\Ext\Template.xml" -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$JsonPath,
 
 	[Parameter(Mandatory)]
-	[string]$OutputPath
+	[string]$OutputPath,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -714,7 +731,13 @@ foreach ($key in $formatRegistry.Keys) {
 # 7k. Close document
 X '</document>'
 
-# --- 8. Write output ---
+# --- 8. Write output (DryRun gate: mutations only under explicit -Apply) ---
+
+if (-not $Apply) {
+	Write-Host "DRY RUN: would write compiled MXL template to $OutputPath" -ForegroundColor Yellow
+	Write-Host "No changes made. Re-run with -Apply to write the file."
+	exit 0
+}
 
 $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText((Join-Path (Get-Location) $OutputPath), $xml.ToString(), $enc)

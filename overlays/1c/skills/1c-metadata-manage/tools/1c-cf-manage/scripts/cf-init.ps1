@@ -1,5 +1,19 @@
 ﻿# cf-init v1.0 — Create empty 1C configuration scaffold
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Создание каркаса пустой конфигурации 1С
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов, которые были бы созданы, и завершается без изменений.
+
+.EXAMPLE
+	.\cf-init.ps1 -Name "МояКонфигурация" -OutputDir src
+
+.EXAMPLE
+	.\cf-init.ps1 -Name "МояКонфигурация" -OutputDir src -Apply
+#>
 param(
 	[Parameter(Mandatory)]
 	[string]$Name,
@@ -7,7 +21,8 @@ param(
 	[string]$OutputDir = "src",
 	[string]$Version,
 	[string]$Vendor,
-	[string]$CompatibilityMode = "Version8_3_24"
+	[string]$CompatibilityMode = "Version8_3_24",
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -191,6 +206,15 @@ $langXml = @"
 	</Language>
 </MetaDataObject>
 "@
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create configuration '$Name':" -ForegroundColor Yellow
+	Write-Host "  $cfgFile"
+	Write-Host "  $(Join-Path (Join-Path $OutputDir 'Languages') 'Русский.xml')"
+	Write-Host "No changes made. Re-run with -Apply to create the files."
+	exit 0
+}
 
 # --- Create directories ---
 if (-not (Test-Path $OutputDir)) {

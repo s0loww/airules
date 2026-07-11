@@ -7,7 +7,11 @@ Comprehensive configuration management: create scaffold, edit properties/composi
 ## 1. Init — Create Configuration Scaffold
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-init.ps1 -Name "<Name>" [-OutputDir "<path>"]
+
+# Apply: actually create the files
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-init.ps1 -Name "<Name>" [-OutputDir "<path>"] -Apply
 ```
 
 Creates minimal configuration structure: `Configuration.xml`, `Languages/Русский.xml`, and basic directory structure.
@@ -17,7 +21,7 @@ Creates minimal configuration structure: `Configuration.xml`, `Languages/Рус�
 ## 2. Edit — Modify Configuration Properties
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-edit.ps1 -ConfigPath '<path>' -Operation <op> -Value '<value>'
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-edit.ps1 -ConfigPath '<path>' -Operation <op> -Value '<value>' -Apply
 ```
 
 | Parameter | Description |
@@ -27,6 +31,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scr
 | `Value` | Value (batch via `;;`) |
 | `DefinitionFile` | JSON file with operation array |
 | `NoValidate` | Skip auto-validation |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Operations
 
@@ -44,14 +49,16 @@ Full property reference: [cf-edit-reference.md](skills/1c-metadata-manage/tools/
 ### Examples
 
 ```powershell
-# Change version and vendor
+# Change version and vendor — dry run first (prints the plan, no changes)
 ... -Operation modify-property -Value "Version=1.0.0.1 ;; Vendor=Company"
+# Then apply
+... -Operation modify-property -Value "Version=1.0.0.1 ;; Vendor=Company" -Apply
 
 # Add objects
-... -Operation add-childObject -Value "Catalog.Товары ;; Document.Заказ"
+... -Operation add-childObject -Value "Catalog.Товары ;; Document.Заказ" -Apply
 
 # Default roles
-... -Operation set-defaultRoles -Value "ПолныеПрава ;; Администратор"
+... -Operation set-defaultRoles -Value "ПолныеПрава ;; Администратор" -Apply
 ```
 
 ---
@@ -98,11 +105,13 @@ Exit code: 0 = OK, 1 = errors.
 ## Typical Workflow
 
 ```
-1c-cf-manage init        — create configuration scaffold
-1c-cf-manage edit        — set properties, add objects
+1c-cf-manage init        — create configuration scaffold (mutation: requires -Apply)
+1c-cf-manage edit        — set properties, add objects (mutation: requires -Apply)
 1c-cf-manage validate    — check correctness
 1c-cf-manage info        — view structure summary
 ```
+
+Mutating steps (`init`, `edit`) run as dry run by default: they print the plan and exit. Pass `-Apply` to write changes.
 
 ## MCP Integration
 

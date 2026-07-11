@@ -1,4 +1,18 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Добавление макета к внешней обработке 1С (EPF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов и операций, и завершается без изменений.
+
+.EXAMPLE
+	.\add-template.ps1 -ProcessorName "МояОбработка" -TemplateName "Макет" -TemplateType SpreadsheetDocument
+
+.EXAMPLE
+	.\add-template.ps1 -ProcessorName "МояОбработка" -TemplateName "Макет" -TemplateType SpreadsheetDocument -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$ProcessorName,
 
@@ -11,7 +25,9 @@
 
 	[string]$Synonym = $TemplateName,
 
-	[string]$SrcDir = "src"
+	[string]$SrcDir = "src",
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,6 +58,16 @@ $templateMetaPath = Join-Path $templatesDir "$TemplateName.xml"
 if (Test-Path $templateMetaPath) {
 	Write-Error "Макет уже существует: $templateMetaPath"
 	exit 1
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create template '$TemplateName' ($TemplateType):" -ForegroundColor Yellow
+	Write-Host "  $templateMetaPath"
+	Write-Host "  $(Join-Path (Join-Path (Join-Path $templatesDir $TemplateName) 'Ext') "Template$($tmpl.Ext)")"
+	Write-Host "  register <Template>$TemplateName</Template> in $rootXmlPath"
+	Write-Host "No changes made. Re-run with -Apply to create the template."
+	exit 0
 }
 
 # --- Создание каталогов ---

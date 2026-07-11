@@ -1,11 +1,26 @@
 ﻿# subsystem-compile v1.0 — Create 1C subsystem from JSON definition
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Создание подсистемы 1С из JSON-определения
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает целевые файлы/операции и завершается без записи.
+
+.EXAMPLE
+	.\subsystem-compile.ps1 -Value '{"name":"Продажи"}' -OutputDir src
+
+.EXAMPLE
+	.\subsystem-compile.ps1 -Value '{"name":"Продажи"}' -OutputDir src -Apply
+#>
 param(
 	[string]$DefinitionFile,
 	[string]$Value,
 	[Parameter(Mandatory)][string]$OutputDir,
 	[string]$Parent,
-	[switch]$NoValidate
+	[switch]$NoValidate,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -189,6 +204,18 @@ if ($Parent) {
 } else {
 	# Top-level subsystem
 	$subsDir = Join-Path $OutputDir "Subsystems"
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create $(Join-Path $subsDir "$objName.xml")" -ForegroundColor Yellow
+	if ($children.Count -gt 0) {
+		Write-Host "DRY RUN: would create directory $(Join-Path (Join-Path $subsDir $objName) 'Subsystems')" -ForegroundColor Yellow
+	}
+	$regTarget = if ($Parent) { $Parent } else { Join-Path $OutputDir "Configuration.xml" }
+	Write-Host "DRY RUN: would register <Subsystem>$objName</Subsystem> in $regTarget (if present)" -ForegroundColor Yellow
+	Write-Host "No changes made. Re-run with -Apply to create the subsystem."
+	exit 0
 }
 
 if (-not (Test-Path $subsDir)) {

@@ -13,9 +13,14 @@ Takes a JSON definition of a metadata object and generates XML + modules in the 
 |-----------|-------------|
 | `JsonPath` | Path to the JSON definition file |
 | `OutputDir` | Root directory of the configuration export (where `Catalogs/`, `Documents/`, etc. are located) |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
+
+# Apply: actually generate XML and register the object
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>" -Apply
 ```
 
 `OutputDir` — directory containing type subfolders (`Catalogs/`, `Documents/`, ...) and `Configuration.xml`.
@@ -188,13 +193,17 @@ Atomic modification operations on existing metadata object XML files.
 ### Inline Mode (simple operations)
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -ObjectPath "<path>" -Operation <op> -Value "<val>"
+
+# Apply: actually modify the object XML
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -ObjectPath "<path>" -Operation <op> -Value "<val>" -Apply
 ```
 
 ### JSON Mode (complex/combined operations)
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>" -Apply
 ```
 
 | Parameter | Description |
@@ -204,6 +213,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scr
 | Value | Value for inline operation |
 | DefinitionFile | JSON file with operations (alternative to Operation) |
 | NoValidate | Skip meta-validate after editing |
+| Apply | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ## Operations — Summary Table
 
@@ -248,23 +258,25 @@ For combined operations (add + remove + modify in one file), key/type synonyms, 
 ## Quick Examples
 
 ```powershell
-# Add attributes
+# Add attributes — dry run first (prints the plan, no changes)
 -Operation add-attribute -Value "Комментарий: String(200) ;; Сумма: Number(15,2) | index"
+# Then apply
+-Operation add-attribute -Value "Комментарий: String(200) ;; Сумма: Number(15,2) | index" -Apply
 
 # Add tabular section with attributes
--Operation add-ts -Value "Товары: Ном: CatalogRef.Ном | req, Кол: Number(15,3), Цена: Number(15,2)"
+-Operation add-ts -Value "Товары: Ном: CatalogRef.Ном | req, Кол: Number(15,3), Цена: Number(15,2)" -Apply
 
 # Remove attribute
--Operation remove-attribute -Value "ObsoleteAttribute"
+-Operation remove-attribute -Value "ObsoleteAttribute" -Apply
 
 # Rename + change type
--Operation modify-attribute -Value "OldName: name=NewName, type=String(500)"
+-Operation modify-attribute -Value "OldName: name=NewName, type=String(500)" -Apply
 
 # Modify object properties
--Operation modify-property -Value "CodeLength=11 ;; DescriptionLength=150"
+-Operation modify-property -Value "CodeLength=11 ;; DescriptionLength=150" -Apply
 
 # Catalog owners
--Operation set-owners -Value "Catalog.Контрагенты ;; Catalog.Организации"
+-Operation set-owners -Value "Catalog.Контрагенты ;; Catalog.Организации" -Apply
 ```
 
 ## Verification
@@ -352,9 +364,9 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-remove/s
 |-----------|:--------:|-------------|
 | ConfigDir | yes | Root directory of the export (where Configuration.xml is) |
 | Object | yes | Type and name: `Catalog.Товары`, `Document.Заказ`, etc. |
-| DryRun | no | Only show what would be deleted, no changes |
+| Apply | no | Perform the removal. Without it — dry run: only shows what would be deleted, no changes |
 | KeepFiles | no | Don't delete files, only unregister |
-| Force | no | Delete despite found references |
+| Force | no | Delete despite found references (bypass the reference check) |
 
 ## What It Does
 
@@ -385,17 +397,17 @@ References from Configuration.xml, ConfigDumpInfo.xml, and subsystems are NOT bl
 ## Examples
 
 ```powershell
-# Dry run — check references
-... -ConfigDir src/cf -Object "Catalog.Obsolete" -DryRun
-
-# Delete object with no references
+# Dry run — check references (default, no changes)
 ... -ConfigDir src/cf -Object "Catalog.Obsolete"
 
+# Delete object with no references
+... -ConfigDir src/cf -Object "Catalog.Obsolete" -Apply
+
 # Force delete despite references
-... -ConfigDir src/cf -Object "Catalog.Obsolete" -Force
+... -ConfigDir src/cf -Object "Catalog.Obsolete" -Apply -Force
 
 # Only unregister (keep files)
-... -ConfigDir src/cf -Object "Report.Old" -KeepFiles
+... -ConfigDir src/cf -Object "Report.Old" -KeepFiles -Apply
 ```
 
 Exit code: 0 = success, 1 = errors or references found.
@@ -461,7 +473,7 @@ Exit code: 0 = all checks passed, 1 = errors found.
 ## Verification Workflow
 
 ```
-1c-meta-compile <JsonPath> <OutputDir>              — generate XML
+1c-meta-compile <JsonPath> <OutputDir> -Apply       — generate XML (dry run without -Apply)
 1c-meta-validate <OutputDir>/<Type>/<Name>.xml      — check result
 1c-meta-info <OutputDir>/<Type>/<Name>.xml          — visual summary
 ```
@@ -477,12 +489,12 @@ Exit code: 0 = all checks passed, 1 = errors found.
 ## Typical Workflow
 
 ```
-1c-meta-compile <JsonPath> <OutputDir>     — create object from JSON
+1c-meta-compile <JsonPath> <OutputDir> -Apply    — create object from JSON (dry run without -Apply)
 1c-meta-validate <ObjectPath>              — validate generated XML
 1c-meta-info <ObjectPath>                  — review structure
-1c-meta-edit <ObjectPath> -Operation ...   — modify as needed
+1c-meta-edit <ObjectPath> -Operation ... -Apply  — modify as needed (dry run without -Apply)
 1c-meta-validate <ObjectPath>              — validate after editing
-1c-meta-remove -ConfigDir <path> -Object   — remove when obsolete
+1c-meta-remove -ConfigDir <path> -Object -Apply  — remove when obsolete (dry run without -Apply)
 ```
 
 ---

@@ -1,19 +1,36 @@
-# 1C Role Manage — Compile, Info, Validate
+# 1C Role Manage — Create, Info, Validate
 
 Create, analyze, and validate 1C roles (metadata + Rights.xml) for access rights management.
 
 ---
-## 1. Compile — Create Role
+## 1. Create Role — role-compile (preferred)
 
-Creates role files (metadata + Rights.xml) from a rights description. No script — the agent generates XML using templates below.
+`role-compile.ps1` compiles a JSON DSL description into both role files
+(descriptor + Rights.xml). The DSL format — presets `@view`/`@edit`, explicit
+rights, overrides, RLS, restriction templates, Russian synonyms — is
+specified in `tools/1c-role-compile/dsl-reference.md`.
 
-## Usage
+```powershell
+# Dry run (default): shows the plan, writes nothing
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-role-compile/scripts/role-compile.ps1 -DslPath role.json -RolesDir "<workspace-dir>\cfsrc\Roles"
 
+# Apply: generates <RolesDir>/<Name>.xml + <RolesDir>/<Name>/Ext/Rights.xml
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-role-compile/scripts/role-compile.ps1 -DslPath role.json -RolesDir "<workspace-dir>\cfsrc\Roles" -Apply
 ```
-1c-role-compile <RoleName> <RolesDir>
-```
 
-- **RoleName** — programmatic role name
+Contract notes: dry run by default (`-Apply` required for writes); an existing
+descriptor's **UUID is preserved** on recompile; registration in
+`Configuration.xml` is *not* automated — the script prints a reminder. Always
+follow up with `role-validate.ps1` (section 3).
+
+### Manual XML authoring (fallback)
+
+When the DSL does not cover a case, write the XML by hand using the templates
+below and verify with `role-validate.ps1` and `role-info.ps1` (sections 2–3).
+
+## Inputs
+
+- **DslPath** — JSON role description (see dsl-reference.md)
 - **RolesDir** — `Roles/` directory in configuration sources
 
 ## File Structure and Registration
@@ -343,10 +360,11 @@ Exit code: `0` — no errors, `1` — errors found.
 ... -RightsPath Roles/МояРоль/Ext/Rights.xml -MetadataPath Roles/МояРоль.xml
 ```
 
-### Verification After role-compile
+### Verification After Role Creation
+
+After creating or editing role XML manually (section 1):
 
 ```
-1c-role-compile role.json Roles/
 1c-role-validate -RightsPath Roles/МояРоль/Ext/Rights.xml -MetadataPath Roles/МояРоль.xml
 ```
 
@@ -354,9 +372,11 @@ Exit code: `0` — no errors, `1` — errors found.
 ## Typical Workflow
 
 ```
-1c-role-compile <RoleName> <RolesDir>                    — create role from description
-1c-role-validate -RightsPath <path> -MetadataPath <path>  — validate correctness
-1c-role-info <RightsPath>                                — analyze existing role before modification
+1c-role-compile -DslPath role.json -RolesDir <Roles/>        — dry run: check the plan
+1c-role-compile -DslPath role.json -RolesDir <Roles/> -Apply — generate descriptor + Rights.xml
+  (DSL spec: tools/1c-role-compile/dsl-reference.md; manual XML — fallback, templates in section 1)
+1c-role-validate -RightsPath <path> -MetadataPath <path>     — validate correctness
+1c-role-info <RightsPath>                                    — analyze existing role before modification
 ```
 
 ---

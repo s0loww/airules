@@ -1,5 +1,19 @@
 ﻿# skd-edit v1.1 — Atomic 1C DCS editor
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Атомарное редактирование схемы компоновки данных 1С (СКД)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает план операций и завершается без записи файла.
+
+.EXAMPLE
+	.\skd-edit.ps1 -TemplatePath "src\Reports\Отчёт\Templates\ОсновнаяСхемаКомпоновкиДанных" -Operation add-field -Value '{"field":"Номенклатура"}'
+
+.EXAMPLE
+	.\skd-edit.ps1 -TemplatePath "src\Reports\Отчёт\Templates\ОсновнаяСхемаКомпоновкиДанных" -Operation add-field -Value '{"field":"Номенклатура"}' -Apply
+#>
 param(
 	[Parameter(Mandatory)]
 	[string]$TemplatePath,
@@ -20,7 +34,8 @@ param(
 
 	[string]$DataSet,
 	[string]$Variant,
-	[switch]$NoSelection
+	[switch]$NoSelection,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -2281,7 +2296,13 @@ switch ($Operation) {
 	}
 }
 
-# --- 9. Save ---
+# --- 9. Save (DryRun gate: mutations only under explicit -Apply) ---
+
+if (-not $Apply) {
+	Write-Host "DRY RUN: would save changes to $resolvedPath" -ForegroundColor Yellow
+	Write-Host "No changes made. Re-run with -Apply to save the template."
+	exit 0
+}
 
 $content = $xmlDoc.OuterXml
 $content = $content -replace '(?<=<\?xml[^?]*encoding=")utf-8(?=")', 'UTF-8'

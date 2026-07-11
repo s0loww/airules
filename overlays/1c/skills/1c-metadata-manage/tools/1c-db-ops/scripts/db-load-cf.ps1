@@ -23,8 +23,9 @@
 .PARAMETER UserName
     Имя пользователя 1С
 
-.PARAMETER Password
-    Пароль пользователя
+.PARAMETER PasswordEnv
+    Имя переменной окружения, содержащей пароль пользователя.
+    Секреты не передаются аргументами командной строки (script-contract).
 
 .PARAMETER InputFile
     Путь к CF-файлу для загрузки
@@ -35,11 +36,15 @@
 .PARAMETER AllExtensions
     Загрузить все расширения из архива
 
-.EXAMPLE
-    .\db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "config.cf"
+.PARAMETER Apply
+    Применить загрузку. Без этого флага скрипт работает в режиме DryRun:
+    показывает команду, которая была бы выполнена, и завершается без изменений.
 
 .EXAMPLE
-    .\db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "ext.cfe" -Extension "МоёРасширение"
+    .\db-load-cf.ps1 -InfoBasePath "<infobase-dir>" -InputFile "config.cf"
+
+.EXAMPLE
+    .\db-load-cf.ps1 -InfoBasePath "<infobase-dir>" -InputFile "ext.cfe" -Extension "МоёРасширение" -Apply
 #>
 
 [CmdletBinding()]
@@ -60,7 +65,7 @@ param(
     [string]$UserName,
 
     [Parameter(Mandatory=$false)]
-    [string]$Password,
+    [string]$PasswordEnv,
 
     [Parameter(Mandatory=$true)]
     [string]$InputFile,
@@ -69,11 +74,27 @@ param(
     [string]$Extension,
 
     [Parameter(Mandatory=$false)]
-    [switch]$AllExtensions
+    [switch]$AllExtensions,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Apply
 )
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Resolve password from environment (script-contract: no secrets in CLI args) ---
+$Password = $null
+if ($PasswordEnv) {
+    $Password = [Environment]::GetEnvironmentVariable($PasswordEnv)
+    if (-not $Password) {
+        if ($Apply) {
+            Write-Host "Error: environment variable '$PasswordEnv' is not set or empty" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "Warning: environment variable '$PasswordEnv' is not set - dry run continues; -Apply will fail until it is set" -ForegroundColor Yellow
+    }
+}
 
 # --- Resolve V8Path ---
 if (-not $V8Path) {
@@ -136,9 +157,16 @@ try {
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
 
-    # --- Execute ---
+    # --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
     $argDisplay = $arguments -join ' '
     if ($Password) { $argDisplay = $argDisplay.Replace($Password, '***') }
+    if (-not $Apply) {
+        Write-Host "DRY RUN: would run 1cv8.exe $argDisplay" -ForegroundColor Yellow
+        Write-Host "No changes made. Re-run with -Apply to load the configuration."
+        exit 0
+    }
+
+    # --- Execute ---
     Write-Host "Running: 1cv8.exe $argDisplay"
     $process = Start-Process -FilePath $V8Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru
     $exitCode = $process.ExitCode

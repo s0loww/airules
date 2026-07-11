@@ -23,8 +23,9 @@
 .PARAMETER UserName
     Имя пользователя 1С
 
-.PARAMETER Password
-    Пароль пользователя
+.PARAMETER PasswordEnv
+    Имя переменной окружения, содержащей пароль пользователя.
+    Секреты не передаются аргументами командной строки (script-contract).
 
 .PARAMETER SourceFile
     Путь к корневому XML-файлу исходников
@@ -33,10 +34,10 @@
     Путь к выходному EPF/ERF-файлу
 
 .EXAMPLE
-    .\epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src\МояОбработка.xml" -OutputFile "build\МояОбработка.epf"
+    .\epf-build.ps1 -InfoBasePath "<infobase-dir>" -SourceFile "src\МояОбработка.xml" -OutputFile "build\МояОбработка.epf"
 
 .EXAMPLE
-    .\epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src\МойОтчёт.xml" -OutputFile "build\МойОтчёт.erf"
+    .\epf-build.ps1 -InfoBasePath "<infobase-dir>" -SourceFile "src\МойОтчёт.xml" -OutputFile "build\МойОтчёт.erf"
 #>
 
 [CmdletBinding()]
@@ -57,7 +58,7 @@ param(
     [string]$UserName,
 
     [Parameter(Mandatory=$false)]
-    [string]$Password,
+    [string]$PasswordEnv,
 
     [Parameter(Mandatory=$true)]
     [string]$SourceFile,
@@ -68,6 +69,16 @@ param(
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Resolve password from environment (script-contract: no secrets in CLI args) ---
+$Password = $null
+if ($PasswordEnv) {
+    $Password = [Environment]::GetEnvironmentVariable($PasswordEnv)
+    if (-not $Password) {
+        Write-Host "Error: environment variable '$PasswordEnv' is not set or empty" -ForegroundColor Red
+        exit 1
+    }
+}
 
 # --- Resolve V8Path ---
 if (-not $V8Path) {

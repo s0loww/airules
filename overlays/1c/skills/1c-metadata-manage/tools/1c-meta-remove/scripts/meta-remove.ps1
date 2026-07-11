@@ -7,7 +7,7 @@ param(
 	[Parameter(Mandatory)]
 	[string]$Object,
 
-	[switch]$DryRun,
+	[switch]$Apply,
 
 	[switch]$KeepFiles,
 
@@ -16,6 +16,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- DryRun by default (script-contract: mutations only under explicit -Apply) ---
+$DryRun = -not $Apply
 
 # --- Type → plural directory mapping ---
 
@@ -100,7 +103,7 @@ Write-Host "=== meta-remove: ${objType}.${objName} ==="
 Write-Host ""
 
 if ($DryRun) {
-	Write-Host "[DRY-RUN] No changes will be made"
+	Write-Host "[DRY-RUN] No changes will be made. Re-run with -Apply to perform the removal."
 	Write-Host ""
 }
 
@@ -465,6 +468,7 @@ Write-Host ""
 $totalActions = $actions + $subsystemsCleaned
 if ($DryRun) {
 	Write-Host "=== Dry run complete: $totalActions actions would be performed ==="
+	Write-Host "No changes made. Re-run with -Apply to perform the removal."
 } else {
 	Write-Host "=== Done: $totalActions actions performed ($subsystemsCleaned subsystem references removed) ==="
 }

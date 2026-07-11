@@ -1,9 +1,24 @@
 ﻿# cfe-borrow v1.0 — Borrow objects from configuration into extension (CFE)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Заимствование объектов основной конфигурации в расширение (CFE)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов, которые были бы созданы, и завершается без изменений.
+
+.EXAMPLE
+	.\cfe-borrow.ps1 -ExtensionPath ext\src -ConfigPath src -Object "Catalog.Номенклатура"
+
+.EXAMPLE
+	.\cfe-borrow.ps1 -ExtensionPath ext\src -ConfigPath src -Object "Catalog.Номенклатура" -Apply
+#>
 param(
 	[Parameter(Mandatory)][string]$ExtensionPath,
 	[Parameter(Mandatory)][string]$ConfigPath,
-	[Parameter(Mandatory)][string]$Object
+	[Parameter(Mandatory)][string]$Object,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -561,15 +576,19 @@ foreach ($item in $items) {
 
 	# Create directory in extension if needed
 	$targetDir = Join-Path $extDir $dirName
-	if (-not (Test-Path $targetDir)) {
+	if ($Apply -and -not (Test-Path $targetDir)) {
 		New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 	}
 
-	# Write borrowed object XML with UTF-8 BOM
+	# Write borrowed object XML with UTF-8 BOM (DryRun gate: mutations only under explicit -Apply)
 	$targetFile = Join-Path $targetDir "${objName}.xml"
-	$enc = New-Object System.Text.UTF8Encoding($true)
-	[System.IO.File]::WriteAllText($targetFile, $borrowedXml, $enc)
-	Info "  Created: $targetFile"
+	if ($Apply) {
+		$enc = New-Object System.Text.UTF8Encoding($true)
+		[System.IO.File]::WriteAllText($targetFile, $borrowedXml, $enc)
+		Info "  Created: $targetFile"
+	} else {
+		Info "  DRY RUN: would create $targetFile"
+	}
 
 	# Add to ChildObjects
 	Add-ToChildObjects $typeName $objName
@@ -578,26 +597,31 @@ foreach ($item in $items) {
 	$borrowedCount++
 }
 
-# --- 15. Save modified Configuration.xml ---
-$settings = New-Object System.Xml.XmlWriterSettings
-$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
-$settings.Indent = $false
-$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+# --- 15. Save modified Configuration.xml (DryRun gate: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host ""
+	Write-Host "DRY RUN: would save ChildObjects changes to $extResolvedPath" -ForegroundColor Yellow
+} else {
+	$settings = New-Object System.Xml.XmlWriterSettings
+	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
+	$settings.Indent = $false
+	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
 
-$memStream = New-Object System.IO.MemoryStream
-$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
-$script:xmlDoc.Save($writer)
-$writer.Flush(); $writer.Close()
+	$memStream = New-Object System.IO.MemoryStream
+	$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
+	$script:xmlDoc.Save($writer)
+	$writer.Flush(); $writer.Close()
 
-$bytes = $memStream.ToArray()
-$memStream.Close()
-$text = [System.Text.Encoding]::UTF8.GetString($bytes)
-if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
-$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+	$bytes = $memStream.ToArray()
+	$memStream.Close()
+	$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($extResolvedPath, $text, $utf8Bom)
-Info "Saved: $extResolvedPath"
+	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($extResolvedPath, $text, $utf8Bom)
+	Info "Saved: $extResolvedPath"
+}
 
 # --- 16. Summary ---
 Write-Host ""
@@ -607,5 +631,8 @@ Write-Host "  Config:     $cfgDir"
 Write-Host "  Borrowed:   $borrowedCount object(s)"
 foreach ($f in $borrowedFiles) {
 	Write-Host "    - $f"
+}
+if (-not $Apply) {
+	Write-Host "No changes made. Re-run with -Apply to borrow the objects."
 }
 exit 0

@@ -10,24 +10,29 @@ Takes a compact JSON definition and generates a correct Template.xml for a 1C sp
 ### Usage
 
 ```
-1c-mxl-compile <JsonPath> <OutputPath>
+1c-mxl-compile <JsonPath> <OutputPath> [-Apply]
 ```
 
 | Parameter | Required | Description |
 |-----------|:--------:|-------------|
 | JsonPath | yes | Path to JSON layout definition |
 | OutputPath | yes | Path for generated Template.xml |
+| -Apply | no | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-mxl-compile/scripts/mxl-compile.ps1 -JsonPath "<path>.json" -OutputPath "<path>/Template.xml"
+
+# Apply: actually write Template.xml
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-mxl-compile/scripts/mxl-compile.ps1 -JsonPath "<path>.json" -OutputPath "<path>/Template.xml" -Apply
 ```
 
 ### Workflow
 
 1. Write JSON definition (Write tool) → `.json` file
-2. Run `1c-mxl-compile` to generate Template.xml
+2. Run `1c-mxl-compile` with `-Apply` to generate Template.xml (dry run without `-Apply`)
 3. Run `1c-mxl-validate` to verify correctness
 4. Run `1c-mxl-info` to verify structure
 
@@ -84,7 +89,7 @@ Decompiling an existing layout for analysis or modification:
 
 1. Run `1c-mxl-decompile` to get JSON from Template.xml
 2. Analyze or modify JSON (add areas, change styles)
-3. Run `1c-mxl-compile` to generate new Template.xml
+3. Run `1c-mxl-compile` with `-Apply` to generate new Template.xml (dry run without `-Apply`)
 4. Run `1c-mxl-validate` to verify
 
 ### JSON DSL Schema
@@ -336,8 +341,8 @@ Stops after 20 errors by default (configurable via `-MaxErrors`). Summary line w
 ---
 ## Typical Workflow
 
-1. **Create new layout**: Write JSON definition → `1c-mxl-compile` → `1c-mxl-validate` → `1c-mxl-info` to verify structure
-2. **Modify existing layout**: `1c-mxl-decompile` to get JSON → analyze/modify JSON → `1c-mxl-compile` → `1c-mxl-validate`
+1. **Create new layout**: Write JSON definition → `1c-mxl-compile -Apply` (dry run without `-Apply`) → `1c-mxl-validate` → `1c-mxl-info` to verify structure
+2. **Modify existing layout**: `1c-mxl-decompile` to get JSON → analyze/modify JSON → `1c-mxl-compile -Apply` → `1c-mxl-validate`
 3. **Before writing fill code**: Run `1c-mxl-info` to understand area names and parameters, then write BSL output code following area order top to bottom
 4. **After generation or editing**: Run `1c-mxl-validate` to find structural errors before building
 

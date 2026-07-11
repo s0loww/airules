@@ -1,11 +1,27 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Удаление формы из внешней обработки 1С (EPF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список удаляемых файлов и операций, и завершается без изменений.
+
+.EXAMPLE
+	.\remove-form.ps1 -ProcessorName "МояОбработка" -FormName "Форма"
+
+.EXAMPLE
+	.\remove-form.ps1 -ProcessorName "МояОбработка" -FormName "Форма" -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$ProcessorName,
 
 	[Parameter(Mandatory)]
 	[string]$FormName,
 
-	[string]$SrcDir = "src"
+	[string]$SrcDir = "src",
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +42,18 @@ $formDir = Join-Path $formsDir $FormName
 if (-not (Test-Path $formMetaPath)) {
 	Write-Error "Метаданные формы не найдены: $formMetaPath"
 	exit 1
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would remove form '$FormName':" -ForegroundColor Yellow
+	if (Test-Path $formDir) {
+		Write-Host "  remove directory: $formDir"
+	}
+	Write-Host "  remove file: $formMetaPath"
+	Write-Host "  unregister <Form>$FormName</Form> in $rootXmlPath (DefaultForm cleared if it points to the form)"
+	Write-Host "No changes made. Re-run with -Apply to remove the form."
+	exit 0
 }
 
 # --- Удаление файлов ---

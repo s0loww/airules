@@ -1,10 +1,26 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Создание каркаса внешней обработки 1С (EPF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов, которые были бы созданы, и завершается без изменений.
+
+.EXAMPLE
+	.\init.ps1 -Name "МояОбработка" -SrcDir src
+
+.EXAMPLE
+	.\init.ps1 -Name "МояОбработка" -SrcDir src -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$Name,
 
 	[string]$Synonym = $Name,
 
-	[string]$SrcDir = "src"
+	[string]$SrcDir = "src",
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,6 +67,15 @@ $processorDir = Join-Path $SrcDir $Name
 if (Test-Path $rootFile) {
 	Write-Error "Файл уже существует: $rootFile"
 	exit 1
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create external data processor '$Name':" -ForegroundColor Yellow
+	Write-Host "  $rootFile"
+	Write-Host "  $(Join-Path (Join-Path $processorDir 'Ext') 'ObjectModule.bsl')"
+	Write-Host "No changes made. Re-run with -Apply to create the files."
+	exit 0
 }
 
 if (-not (Test-Path $SrcDir)) {

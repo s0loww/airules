@@ -29,12 +29,12 @@ File is placed at the project root (next to `.git/`).
       "id": "dev",
       "name": "Development",
       "type": "file",
-      "path": "C:\\Bases\\MyApp_Dev",
+      "path": "<bases-dir>\\MyApp_Dev",
       "user": "Admin",
       "password": "",
       "aliases": ["dev", "разработка"],
       "branches": ["dev", "develop", "feature/*"],
-      "configSrc": "C:\\WS\\myapp\\cfsrc"
+      "configSrc": "<workspace-dir>\\cfsrc"
     },
     {
       "id": "test",
@@ -126,7 +126,7 @@ Read `.v8-project.json`, output table:
 
 ```
 ID      Name           Type     Path/Server              Default
-dev     Development    file     C:\Bases\MyApp_Dev       ✓
+dev     Development    file     <bases-dir>\MyApp_Dev    ✓
 test    Test           server   srv01/MyApp_Test
 ```
 
@@ -159,9 +159,11 @@ All scripts accept the same connection parameters:
 | `-InfoBaseServer <server>` | 1C server (for server databases) |
 | `-InfoBaseRef <name>` | Database name on server |
 | `-UserName <name>` | User name |
-| `-Password <password>` | Password |
+| `-PasswordEnv <env-var-name>` | **Name** of the environment variable holding the password (e.g. `ONEC_PASSWORD`), not the password itself. Secrets are never passed as command-line arguments |
 
 Either `-InfoBasePath` or the `-InfoBaseServer` + `-InfoBaseRef` pair is required.
+
+**Dry run by default.** All mutation scripts (`db-create`, `db-run`, `db-update`, `db-load-cf`, `db-load-xml`, `db-load-git`) only print what they would do unless `-Apply` is passed. Dump scripts (`db-dump-cf`, `db-dump-xml`) have no gate — they run immediately.
 
 ### Database Resolution
 
@@ -172,7 +174,10 @@ Read `.v8-project.json` from the project root. Take `v8path` and resolve the dat
 ### 1. Create Infobase
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-create.ps1 -InfoBasePath "C:\Bases\NewDB"
+# Dry run — show the command that would be executed
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-create.ps1 -InfoBasePath "<bases-dir>\NewDB"
+# Create the infobase
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-create.ps1 -InfoBasePath "<bases-dir>\NewDB" -Apply
 ```
 
 | Extra Parameter | Description |
@@ -180,6 +185,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/script
 | `-UseTemplate <file>` | Create from template (.cf or .dt) |
 | `-AddToList` | Add to 1C infobase list |
 | `-ListName <name>` | Name in the infobase list |
+| `-Apply` | Perform the creation (without it — dry run) |
 
 After creation: offer to register via `1c-db-manage add`.
 
@@ -188,7 +194,10 @@ After creation: offer to register via `1c-db-manage add`.
 ### 2. Run 1C Enterprise
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
+# Dry run — show the launch command, do NOT start the client
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-run.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD
+# Actually launch 1C Enterprise
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-run.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -Apply
 ```
 
 | Extra Parameter | Description |
@@ -196,15 +205,19 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/script
 | `-Execute <file.epf>` | Auto-open external data processor |
 | `-CParam <string>` | Launch parameter (/C) |
 | `-URL <link>` | Navigation link (`e1cib/...` format) |
+| `-Apply` | Actually start the session. **Without `-Apply` the 1C client is NOT launched** — the script only prints the command (dry run). Required because an Enterprise session can change data (startup handlers, `/Execute`, `/C`) |
 
-Launches 1C in background — control returns immediately.
+With `-Apply`, launches 1C in background — control returns immediately.
 
 ---
 
 ### 3. Update Database Configuration
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
+# Dry run — show the command that would be executed
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-update.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD
+# Apply the update
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-update.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -Apply
 ```
 
 Applies main configuration changes to the database configuration (`/UpdateDBCfg`). Required step after `db-load-cf`, `db-load-xml`, `db-load-git`.
@@ -216,6 +229,7 @@ Applies main configuration changes to the database configuration (`/UpdateDBCfg`
 | `-Dynamic <+/->` | `+` dynamic update, `-` disable |
 | `-Server` | Server-side update |
 | `-WarningsAsErrors` | Treat warnings as errors |
+| `-Apply` | Perform the update (without it — dry run) |
 
 **Warning**: Non-dynamic update requires exclusive database access (all users must exit).
 
@@ -224,7 +238,7 @@ Applies main configuration changes to the database configuration (`/UpdateDBCfg`
 ### 4. Dump Configuration to CF
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "config.cf"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-dump-cf.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -OutputFile "config.cf"
 ```
 
 | Extra Parameter | Description |
@@ -238,15 +252,19 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/script
 ### 5. Load Configuration from CF
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -InputFile "config.cf"
+# Dry run — show the command that would be executed
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-cf.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -InputFile "config.cf"
+# Load the configuration
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-cf.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -InputFile "config.cf" -Apply
 ```
 
-> **Warning**: Loading CF **completely replaces** the configuration. Request user confirmation before executing.
+> **Warning**: Loading CF **completely replaces** the configuration. Request user confirmation before executing with `-Apply`.
 
 | Extra Parameter | Description |
 |-----------------|-------------|
 | `-InputFile <path>` | Input CF file (required) |
 | `-Extension <name>` | Load as extension |
+| `-Apply` | Perform the load (without it — dry run) |
 
 After loading: offer to run `db-update` to apply changes to the database.
 
@@ -255,7 +273,7 @@ After loading: offer to run `db-update` to apply changes to the database.
 ### 6. Dump Configuration to XML
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "src/cf" -Mode Full
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-dump-xml.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -ConfigDir "src/cf" -Mode Full
 ```
 
 | Extra Parameter | Description |
@@ -282,10 +300,13 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/script
 ### 7. Load Configuration from XML
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "src/cf" -Mode Full
+# Dry run — show the command that would be executed
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-xml.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -ConfigDir "src/cf" -Mode Full
+# Load the configuration
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-xml.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -ConfigDir "src/cf" -Mode Full -Apply
 ```
 
-> **Warning**: Full load **replaces the entire configuration**. Request user confirmation.
+> **Warning**: Full load **replaces the entire configuration**. Request user confirmation before executing with `-Apply`.
 
 | Extra Parameter | Description |
 |-----------------|-------------|
@@ -295,6 +316,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/script
 | `-ListFile <path>` | File with path list (alternative to `-Files`) |
 | `-Extension <name>` | Load into extension |
 | `-Format <format>` | `Hierarchical` (default) / `Plain` |
+| `-Apply` | Perform the load (without it — dry run) |
 
 After loading: offer to run `db-update`.
 
@@ -303,7 +325,10 @@ After loading: offer to run `db-update`.
 ### 8. Load Changes from Git
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-git.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "src/cf" -Source All
+# Dry run — only show which files would be loaded
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-git.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -ConfigDir "src/cf" -Source All
+# Load the changes
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-db-ops/scripts/db-load-git.ps1 -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -ConfigDir "src/cf" -Source All -Apply
 ```
 
 Determines changed configuration files from Git data and performs partial load into the infobase.
@@ -314,7 +339,7 @@ Determines changed configuration files from Git data and performs partial load i
 | `-Source <source>` | `All` (default) / `Staged` / `Unstaged` / `Commit` |
 | `-CommitRange <range>` | Commit range for Source=Commit (e.g. `HEAD~3..HEAD`) |
 | `-Extension <name>` | Load into extension |
-| `-DryRun` | Only show what would be loaded (no actual load) |
+| `-Apply` | Perform the load (without it — dry run: only shows what would be loaded) |
 
 #### Change Sources
 
@@ -336,22 +361,24 @@ After loading: offer to run `db-update`.
 1. Dump: `db-dump-xml` or use `1c-epf-dump`
 2. Edit BSL files
 3. Build: `1c-epf-build`
-4. Test: `db-run` with the built EPF
+4. Test: `db-run` with the built EPF (add `-Apply` — without it the session is not started)
 
 #### Load a Modified Module
 
 ```powershell
 # Partial load of a single module
-... db-load-xml ... -Mode Partial -Files "CommonModules/MyModule/Ext/Module.bsl"
+... db-load-xml ... -Mode Partial -Files "CommonModules/MyModule/Ext/Module.bsl" -Apply
 ```
 
 #### Load Git Changes into Database
 
 ```powershell
-# All uncommitted changes
+# Preview: which files would be loaded (dry run, no -Apply)
 ... db-load-git ... -Source All
-# Then apply
-... db-update ...
+# Load all uncommitted changes
+... db-load-git ... -Source All -Apply
+# Then apply to the database configuration
+... db-update ... -Apply
 ```
 
 ### Return Codes
@@ -364,7 +391,8 @@ After loading: offer to run `db-update`.
 ### Important
 
 - **DO NOT READ the scripts — just RUN them**
-- After any load operation, suggest running `db-update`
+- Mutation scripts are dry-run by default — nothing happens without `-Apply`
+- After any load operation, suggest running `db-update` (with `-Apply`)
 - Check logs after execution and show results to user
 
 ---

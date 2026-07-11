@@ -1,5 +1,19 @@
 ﻿# interface-edit v1.0 — Edit 1C CommandInterface.xml
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Редактирование командного интерфейса 1С (CommandInterface.xml)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает план операций и завершается без записи файла.
+
+.EXAMPLE
+	.\interface-edit.ps1 -CIPath "src\Subsystems\Продажи\Ext\CommandInterface.xml" -Operation hide -Value "Catalog.Номенклатура.StandardCommand.Create"
+
+.EXAMPLE
+	.\interface-edit.ps1 -CIPath "src\Subsystems\Продажи\Ext\CommandInterface.xml" -Operation hide -Value "Catalog.Номенклатура.StandardCommand.Create" -Apply
+#>
 param(
 	[Parameter(Mandatory)][string]$CIPath,
 	[string]$DefinitionFile,
@@ -7,7 +21,8 @@ param(
 	[string]$Operation,
 	[string]$Value,
 	[switch]$CreateIfMissing,
-	[switch]$NoValidate
+	[switch]$NoValidate,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,13 +45,7 @@ $script:xsiNs = "http://www.w3.org/2001/XMLSchema-instance"
 $script:xsNs = "http://www.w3.org/2001/XMLSchema"
 
 # --- Create if missing ---
-if (-not (Test-Path $CIPath)) {
-	if ($CreateIfMissing) {
-		$parentDir = [System.IO.Path]::GetDirectoryName($CIPath)
-		if (-not (Test-Path $parentDir)) {
-			New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-		}
-		$emptyCI = @"
+$emptyCI = @"
 <?xml version="1.0" encoding="UTF-8"?>
 <CommandInterface xmlns="$($script:ciNs)"
 	xmlns:xr="$($script:xrNs)"
@@ -45,20 +54,37 @@ if (-not (Test-Path $CIPath)) {
 	version="2.17">
 </CommandInterface>
 "@
-		$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-		[System.IO.File]::WriteAllText($CIPath, $emptyCI, $utf8Bom)
-		Write-Host "[INFO] Created new CommandInterface.xml: $CIPath"
+if (-not (Test-Path $CIPath)) {
+	if ($CreateIfMissing) {
+		if ($Apply) {
+			$parentDir = [System.IO.Path]::GetDirectoryName($CIPath)
+			if (-not (Test-Path $parentDir)) {
+				New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+			}
+			$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+			[System.IO.File]::WriteAllText($CIPath, $emptyCI, $utf8Bom)
+			Write-Host "[INFO] Created new CommandInterface.xml: $CIPath"
+		} else {
+			Write-Host "DRY RUN: would create new CommandInterface.xml: $CIPath" -ForegroundColor Yellow
+		}
 	} else {
 		Write-Error "File not found: $CIPath (use -CreateIfMissing to create)"
 		exit 1
 	}
 }
-$resolvedPath = (Resolve-Path $CIPath).Path
+if (Test-Path $CIPath) {
+	$resolvedPath = (Resolve-Path $CIPath).Path
+}
 
 # --- Load XML ---
 $script:xmlDoc = New-Object System.Xml.XmlDocument
 $script:xmlDoc.PreserveWhitespace = $true
-$script:xmlDoc.Load($resolvedPath)
+if (Test-Path $resolvedPath) {
+	$script:xmlDoc.Load($resolvedPath)
+} else {
+	# DryRun with -CreateIfMissing: operate on in-memory empty document
+	$script:xmlDoc.LoadXml($emptyCI)
+}
 
 $script:addCount = 0
 $script:removeCount = 0
@@ -449,29 +475,34 @@ foreach ($op in $operations) {
 	}
 }
 
-# --- Save ---
-$settings = New-Object System.Xml.XmlWriterSettings
-$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
-$settings.Indent = $false
-$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+# --- Save (DryRun gate: script-contract, mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host ""
+	Write-Host "DRY RUN: would save changes to $resolvedPath" -ForegroundColor Yellow
+} else {
+	$settings = New-Object System.Xml.XmlWriterSettings
+	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
+	$settings.Indent = $false
+	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
 
-$memStream = New-Object System.IO.MemoryStream
-$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
-$script:xmlDoc.Save($writer)
-$writer.Flush(); $writer.Close()
+	$memStream = New-Object System.IO.MemoryStream
+	$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
+	$script:xmlDoc.Save($writer)
+	$writer.Flush(); $writer.Close()
 
-$bytes = $memStream.ToArray()
-$memStream.Close()
-$text = [System.Text.Encoding]::UTF8.GetString($bytes)
-if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
-$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+	$bytes = $memStream.ToArray()
+	$memStream.Close()
+	$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
-Info "Saved: $resolvedPath"
+	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
+	Info "Saved: $resolvedPath"
+}
 
 # --- Auto-validate ---
-if (-not $NoValidate) {
+if ($Apply -and -not $NoValidate) {
 	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\interface-validate") "scripts\interface-validate.ps1"
 	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
 	if (Test-Path $validateScript) {
@@ -487,4 +518,7 @@ Write-Host "=== interface-edit summary ==="
 Write-Host "  Added:    $($script:addCount)"
 Write-Host "  Removed:  $($script:removeCount)"
 Write-Host "  Modified: $($script:modifyCount)"
+if (-not $Apply) {
+	Write-Host "No changes made. Re-run with -Apply to save changes."
+}
 exit 0

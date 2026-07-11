@@ -1,11 +1,27 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Удаление макета из внешней обработки 1С (EPF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список удаляемых файлов и операций, и завершается без изменений.
+
+.EXAMPLE
+	.\remove-template.ps1 -ProcessorName "МояОбработка" -TemplateName "Макет"
+
+.EXAMPLE
+	.\remove-template.ps1 -ProcessorName "МояОбработка" -TemplateName "Макет" -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$ProcessorName,
 
 	[Parameter(Mandatory)]
 	[string]$TemplateName,
 
-	[string]$SrcDir = "src"
+	[string]$SrcDir = "src",
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +42,18 @@ $templateDir = Join-Path $templatesDir $TemplateName
 if (-not (Test-Path $templateMetaPath)) {
 	Write-Error "Метаданные макета не найдены: $templateMetaPath"
 	exit 1
+}
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would remove template '$TemplateName':" -ForegroundColor Yellow
+	if (Test-Path $templateDir) {
+		Write-Host "  remove directory: $templateDir"
+	}
+	Write-Host "  remove file: $templateMetaPath"
+	Write-Host "  unregister <Template>$TemplateName</Template> in $rootXmlPath"
+	Write-Host "No changes made. Re-run with -Apply to remove the template."
+	exit 0
 }
 
 # --- Удаление файлов ---

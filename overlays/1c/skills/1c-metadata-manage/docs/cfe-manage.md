@@ -7,7 +7,11 @@ Comprehensive extension (CFE) management: create scaffold, borrow objects from c
 ## 1. Init — Create Extension Scaffold
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/scripts/cfe-init.ps1 -Name "МоёРасширение"
+
+# Apply: actually create the scaffold
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/scripts/cfe-init.ps1 -Name "МоёРасширение" -Apply
 ```
 
 | Parameter | Description | Default |
@@ -21,6 +25,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/sc
 | `Vendor` | Vendor | — |
 | `CompatibilityMode` | Compatibility mode | `Version8_3_24` |
 | `NoRole` | Without main role | false |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) | false |
 
 ### What Gets Created
 
@@ -40,7 +45,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/sc
 ## 2. Borrow — Borrow Objects from Configuration
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/scripts/cfe-borrow.ps1 -ExtensionPath src -ConfigPath <config> -Object "Catalog.Контрагенты"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/scripts/cfe-borrow.ps1 -ExtensionPath src -ConfigPath <config> -Object "Catalog.Контрагенты" -Apply
 ```
 
 | Parameter | Description |
@@ -48,6 +53,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/sc
 | `ExtensionPath` | Path to extension directory (required) |
 | `ConfigPath` | Path to source configuration (required) |
 | `Object` | What to borrow (required), batch via `;;` |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 Format: `Catalog.X`, `CommonModule.Y`, `Document.Z`. All 44 object types supported. Batch: `"Catalog.X ;; CommonModule.Y ;; Enum.Z"`.
 
@@ -76,7 +82,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/sc
 ## 4. Patch — Generate Method Interceptor
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/scripts/cfe-patch-method.ps1 -ExtensionPath src -ModulePath "Catalog.Контрагенты.ObjectModule" -MethodName "ПриЗаписи" -InterceptorType Before
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/scripts/cfe-patch-method.ps1 -ExtensionPath src -ModulePath "Catalog.Контрагенты.ObjectModule" -MethodName "ПриЗаписи" -InterceptorType Before -Apply
 ```
 
 | Parameter | Description | Default |
@@ -87,6 +93,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cfe-manage/sc
 | `InterceptorType` | `Before` / `After` / `ModificationAndControl` (required) | — |
 | `Context` | Context directive | `НаСервере` |
 | `IsFunction` | Method is a function (adds `Return`) | false |
+| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) | false |
 
 ### ModulePath Format
 
@@ -137,13 +144,15 @@ Exit code: 0 = OK, 1 = errors.
 
 ```
 1c-cf-manage info <config>          — get base config version/compatibility
-1c-cfe-manage init                  — create extension scaffold
-1c-cfe-manage borrow               — borrow objects to modify
-1c-cfe-manage patch                 — generate interceptors
+1c-cfe-manage init                  — create extension scaffold (mutation: requires -Apply)
+1c-cfe-manage borrow               — borrow objects to modify (mutation: requires -Apply)
+1c-cfe-manage patch                 — generate interceptors (mutation: requires -Apply)
 1c-cfe-manage validate              — check correctness
 1c-cfe-manage diff -Mode A          — review changes overview
 1c-cfe-manage diff -Mode B          — check transfer status
 ```
+
+Mutating steps (`init`, `borrow`, `patch`) run as dry run by default: they print the plan and exit. Pass `-Apply` to write changes.
 
 ## MCP Integration
 

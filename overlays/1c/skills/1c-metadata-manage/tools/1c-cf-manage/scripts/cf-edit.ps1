@@ -1,12 +1,27 @@
 ﻿# cf-edit v1.0 — Edit 1C configuration root (Configuration.xml)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+<#
+.SYNOPSIS
+	Редактирование корня конфигурации 1С (Configuration.xml)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает план операций и завершается без записи файла.
+
+.EXAMPLE
+	.\cf-edit.ps1 -ConfigPath src -Operation modify-property -Value "Version=1.2.3"
+
+.EXAMPLE
+	.\cf-edit.ps1 -ConfigPath src -Operation modify-property -Value "Version=1.2.3" -Apply
+#>
 param(
 	[Parameter(Mandatory)][string]$ConfigPath,
 	[string]$DefinitionFile,
 	[ValidateSet("modify-property","add-childObject","remove-childObject","add-defaultRole","remove-defaultRole","set-defaultRoles")]
 	[string]$Operation,
 	[string]$Value,
-	[switch]$NoValidate
+	[switch]$NoValidate,
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -481,29 +496,34 @@ foreach ($op in $operations) {
 	}
 }
 
-# --- Save ---
-$settings = New-Object System.Xml.XmlWriterSettings
-$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
-$settings.Indent = $false
-$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+# --- Save (DryRun gate: script-contract, mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host ""
+	Write-Host "DRY RUN: would save changes to $resolvedPath" -ForegroundColor Yellow
+} else {
+	$settings = New-Object System.Xml.XmlWriterSettings
+	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
+	$settings.Indent = $false
+	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
 
-$memStream = New-Object System.IO.MemoryStream
-$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
-$script:xmlDoc.Save($writer)
-$writer.Flush(); $writer.Close()
+	$memStream = New-Object System.IO.MemoryStream
+	$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
+	$script:xmlDoc.Save($writer)
+	$writer.Flush(); $writer.Close()
 
-$bytes = $memStream.ToArray()
-$memStream.Close()
-$text = [System.Text.Encoding]::UTF8.GetString($bytes)
-if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
-$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+	$bytes = $memStream.ToArray()
+	$memStream.Close()
+	$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 
-$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
-Info "Saved: $resolvedPath"
+	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
+	Info "Saved: $resolvedPath"
+}
 
 # --- Auto-validate ---
-if (-not $NoValidate) {
+if ($Apply -and -not $NoValidate) {
 	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\cf-validate") "scripts\cf-validate.ps1"
 	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
 	if (Test-Path $validateScript) {
@@ -520,4 +540,7 @@ Write-Host "  Configuration: $($script:objName)"
 Write-Host "  Added:         $($script:addCount)"
 Write-Host "  Removed:       $($script:removeCount)"
 Write-Host "  Modified:      $($script:modifyCount)"
+if (-not $Apply) {
+	Write-Host "No changes made. Re-run with -Apply to save changes."
+}
 exit 0

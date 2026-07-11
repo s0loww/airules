@@ -1,4 +1,18 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Добавление формы к объекту метаданных конфигурации 1С
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов и операций, и завершается без изменений.
+
+.EXAMPLE
+	.\form-add.ps1 -ObjectPath "src\Catalogs\Номенклатура.xml" -FormName "ФормаЭлемента" -Purpose Object
+
+.EXAMPLE
+	.\form-add.ps1 -ObjectPath "src\Catalogs\Номенклатура.xml" -FormName "ФормаЭлемента" -Purpose Object -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$ObjectPath,
 
@@ -9,7 +23,9 @@
 
 	[string]$Purpose = "Object",
 
-	[switch]$SetDefault
+	[switch]$SetDefault,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -127,6 +143,17 @@ if (Test-Path $formMetaPath) {
 $formDir = Join-Path $formsDir $FormName
 $formExtDir = Join-Path $formDir "Ext"
 $formModuleDir = Join-Path $formExtDir "Form"
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create form '$FormName' ($Purpose) for $objectType.$objectName :" -ForegroundColor Yellow
+	Write-Host "  $formMetaPath"
+	Write-Host "  $(Join-Path $formExtDir 'Form.xml')"
+	Write-Host "  $(Join-Path $formModuleDir 'Module.bsl')"
+	Write-Host "  register <Form>$FormName</Form> in ChildObjects of $ObjectPath (default form property updated if -SetDefault or first form)"
+	Write-Host "No changes made. Re-run with -Apply to create the form."
+	exit 0
+}
 
 New-Item -ItemType Directory -Path $formModuleDir -Force | Out-Null
 

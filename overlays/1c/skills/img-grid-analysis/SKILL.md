@@ -8,7 +8,7 @@ description: "Overlay a numbered grid on an image to determine column proportion
 ## Usage
 
 ```
-img-grid-analysis <ImagePath> [-c COLS] [-o OUTPUT]
+img-grid-analysis <ImagePath> [-c COLS] [-r ROWS] [-o OUTPUT]
 ```
 
 | Parameter | Required | Default | Description |
@@ -21,7 +21,7 @@ img-grid-analysis <ImagePath> [-c COLS] [-o OUTPUT]
 ## Command
 
 ```bash
-python <skill-dir>/scripts/overlay-grid.py "<ImagePath>" [-c 50] [-o "<OutputPath>"]
+python <skill-dir>/scripts/overlay-grid.py "<ImagePath>" [-c 50] [-r ROWS] [-o "<OutputPath>"]
 ```
 
 `<skill-dir>` — каталог этого скилла в раскладке текущего канала (например,

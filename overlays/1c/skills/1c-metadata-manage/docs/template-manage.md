@@ -5,7 +5,7 @@ Creates or removes a template (layout) of specified type and registers/unregiste
 ## Adding a Template
 
 ```
-1c-template-manage add <ObjectName> <TemplateName> <TemplateType>
+1c-template-manage add <ObjectName> <TemplateName> <TemplateType> [-Apply]
 ```
 
 | Parameter | Required | Default | Description |
@@ -15,11 +15,16 @@ Creates or removes a template (layout) of specified type and registers/unregiste
 | TemplateType | yes | — | Type: HTML, Text, SpreadsheetDocument, BinaryData |
 | Synonym | no | = TemplateName | Template synonym |
 | SrcDir | no | `src` | Source directory |
+| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command (EPF)
 
 ```powershell
+# Dry run (default): prints the plan, writes nothing
 pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/add-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" -TemplateType "<TemplateType>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
+
+# Apply: actually create and register the template
+pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/add-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" -TemplateType "<TemplateType>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] -Apply
 ```
 
 ### Type Mapping
@@ -63,7 +68,7 @@ If user provides a name without prefix but context is a print form, **add the `P
 ## Removing a Template
 
 ```
-1c-template-manage remove <ObjectName> <TemplateName>
+1c-template-manage remove <ObjectName> <TemplateName> [-Apply]
 ```
 
 | Parameter | Required | Default | Description |
@@ -71,11 +76,12 @@ If user provides a name without prefix but context is a print form, **add the `P
 | ObjectName | yes | — | Object name |
 | TemplateName | yes | — | Template name to remove |
 | SrcDir | no | `src` | Source directory |
+| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command (EPF)
 
 ```powershell
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/remove-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" [-SrcDir "<SrcDir>"]
+pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/remove-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" [-SrcDir "<SrcDir>"] -Apply
 ```
 
 ### What Gets Removed
@@ -93,8 +99,8 @@ pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts
 
 ## Workflow
 
-1. `1c-template-manage add` — create template scaffold
-2. For SpreadsheetDocument: use `1c-mxl-compile` to generate the template content
+1. `1c-template-manage add -Apply` — create template scaffold (dry run without `-Apply`)
+2. For SpreadsheetDocument: use `1c-mxl-compile -Apply` to generate the template content (dry run without `-Apply`)
 3. `1c-mxl-validate` — validate template structure
 4. `1c-mxl-info` — analyze template structure
 

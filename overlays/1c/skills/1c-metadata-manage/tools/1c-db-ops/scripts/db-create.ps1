@@ -29,14 +29,18 @@
 .PARAMETER ListName
     Имя базы в списке
 
-.EXAMPLE
-    .\db-create.ps1 -InfoBasePath "C:\Bases\NewDB"
+.PARAMETER Apply
+    Применить создание. Без этого флага скрипт работает в режиме DryRun:
+    показывает команду, которая была бы выполнена, и завершается без изменений.
 
 .EXAMPLE
-    .\db-create.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Test"
+    .\db-create.ps1 -InfoBasePath "<infobase-dir>"
 
 .EXAMPLE
-    .\db-create.ps1 -InfoBasePath "C:\Bases\NewDB" -UseTemplate "C:\Templates\config.cf" -AddToList -ListName "Новая база"
+    .\db-create.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Test" -Apply
+
+.EXAMPLE
+    .\db-create.ps1 -InfoBasePath "<infobase-dir>" -UseTemplate "<template.cf>" -AddToList -ListName "Новая база" -Apply
 #>
 
 [CmdletBinding()]
@@ -60,7 +64,10 @@ param(
     [switch]$AddToList,
 
     [Parameter(Mandatory=$false)]
-    [string]$ListName
+    [string]$ListName,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Apply
 )
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -129,8 +136,16 @@ try {
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
 
+    # --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+    $argDisplay = $arguments -join ' '
+    if (-not $Apply) {
+        Write-Host "DRY RUN: would run 1cv8.exe $argDisplay" -ForegroundColor Yellow
+        Write-Host "No changes made. Re-run with -Apply to create the information base."
+        exit 0
+    }
+
     # --- Execute ---
-    Write-Host "Running: 1cv8.exe $($arguments -join ' ')"
+    Write-Host "Running: 1cv8.exe $argDisplay"
     $process = Start-Process -FilePath $V8Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru
     $exitCode = $process.ExitCode
 

@@ -1,9 +1,26 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Редактирование существующей формы 1С (Form.xml) по JSON-определению
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает план добавлений (элементы/реквизиты/команды) и завершается
+	без записи файла.
+
+.EXAMPLE
+	.\form-edit.ps1 -FormPath "src\Обработка\Forms\Форма\Ext\Form.xml" -JsonPath changes.json
+
+.EXAMPLE
+	.\form-edit.ps1 -FormPath "src\Обработка\Forms\Форма\Ext\Form.xml" -JsonPath changes.json -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$FormPath,
 
 	[Parameter(Mandatory)]
-	[string]$JsonPath
+	[string]$JsonPath,
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -986,14 +1003,19 @@ if ($def.commands -and $def.commands.Count -gt 0) {
 	}
 }
 
-# === 13. Save ===
+# === 13. Save (DryRun gate: script-contract, mutations only under explicit -Apply) ===
 
-$content = $xmlDoc.OuterXml
-# Ensure encoding declaration is uppercase UTF-8
-$content = $content -replace '^<\?xml version="1.0" encoding="utf-8"\?>', '<?xml version="1.0" encoding="UTF-8"?>'
+if (-not $Apply) {
+	Write-Host "DRY RUN: would save changes to $resolvedFormPath" -ForegroundColor Yellow
+	Write-Host ""
+} else {
+	$content = $xmlDoc.OuterXml
+	# Ensure encoding declaration is uppercase UTF-8
+	$content = $content -replace '^<\?xml version="1.0" encoding="utf-8"\?>', '<?xml version="1.0" encoding="UTF-8"?>'
 
-$enc = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($resolvedFormPath, $content, $enc)
+	$enc = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($resolvedFormPath, $content, $enc)
+}
 
 # === 14. Summary ===
 
@@ -1028,4 +1050,8 @@ if ($addedElems.Count -gt 0) {
 if ($addedAttrs.Count -gt 0) { $totalParts += "$($addedAttrs.Count) attribute(s)" }
 if ($addedCmds.Count -gt 0) { $totalParts += "$($addedCmds.Count) command(s)" }
 Write-Host "Total: $($totalParts -join ', ')"
-Write-Host "Run /form-validate to verify."
+if (-not $Apply) {
+	Write-Host "No changes made. Re-run with -Apply to save the form."
+} else {
+	Write-Host "Run /form-validate to verify."
+}

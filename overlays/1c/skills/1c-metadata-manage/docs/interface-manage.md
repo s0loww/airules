@@ -9,7 +9,7 @@ Edit and validate CommandInterface.xml files for 1C subsystems.
 Operations: hide, show, place, order, subsystem-order, group-order. Full reference: [reference.md](skills/1c-metadata-manage/tools/1c-interface-manage/reference.md).
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-manage/scripts/interface-edit.ps1 -CIPath '<path>' -Operation <op> -Value '<value>'
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-manage/scripts/interface-edit.ps1 -CIPath '<path>' -Operation <op> -Value '<value>' -Apply
 ```
 
 | Parameter | Description |
@@ -20,6 +20,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-man
 | Value | Value for operation |
 | CreateIfMissing | Create file if it doesn't exist |
 | NoValidate | Skip auto-validation |
+| Apply | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Operations
 
@@ -35,20 +36,22 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-man
 ### Examples
 
 ```powershell
-# Hide a command
+# Hide a command — dry run first (prints the plan, no changes)
 ... -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList"
+# Then apply
+... -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList" -Apply
 
 # Show a command
-... -Operation show -Value "Report.Продажи.Command.Отчёт"
+... -Operation show -Value "Report.Продажи.Command.Отчёт" -Apply
 
 # Place in group
-... -Operation place -Value '{"command":"Report.X.Command.Y","group":"CommandGroup.Отчеты"}'
+... -Operation place -Value '{"command":"Report.X.Command.Y","group":"CommandGroup.Отчеты"}' -Apply
 
 # Set subsystem order
-... -Operation subsystem-order -Value '["Subsystem.X.Subsystem.A","Subsystem.X.Subsystem.B"]'
+... -Operation subsystem-order -Value '["Subsystem.X.Subsystem.A","Subsystem.X.Subsystem.B"]' -Apply
 ```
 
-Auto-validation runs after each operation. Suppress with `-NoValidate`.
+Without `-Apply` the script prints the plan and exits (dry run). Auto-validation runs after each applied operation. Suppress with `-NoValidate`.
 
 ---
 

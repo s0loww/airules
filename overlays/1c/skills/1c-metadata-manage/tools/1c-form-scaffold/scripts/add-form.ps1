@@ -1,4 +1,18 @@
-﻿param(
+﻿<#
+.SYNOPSIS
+	Добавление формы во внешнюю обработку 1С (EPF)
+
+.PARAMETER Apply
+	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
+	показывает список файлов и операций, и завершается без изменений.
+
+.EXAMPLE
+	.\add-form.ps1 -ProcessorName "МояОбработка" -FormName "Форма"
+
+.EXAMPLE
+	.\add-form.ps1 -ProcessorName "МояОбработка" -FormName "Форма" -Main -Apply
+#>
+param(
 	[Parameter(Mandatory)]
 	[string]$ProcessorName,
 
@@ -9,7 +23,9 @@
 
 	[switch]$Main,
 
-	[string]$SrcDir = "src"
+	[string]$SrcDir = "src",
+
+	[switch]$Apply
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +52,17 @@ if (Test-Path $formMetaPath) {
 $formDir = Join-Path $formsDir $FormName
 $formExtDir = Join-Path $formDir "Ext"
 $formModuleDir = Join-Path $formExtDir "Form"
+
+# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
+if (-not $Apply) {
+	Write-Host "DRY RUN: would create form '$FormName':" -ForegroundColor Yellow
+	Write-Host "  $formMetaPath"
+	Write-Host "  $(Join-Path $formExtDir 'Form.xml')"
+	Write-Host "  $(Join-Path $formModuleDir 'Module.bsl')"
+	Write-Host "  register <Form>$FormName</Form> in ChildObjects of $rootXmlPath (DefaultForm updated if -Main or first form)"
+	Write-Host "No changes made. Re-run with -Apply to create the form."
+	exit 0
+}
 
 New-Item -ItemType Directory -Path $formModuleDir -Force | Out-Null
 
