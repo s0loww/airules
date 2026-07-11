@@ -1,6 +1,23 @@
 #!/bin/sh
 # airules layer-purity gate. Blocks a commit if staged files violate a layer rule.
-python ci/check_layers.py --staged
+
+# Resolve a working Python: plain `python` may be absent or a Store shim on
+# Windows; fall back to python3, then the py launcher.
+run_check() {
+	if command -v python >/dev/null 2>&1 && python -c "" >/dev/null 2>&1; then
+		python ci/check_layers.py --staged
+	elif command -v python3 >/dev/null 2>&1; then
+		python3 ci/check_layers.py --staged
+	elif command -v py >/dev/null 2>&1; then
+		py -3 ci/check_layers.py --staged
+	else
+		echo "airules: no usable Python found (tried python, python3, py -3)." >&2
+		echo "airules: install Python or run ci/check_layers.py manually before committing." >&2
+		return 127
+	fi
+}
+
+run_check
 status=$?
 if [ "$status" -ne 0 ]; then
 	echo "airules: layer-purity check failed (ci/check_layers.py --staged). Commit aborted." >&2

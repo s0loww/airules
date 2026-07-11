@@ -1,15 +1,21 @@
 {
   "dirty": {
     "core/rules/dirty_models.md": ["model-hardcode"],
+    "core/rules/dirty_stack_terms.md": ["stack-in-core"],
     "core/agents/dirty_xhigh.md": ["xhigh-default"],
     "core/channels/dirty_stack.txt": ["stack-in-core"],
     "overlays/dirty_paths_domain.md": ["machine-paths", "domain-names"],
+    "overlays/dirty_paths_unc.md": ["machine-paths"],
+    "overlays/dirty_domain_alt.md": ["domain-names"],
     "project-template/dirty_creds.txt": ["creds-password", "creds-token", "creds-p-flag"],
+    "project-template/dirty_pass_mixed.txt": ["creds-password"],
     "overlays/dirty_nobom.ps1": ["ps1-bom"],
     "overlays/dirty_echo.ps1": ["creds-echo"]
   },
   "clean": [
     "clean/clean_sample.md",
-    "clean/clean_script.ps1"
+    "clean/clean_script.ps1",
+    "core/clean_escalation.md",
+    "overlays/clean_allow.md"
   ]
 }

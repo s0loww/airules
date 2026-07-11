@@ -41,8 +41,10 @@ TEXT_EXTENSIONS = (
 # Per-line marker that suppresses a single rule on that line.
 ALLOW_MARKER = "airules:allow"
 
-# The one file where model names are expected by design.
+# The two files where model names are expected by design: the tier map and
+# the per-model behavioral profiles rendered by the installer.
 MODEL_MAP_REL = os.path.join("core", "channels", "model-map.yaml")
+MODEL_PROFILES_REL = os.path.join("core", "channels", "model-profiles.md")
 
 # Rule id for the file-level (not line-level) BOM check below.
 PS1_BOM_RULE_ID = "ps1-bom"
@@ -57,14 +59,18 @@ def _build_rules():
         # --- credentials: whole repo (minus fixtures) ---
         {
             "id": "creds-password",
-            "regex": r"(?i)(password|пароль|passwd)\s*[=:]\s*[\"']?[^\s\"'{*]{3,}",
+            # `pass` is covered only in the `pass=value` env-file form: the
+            # prose form "Pass: ..." is a common gate wording in the rules.
+            # Values starting with $ or [ are variable/expression references
+            # (e.g. `$Password = $null`), not hardcoded literals.
+            "regex": r"(?i)(?:(?:password|пароль|passwd)\s*[=:]|\bpass\s*=)\s*[\"']?[^\s\"'{*$\[][^\s\"'{*]{2,}",
             "severity": "error",
             "layers": ("*",),
             "description": "Possible hardcoded password.",
         },
         {
             "id": "creds-p-flag",
-            "regex": r'/P"[^*"]',
+            "regex": r'/P"[^*"{]',
             "severity": "error",
             "layers": ("*",),
             "description": "Possible /P\"...\" credential flag.",
@@ -91,9 +97,16 @@ def _build_rules():
             "description": "Password variable leaked via /P command-line flag.",
         },
         # --- machine paths: core + overlays ---
+        # Three shapes: Windows drive roots that identify a concrete machine
+        # (standard install locations like "Program Files" stay allowed), UNC
+        # shares, and user-owned POSIX roots.
         {
             "id": "machine-paths",
-            "regex": r"[A-Za-z]:[\\/](Work|Users|projects|bases)\b",
+            "regex": (
+                r"(?i)(?:[A-Za-z]:[\\/](Work|Users|projects|bases|WS|repos|Temp|dev)\b"
+                r"|\\\\[A-Za-z0-9_.$-]+\\[A-Za-z0-9_.$-]+"
+                r"|(?<![\w./-])/(home|mnt)/)"
+            ),
             "severity": "error",
             "layers": ("core", "overlays"),
             "description": "Absolute machine path.",
@@ -107,9 +120,18 @@ def _build_rules():
             "description": "Concrete project / domain name.",
         },
         # --- stack terms in the generic core ---
+        # Marker identifiers plus the softer 1C vocabulary that leaked from
+        # donor material in the past (Configurator, posting, register,
+        # attribute, tabular section, scheduled-job phrasing).
         {
             "id": "stack-in-core",
-            "regex": r"(\b(BSL|COMConnector|V83|СКД|БСП)\b|1С:Предприятие|1C:Enterprise|managed forms?)",
+            "regex": (
+                r"(?i)(?:\b(BSL|COMConnector|V83|СКД|БСП)\b"
+                r"|1С:Предприятие|1C:Enterprise|managed forms?|tabular sections?"
+                r"|конфигуратор\w*|проведени\w*|реквизит\w*"
+                r"|табличн\w{0,4}\s+част\w*|регламентн\w{0,4}\s+задани\w*"
+                r"|\bрегистр(?:ы|а|у|е|ом|ов|ам|ах|ами)?\b)"
+            ),
             "severity": "error",
             "layers": ("core",),
             "description": "Domain/stack term inside generic core.",
@@ -172,9 +194,13 @@ def _rule_applies_to_path(rule, rel_path):
 
 
 def _is_exception(rule, rel_path):
-    """model-map.yaml is exempt from model-hardcode by design."""
+    """model-map.yaml and model-profiles.md are exempt from model-hardcode
+    by design (see docs/LAYERS.md)."""
     norm = rel_path.replace("\\", "/")
-    if rule["id"] == "model-hardcode" and norm == MODEL_MAP_REL.replace("\\", "/"):
+    if rule["id"] == "model-hardcode" and norm in (
+        MODEL_MAP_REL.replace("\\", "/"),
+        MODEL_PROFILES_REL.replace("\\", "/"),
+    ):
         return True
     return False
 
@@ -189,7 +215,10 @@ def _line_suppresses(line, rule_id):
 
 
 def _placeholder_ok(fragment):
-    """Placeholders {{...}} and *** are never credential violations."""
+    """Placeholders {{...}} and *** are never credential violations.
+
+    Checked against the matched fragment, not the whole line: a placeholder
+    elsewhere on the line must not mask a real secret sitting next to it."""
     if "{{" in fragment and "}}" in fragment:
         return True
     if "***" in fragment:
@@ -204,16 +233,12 @@ def _xhigh_ok(line):
 
 
 def read_text(path):
-    """Read a file as utf-8 with utf-8-sig fallback; None if it looks binary."""
-    for encoding in ("utf-8", "utf-8-sig"):
-        try:
-            with open(path, "r", encoding=encoding) as handle:
-                return handle.read()
-        except UnicodeDecodeError:
-            continue
-        except OSError:
-            return None
-    return None
+    """Read a file as utf-8 (BOM tolerated and stripped); None if undecodable."""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as handle:
+            return handle.read()
+    except (UnicodeDecodeError, OSError):
+        return None
 
 
 def check_line(rule, line, rel_path):
@@ -226,7 +251,7 @@ def check_line(rule, line, rel_path):
     fragment = match.group(0)
 
     if rule["id"] in ("creds-password", "creds-token", "creds-p-flag"):
-        if _placeholder_ok(line):
+        if _placeholder_ok(fragment):
             return None
     if rule["id"] == "xhigh-default":
         if _xhigh_ok(line):
@@ -238,6 +263,13 @@ def scan_file(path, rel_path, rules):
     """Yield (rel_path, lineno, rule_id, fragment) for every violation."""
     text = read_text(path)
     if text is None:
+        # A silently skipped file is a coverage hole (e.g. cp1251 on a
+        # Russian-locale Windows box) — warn instead of pretending it passed.
+        print(
+            "airules: WARNING: {0}: not valid UTF-8 — skipped; re-encode to "
+            "include it in the scan".format(rel_path.replace(os.sep, "/")),
+            file=sys.stderr,
+        )
         return
     lines = text.splitlines()
     for rule in rules:
@@ -335,8 +367,17 @@ def run_scan(paths):
         bom_hit = check_ps1_bom(abs_path, rel_path)
         if bom_hit is not None:
             violations.append(bom_hit)
-    _report(violations)
-    return len(violations)
+    # Two flavours of the same rule id (creds-echo, model-hardcode) may match
+    # one line; report each (path, line, rule) once.
+    seen = set()
+    unique = []
+    for violation in violations:
+        key = violation[:3]
+        if key not in seen:
+            seen.add(key)
+            unique.append(violation)
+    _report(unique)
+    return len(unique)
 
 
 def run_selftest():

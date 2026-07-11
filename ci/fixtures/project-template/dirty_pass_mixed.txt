@@ -1,0 +1,3 @@
+Dirty fixture: env-file Pass= form and a secret next to a placeholder.
+Pass=realsecret123 is a leaked credential in the project layer.
+password=abcd1234{{SUFFIX}} still leaks the real prefix before the placeholder.
