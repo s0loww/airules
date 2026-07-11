@@ -21,12 +21,21 @@ channels:
     # на канальных тирах, оркестратору — решения и сверка.
 
   codex:
-    high:   { model: gpt-5.5, reasoning: high }
-    medium: { model: gpt-5.4, reasoning: medium }
-    low:    { model: gpt-5.4-mini, reasoning: low }
-    fast:   { model: gpt-5.3-codex-spark, reasoning: low }
-    # максимальный reasoning-тир канала выдаётся только вручную, как эскалация
-    # по явному решению пользователя на конкретную сложную задачу, не дефолтом
+    # Семейство GPT-5.6 (GA 2026-07, подписочный доступ в Codex):
+    # sol — флагман, terra — качество класса gpt-5.5 за полцены, luna —
+    # самый быстрый/дешёвый. Замещает gpt-5.5/5.4/5.4-mini/5.3-codex-spark.
+    high:   { model: gpt-5.6-sol, reasoning: high }
+    medium: { model: gpt-5.6-terra, reasoning: medium }
+    low:    { model: gpt-5.6-luna, reasoning: low }
+    fast:   { model: gpt-5.6-luna, reasoning: low }
+    # fast намеренно совпадает с low: выделенной speed-модели в семействе
+    # нет; override fast сохраняет экономию для error-fixer (base medium).
+    orchestrator: gpt-5.6-sol
+    # orchestrator — класс головного агента (оркестрирует на уровне
+    # fable-класса); сессия на этой модели включает режим экономии
+    # (core/rules/orchestrator-economy.md), как и claude.orchestrator.
+    # Максимальный reasoning-тир канала выдаётся только вручную, как
+    # эскалация по явному решению пользователя на конкретную задачу.
 
   cursor:
     high:   "{{CURSOR_MODEL_HIGH}}"
