@@ -1,102 +1,98 @@
 ---
-description: "Матрица верификации по типу изменения и закрывающий гейт full-cycle. Load when deciding which checks to run before declaring a change done."
+description: "Verification matrix by change type and the closing full-cycle gate. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить."
 alwaysApply: false
 ---
 
-# Матрица верификации
+# Verification matrix
 
-Используй наименьший набор проверок, соответствующий реальному риску. Если
-проверку выполнить нельзя — сообщи почему и назови остаточный риск. Имена
-конкретных инструментов подставляет профиль проекта; ниже они описаны
-категориями.
+Use the smallest set of checks that matches the real risk. If a check cannot
+be performed — say why and name the residual risk. Concrete tool names are
+supplied by the project profile; below they are described as categories.
 
-| Тип изменения | Минимальные проверки | Добавить при росте риска |
+| Change type | Minimal checks | Add as risk grows |
 | --- | --- | --- |
-| Только доки/правила/плейбук | перечитать изменённые файлы; smoke загрузчика/роутинга, если менялась маршрутизация | независимая read-only проверка |
-| Quick-fix в коде | проверка синтаксиса изменённого модуля | статический анализ логики, если менялась логика |
-| Логика в коде | проверка синтаксиса + статический анализ | углублённое ревью для общих модулей, запросов, транзакций |
-| Запрос / доступ к данным | локальный поиск влияния + синтаксис + статический анализ | ревью параметров запроса, фильтров виртуальных таблиц, вызывающих |
-| Метаданные (XML) | валидация схемы/инструментом, когда доступна | загрузка/открытие объекта на тестовом контуре, если выполнимо |
-| Форма (XML/модуль) | инспекция разметки/событий + валидация формы, когда доступна | UI-smoke / открытие формы |
-| Интеграция / XML / JSON | проверка по схеме/образцу/эталонному payload | ревью retry/ошибок/безопасности |
-| Рефакторинг | влияние на вызывающих/использования + синтаксис/анализ | независимое ревью до финала |
-| Артефакты OpenSpec | `openspec validate` или проектный эквивалент | сверить, что tasks/specs/design остаются согласованными |
-| Плейбук/роутинг платформы | листинг и чтение правил, `suggest_workflow`, smoke-скрипт | прогнать по всем затронутым проектным профилям |
+| Docs/rules/playbook only | re-read the changed files; loader/routing smoke if routing changed | independent read-only check |
+| Quick-fix in code | syntax check of the changed module | static logic analysis if logic changed |
+| Code logic | syntax check + static analysis | deeper review for shared modules, queries, transactions |
+| Query / data access | local impact search + syntax + static analysis | review of query parameters, derived-view filters, callers |
+| Metadata (XML) | schema/tool validation when available | load/open the object on a test environment when feasible |
+| Form (XML/module) | markup/event inspection + form validation when available | UI smoke / opening the form |
+| Integration / XML / JSON | check against schema/sample/reference payload | retry/error/security review |
+| Refactoring | caller/usage impact + syntax/analysis | independent review before finishing |
+| OpenSpec artifacts | `openspec validate` or the project equivalent | verify tasks/specs/design stay consistent |
+| Platform playbook/routing | list and read the rules, `suggest_workflow`, smoke script | run across all affected project profiles |
 
-## Эскалация
+## Escalation
 
-- Общий модуль, транзакция, регистр или запрос: добавить анализ влияния.
-- Метаданные/формы: использовать инструменты работы с метаданными и валидаторы,
-  когда доступны.
-- Пользовательский сценарий: добавить ручной / UI-smoke, если инструментарий
-  позволяет.
-- Высокорисковое изменение: запустить независимый субагент-ревьюер или
-  профильного ревьюера.
+- Shared module, transaction, data store, or query: add impact analysis.
+- Metadata/forms: use metadata tools and validators when available.
+- User scenario: add manual / UI smoke if tooling allows.
+- High-risk change: run an independent reviewer subagent or a profile
+  reviewer.
 
-## Закрывающий гейт — full-cycle изменение
+## Closing gate — full-cycle change
 
-Матрица выше подбирает правильный *набор* проверок по типу изменения. Этот
-раздел добавляет *порядок и критерии остановки* для любого нетривиального
-изменения перед объявлением его «готовым». Жёсткие гейты идут по порядку;
-у каждого явный критерий pass/fail и ограниченный бюджет повторов.
+The matrix above picks the right *set* of checks by change type. This section
+adds the *order and stop criteria* for any non-trivial change before declaring
+it "done". Hard gates run in order; each has an explicit pass/fail criterion
+and a bounded retry budget.
 
-### Жёсткие гейты
+### Hard gates
 
-1. **Синтаксис** — каждый затронутый модуль через инструмент проверки синтаксиса
-   проекта. Pass: ноль элементов уровня `error`. Бюджет повтора: 1 вызов по
-   умолчанию, до 3 только если предыдущий прогон вернул содержательный дефект.
-   Один лишь стилевой шум от линтера повтор не оправдывает.
-2. **Логика и производительность** — статический анализ каждого затронутого
-   модуля, всегда *после* прохождения гейта 1. Pass: нет элементов `critical` /
-   `error`. Внутриобъёмные `warning` (внесённые твоим изменением) — чинить;
-   предсуществующие вне объёма — оставить (хирургичность правок). Если
-   результаты недетерминированы на одном и том же коде — взять самый строгий
-   набор и остановиться, не зацикливаться.
-3. **Стиль и стандарты** — стилевой/ревью-анализ каждого затронутого модуля
-   после гейта 2. Pass: нет элементов `error`. Намеренные предупреждения —
-   подавлять точечным маркером линтера с однострочной причиной; сплошные
-   подавления запрещены.
-4. **Анализ влияния (только если менялась публичная поверхность)** — пропустить
-   можно лишь для полностью внутренних изменений (приватная процедура
-   не-экспортного модуля; процедура модуля формы без экспорта; правка
-   комментария / маркера подавления линтера). Иначе перечислить вызывающих и
-   зависимых. Использовать граф вызовов и перекрёстный поиск инструментами
-   профиля проекта; затем сверить с локальным источником истины. Если граф
-   вызовов недоступен, записать в раздел «Риски»: *«Анализ влияния деградирован —
-   граф вызовов недоступен; зависимые перечислены поиском по источнику истины,
-   не рекурсивным графом»*. Для изменений метаданных включить формы/модули/запросы,
-   затрагивающие объект. Молчаливая поломка зависимых — дефект; пропуск гейта без
-   записи об этом — дефект.
-5. **Метаданные (XML) (только если правился XML)** — валидировать каждый
-   изменённый файл инструментами работы с метаданными / проектными скриптами
-   валидации (валидация формы, compile/load smoke, где доступно). Если в текущей
-   сессии доступен отдельный валидатор XSD-схемы — прогнать и его; иначе указать
-   применённый запасной способ валидации. Для файла формы дополнительно
-   подтвердить, что форма открывается в конфигураторе без предупреждений, когда
-   это выполнимо.
+1. **Syntax** — every affected module through the project's syntax check
+   tool. Pass: zero `error`-level items. Retry budget: 1 call by default, up
+   to 3 only if the previous run returned a substantive defect. Style-only
+   linter noise does not justify a retry.
+2. **Logic and performance** — static analysis of every affected module,
+   always *after* gate 1 passes. Pass: no `critical` / `error` items.
+   In-scope `warning`s (introduced by your change) — fix; pre-existing ones
+   outside the scope — leave (surgical edits). If results are
+   non-deterministic on identical code — take the strictest set and stop, do
+   not loop.
+3. **Style and standards** — style/review analysis of every affected module
+   after gate 2. Pass: no `error` items. Intentional warnings — suppress with
+   a targeted linter marker and a one-line reason; blanket suppressions are
+   forbidden.
+4. **Impact analysis (only if the public surface changed)** — may be skipped
+   only for fully internal changes (a private routine of a non-exported
+   module; a form-module routine without export; a comment / linter-marker
+   edit). Otherwise list callers and dependents. Use the call graph and
+   cross-search tools of the project profile; then verify against the local
+   source of truth. If no call graph is available, record in "Risks":
+   *"Impact analysis degraded — call graph unavailable; dependents listed by
+   source-of-truth search, not a recursive graph"*. For metadata changes
+   include forms/modules/queries that touch the object. Silently breaking a
+   dependent is a defect; skipping the gate without recording it is a defect.
+5. **Metadata (XML) (only if XML was edited)** — validate every changed file
+   with the metadata tools / project validation scripts (form validation,
+   compile/load smoke where available). If a separate XSD schema validator is
+   available in the session — run it too; otherwise state the fallback
+   validation used. For a form file additionally confirm the form opens in
+   the platform's native designer without warnings, when feasible.
 
-### Мягкие гейты — по применимости
+### Soft gates — as applicable
 
-- **A. Кейс воспроизведения (задачи отладки)** — повторить точный сценарий
-  воспроизведения из фазы 1 методики систематической отладки после фикса;
-  симптом исчез. Задокументировать в сводке. Удалить все временные отладочные
-  записи в лог, показы значений, точки останова, хардкод тестовых значений.
-- **B. Соответствие плану (любой письменный план / apply OpenSpec / одобренный
-  в чате план)** — каждый шаг выполнен, ни один молча не пропущен; diff сведён
-  по файлам (`git diff --name-only`); ни один файл вне плана не правился без
-  обоснования; галки `tasks.md` и дельты `changes/<id>/specs/` отражают
-  реальность.
-- **C. Явное пользовательское ревью кода (только когда пользователь просит)** —
-  вызвать роль `code-reviewer`; закрыть critical/major до сдачи. **Не** запускать
-  ревьюера автоматически без запроса — гейты 2-3 уже покрывают рутинную планку.
+- **A. Reproduction case (debugging tasks)** — repeat the exact reproduction
+  scenario from phase 1 of the systematic debugging method after the fix; the
+  symptom is gone. Document it in the summary. Remove all temporary debug log
+  writes, value dumps, breakpoints, hardcoded test values.
+- **B. Plan conformance (any written plan / OpenSpec apply / chat-approved
+  plan)** — every step done, none silently skipped; diff reconciled per file
+  (`git diff --name-only`); no file outside the plan edited without
+  justification; `tasks.md` checkboxes and `changes/<id>/specs/` deltas match
+  reality.
+- **C. Explicit user code review (only when the user asks)** — call the
+  `code-reviewer` role; close critical/major before handover. Do **not**
+  trigger the reviewer automatically — gates 2-3 already cover the routine
+  bar.
 
-### Сводка сдачи — что видит пользователь
+### Handover summary — what the user sees
 
-После прохождения гейтов отчёт содержит: (1) **Что сделано** — 1-3 строки, без
-преамбулы; (2) **Изменённые файлы** — каждый путь в бэктиках, одна строка;
-(3) **Источники контекста** — для нетривиальных изменений кода/метаданных
-реально использованные источники (шаблоны, код проекта, метаданные, документация
-платформы/стандартов); (4) **Риски** — только реальные, включая запись о
-деградации гейта 4 дословно; (5) **Хвосты** — замеченные, но не исправленные
-дефекты. Пустые секции опустить. Не пересказывать запрос, не перечислять
-вызванные инструменты, не добавлять пустых «структурных» секций.
+After the gates pass the report contains: (1) **What was done** — 1-3 lines,
+no preamble; (2) **Changed files** — each path in backticks, one line;
+(3) **Context sources** — for non-trivial code/metadata changes the sources
+actually used (templates, project code, metadata, platform/standards docs);
+(4) **Risks** — real ones only, including the gate-4 degradation record
+verbatim; (5) **Leftovers** — noticed but unfixed defects. Omit empty
+sections. Do not restate the request, do not list invoked tools, do not add
+empty "structural" sections.

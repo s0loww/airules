@@ -1,40 +1,50 @@
-# Шаблон agent definition
+# Agent definition template
 
-Канало-нейтральный шаблон описания субагента. Роли, tier и права берутся из
-`core/agents/ROLES.md`; правила выбора модели и делегирования — из
-`core/rules/subagents-model-routing.md`.
+Channel-neutral template for describing a subagent. Roles, tiers and rights
+come from `core/agents/ROLES.md`; model selection and delegation rules —
+from `core/rules/subagents-model-routing.md`.
 
 ## Frontmatter
 
 ```yaml
 ---
 name: <role>
-description: "<когда звать этого агента — триггеры для оркестратора>"
-tier: <high|medium|low>     # модель НЕ указывается: резолв через model-map при установке
+description: "<when to call this agent — triggers for the orchestrator>"
+tier: <high|medium|low>     # no model here: resolved via model-map at install
 tools: <ro|rw>
-allowParallel: true
+allowParallel: true         # optional; see semantics below
 ---
 ```
 
-## Тело
+`allowParallel: true` marks roles that are safe to run in several parallel
+instances (read-only roles and writers with guaranteed non-overlapping write
+scopes). The field is **absent** for roles that normally must not be
+parallelized on one codebase (implementers sharing state): absence means
+"parallel launches require an explicit orchestrator decision", not a hard
+technical ban.
 
-- **Mission** — одной строкой: что агент делает и что явно не делает.
-- **Inputs** — что оркестратор обязан передать в промпте: рабочий контекст,
-  границы задачи, критерии готовности.
-- **Boundaries** — что агенту запрещено: выходить за свой write-scope,
-  принимать финальные решения, менять источники данных, на которые он
-  опирается.
-- **Handoff** — формат возврата результата: факты со ссылками файл:строка,
-  список изменённых файлов, открытые вопросы. Выход агента — рабочий
-  материал для оркестратора, а не финальное решение.
-- **Дисциплина исполнения** — стандартный блок, добавляется инсталлятором
-  при рендере каждому агенту (текст — `core/channels/adapters.md` §4):
-  выполняй сам, не жди «фоновых» процессов, временные файлы в `var/tmp/`,
-  после финального отчёта — остановись.
+## Body
 
-## Примечание
+- **Mission** — one line: what the agent does and what it explicitly does
+  not do.
+- **Inputs** — what the orchestrator must pass in the prompt: working
+  context, task boundaries, done criteria.
+- **Boundaries** — what the agent is forbidden to do: leave its write scope,
+  make final decisions, change the data sources it relies on.
+- **Handoff** — the result format: facts with file:line references, list of
+  changed files, open questions. The agent's output is working material for
+  the orchestrator, not a final decision.
+- **Execution discipline** — standard block appended by the installer when
+  rendering every agent (text — `core/channels/adapters.md` §4): do the work
+  yourself, do not wait for "background" processes, temporary files in
+  `var/tmp/`, stop after the final report.
+- **Model profile** — appended by the installer after the discipline block,
+  per the family of the resolved model (`core/channels/model-profiles.md`).
+  Model-specific behavior lives only there, never in the role body.
 
-При раскладке дистрибутива под конкретный канал инсталлятор заменяет
-`tier` на модель этого канала (по `core/channels/model-map.yaml`) и
-переводит псевдо-значения `tools: ro|rw` в реальные имена инструментов
-канала.
+## Note
+
+When laying the distribution out for a specific channel the installer
+replaces `tier` with that channel's model (via
+`core/channels/model-map.yaml`) and expands the pseudo-values
+`tools: ro|rw` into the channel's real tool names.

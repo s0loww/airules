@@ -1,56 +1,57 @@
 ---
-description: "Как фиксировать устойчивые проектные решения, не раздувая рабочий контекст. Load when a stable non-obvious decision needs to be recorded for future agents."
+description: "How to record stable project decisions without bloating the working context. Load when a stable non-obvious decision needs to be recorded for future agents. Триггеры: журнал решений, зафиксировать решение, договорённость, компромисс"
 alwaysApply: false
 ---
 
-# Журнал решений
+# Decisions log
 
-Фиксируй решения, которые устойчивы, неочевидны, переиспользуемы и вероятно
-предотвратят будущие ошибки.
+Record decisions that are stable, non-obvious, reusable, and likely to
+prevent future mistakes.
 
-Хорошие кандидаты:
+Good candidates:
 
-- выбор источника истины;
-- отключённые или недоверенные индексы/инструменты;
-- проектные правила строже стандарта;
-- повторяющиеся требования к верификации;
-- архитектурные компромиссы, принятые пользователем;
-- доменные ограничения.
+- source of truth choices;
+- disabled or untrusted indexes/tools;
+- project rules stricter than the standard;
+- recurring verification requirements;
+- architectural trade-offs accepted by the user;
+- domain constraints.
 
-Не фиксируй секреты, персональные данные, временные наблюдения и факты,
-которые дёшево выводятся из текущих файлов.
+Do not record secrets, personal data, transient observations, or facts that
+are cheap to derive from the current files.
 
-## Куда записывать
+## Where to record
 
-- Изменение OpenSpec: `design.md`, `proposal.md` или `tasks.md`, когда решение
-  относится к активному изменению.
-- Пакет-источник правил: обновить исходники правил в репозитории дистрибутива
-  (относительный путь в дереве репо), когда решение должно направлять будущих
-  агентов во всех каналах. Не править руками установленные канальные копии,
-  кроме явного локального неуправляемого оверрайда.
-- Хранилище знаний проекта: глобальные, критичные, устойчивые, невыводимые
-  факты для людей и будущей передачи.
-- Документация: `docs/decisions/*`, если репозиторий ведёт ADR-подобные
-  документы.
+- OpenSpec change: `design.md`, `proposal.md`, or `tasks.md`, when the
+  decision belongs to an active change.
+- Rules source package: update the rule sources in the distribution
+  repository (relative path within the repo tree) when the decision should
+  guide future agents across all channels. Do not hand-edit installed
+  channel copies, except for an explicit local unmanaged override.
+- Project knowledge store: global, critical, stable, non-derivable facts
+  for humans and future handover.
+- Documentation: `docs/decisions/*`, if the repository keeps ADR-like
+  documents.
 
-## Формат
+## Format
 
-Короткие записи:
+Short entries:
 
 ```text
-Decision: <что выбрано>
-Reason: <почему>
-Scope: <где применяется>
-Verification: <как узнать, что оно всё ещё в силе>
+Decision: <what was chosen>
+Reason: <why>
+Scope: <where it applies>
+Verification: <how to know it still holds>
 ```
 
-## Записанные решения
+## Recorded decisions
 
-Раздел ведётся в целевом проекте. Пример записи (шаблон, не реальное решение):
+This section is maintained in the target project. Example entry (a
+template, not a real decision):
 
 ```text
-Decision: <короткая формулировка выбранного решения>
-Reason: <первопричина: сбой, ограничение или договорённость>
-Scope: <где применяется — проект, класс модулей, класс запросов>
-Verification: <правило/чек-лист/тест, где решение зафиксировано и проверяется>
+Decision: <short statement of the chosen decision>
+Reason: <root cause: a failure, a constraint, or an agreement>
+Scope: <where it applies — project, class of modules, class of queries>
+Verification: <rule/checklist/test where the decision is captured and checked>
 ```

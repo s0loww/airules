@@ -1,65 +1,65 @@
 ---
-description: "Контракт автоматизационных скриптов: DryRun/Apply, exit-коды, отчёты, креды, идемпотентность. Load when writing or reviewing automation scripts."
+description: "Automation script contract: DryRun/Apply, exit codes, reports, credentials, idempotency. Load when writing or reviewing automation scripts. Триггеры: скрипт, автоматизация, мутации данных, отчёт скрипта, идемпотентность"
 alwaysApply: false
 ---
 
-# Контракт автоматизационных скриптов
+# Automation script contract
 
-Правила ниже обязательны для любого скрипта, который автоматизирует
-изменение данных или состояния системы. Скрипт, не отвечающий контракту, не
-принимается в работу — независимо от языка или платформы, на которой он
-написан.
+The rules below are mandatory for any script that automates changes to
+data or system state. A script that does not meet the contract is not
+accepted — regardless of the language or platform it is written in.
 
-## Мутации только под явным флагом
+## Mutations only behind an explicit flag
 
-По умолчанию скрипт работает в режиме DryRun: показывает, что́ он изменил бы,
-но не трогает данные. Реальное применение включается только явным флагом
-(`-Apply`/`--apply` или эквивалент). Скрипт без DryRun-режима не принимается
-в работу.
+By default the script runs in DryRun mode: it shows what it would change
+but does not touch the data. Real application is enabled only by an
+explicit flag (`-Apply`/`--apply` or an equivalent). A script without a
+DryRun mode is not accepted.
 
-## Честные exit-коды
+## Honest exit codes
 
-Код `0` означает только полный успех. Частичный успех, пропуски или
-предупреждения возвращают ненулевой код или явный итоговый статус в выводе.
-Ошибки не глотаются молча — они всплывают в коде возврата и в отчёте.
+Code `0` means full success only. Partial success, skips, or warnings
+return a non-zero code or an explicit final status in the output. Errors
+are not swallowed silently — they surface in the return code and in the
+report.
 
-## Проверяемый отчёт
+## Verifiable report
 
-Мутационный скрипт пишет машиночитаемый отчёт (CSV/JSON): что нашёл, что
-изменил, что пропустил и почему. Отчёт сохраняется в лог-каталог проекта, а
-не только печатается в консоль — иначе результат невозможно перепроверить
-после запуска.
+A mutating script writes a machine-readable report (CSV/JSON): what it
+found, what it changed, what it skipped and why. The report is saved to
+the project's log directory, not only printed to the console — otherwise
+the result cannot be re-checked after the run.
 
-## Верификация после Apply
+## Verification after Apply
 
-После применения изменений скрипт перечитывает реальное состояние и сверяет
-его с ожидаемым результатом. Коду возврата и собственному отчёту скрипта не
-доверяют на слово — верификация идёт от независимо прочитанных данных, а не
-от того, что скрипт сам о себе сообщил.
+After applying changes, the script re-reads the real state and compares it
+with the expected result. The return code and the script's own report are
+not taken at face value — verification comes from independently read data,
+not from what the script reported about itself.
 
-## Креды
+## Credentials
 
-Секреты берутся только из git-ignored файла окружения или переменных
-окружения. Запрещено: секреты в коде, в аргументах командной строки, в
-`echo`/логах/отчётах. При выводе строки подключения или похожего значения
-секрет маскируется (`***`).
+Secrets come only from a git-ignored environment file or from environment
+variables. Forbidden: secrets in code, in command-line arguments, in
+`echo`/logs/reports. When printing a connection string or a similar value,
+the secret is masked (`***`).
 
-## Идемпотентность
+## Idempotency
 
-Повторный запуск с теми же параметрами не ломает состояние. Перед изменением
-скрипт сверяет «уже сделано?» и пропускает уже выполненный шаг, а не
-повторяет мутацию вслепую.
+A repeated run with the same parameters does not break state. Before
+making a change the script checks "already done?" and skips a step that
+is already completed instead of blindly repeating the mutation.
 
-## Структура: lib/ + доменные папки
+## Structure: lib/ + domain folders
 
-Переиспользуемое ядро (подключение, обёртки, запросы, экспорт) живёт в
-`lib/`; одноразовые и доменные сценарии лежат в папках по задачам и
-подключают `lib/`, а не дублируют его. Перед написанием нового скрипта
-сначала ищут готовый или образец в существующих папках.
+The reusable core (connection, wrappers, queries, export) lives in
+`lib/`; one-off and domain scenarios live in per-task folders and include
+`lib/` instead of duplicating it. Before writing a new script, first look
+for an existing one or a sample in the existing folders.
 
-## Кто пишет и кто исполняет
+## Who writes and who executes
 
-Написание и изменение скрипта — задача для ролей уровня medium/high;
-исполнение уже готового и проверенного скрипта — задача для low-tier
-исполнителя со сверкой реальных логов. Подробности резолва роли/tier — в
+Writing and changing a script is a task for medium/high-tier roles;
+executing a ready, verified script is a task for a low-tier executor with
+verification of the real logs. Details of role/tier resolution are in
 `subagents-model-routing.md`.

@@ -1,71 +1,76 @@
 ---
-description: "Режим экономии оркестратора: головной агент на модели класса выше канальных тиров максимально делегирует исполнение субагентам, оставляя себе решения и сверку. Load when the session runs on an orchestrator-class model or the user enables economy mode."
+description: "Orchestrator economy mode: the lead agent on a model class above the channel tiers delegates execution to subagents as much as possible, keeping decisions and verification for itself. Load when the session runs on an orchestrator-class model or the user enables economy mode. Триггеры: режим экономии, оркестратор, делегирование, дорогая модель"
 alwaysApply: false
 ---
 
-# Оркестратор-эконом (подключаемый режим)
+# Orchestrator economy (pluggable mode)
 
-## Когда режим включён
+## When the mode is on
 
-- **Автоматически** — модель головного агента принадлежит тиру `orchestrator`
-  из `core/channels/model-map.yaml` текущего канала (класс выше `high`): её
-  токены кратно дороже канальных тиров.
-- **Вручную** — пользователь включает фразой («режим экономии» / «economy
-  mode») или строкой в корневом контракте: `Оркестрация: economy`.
-- **Выключение** — `Оркестрация: standard` или явное указание пользователя;
-  тогда головной агент волен выполнять работу сам по обычным правилам
-  делегирования (`subagents-model-routing.md`).
+- **Automatically** — the lead agent's model belongs to the `orchestrator`
+  tier of the current channel's `core/channels/model-map.yaml` (a class
+  above `high`): its tokens are several times more expensive than the
+  channel tiers.
+- **Manually** — the user enables it with a phrase ("режим экономии" /
+  "economy mode") or with a line in the root contract:
+  `Оркестрация: economy`.
+- **Disabling** — `Оркестрация: standard` or an explicit user instruction;
+  the lead agent is then free to do the work itself under the usual
+  delegation rules (`subagents-model-routing.md`).
 
-## Принцип
+## Principle
 
-Токены оркестратора — самый дорогой ресурс сессии. В режиме economy головной
-агент **не выполняет сам ничего, что способна выполнить роль канального
-тира**: он думает, решает и сверяет; читают и пишут — субагенты.
+Orchestrator tokens are the most expensive resource of the session. In
+economy mode the lead agent **does not do anything itself that a
+channel-tier role is capable of doing**: it thinks, decides, and verifies;
+subagents do the reading and writing.
 
-## Разделение труда
+## Division of labor
 
-Оркестратор оставляет себе:
+The orchestrator keeps for itself:
 
-- декомпозицию задачи и порядок работ;
-- архитектурные решения; развилки — пользователю, не субагенту;
-- спецификации субагентам (со всеми принятыми решениями внутри);
-- точечную сверку рапортов с первоисточниками;
-- интеграцию результатов и финальный отчёт.
+- task decomposition and the order of work;
+- architectural decisions; decision forks go to the user, not to a
+  subagent;
+- specs for subagents (with all accepted decisions inside);
+- spot-checking reports against primary sources;
+- integrating results and the final report.
 
-Делегируется всегда:
+Always delegated:
 
-- разведка, инвентарь, массовое чтение источников — `explorer` (low);
-- написание файлов, кода, документов по готовой спеке — `developer` /
-  `doc-writer` / профильная роль своего тира;
-- механические многофайловые правки — bounded-worker с непересекающимся
-  write-scope;
-- исполнение готовых скриптов и снятие логов — low-исполнитель
-  (см. `script-contract.md`).
+- exploration, inventory, bulk reading of sources — `explorer` (low);
+- writing files, code, documents from a ready spec — `developer` /
+  `doc-writer` / the specialized role of its tier;
+- mechanical multi-file edits — a bounded-worker with a non-overlapping
+  write scope;
+- running ready scripts and collecting logs — a low-tier executor
+  (see `script-contract.md`).
 
-Правило вывода: собственный текст оркестратора минимален — решения, спеки,
-сводки. **Тела файлов оркестратор не пишет. Не делай сам то, что
-делегируется.**
+Output rule: the orchestrator's own text is minimal — decisions, specs,
+summaries. **The orchestrator does not write file bodies. Do not do
+yourself what gets delegated.**
 
-## Дисциплина режима
+## Mode discipline
 
-- Спека субагенту содержит готовые решения: субагент исполняет, а не
-  изобретает (формат — `subagent-task-templates.md`, передача между стадиями —
-  Handoff из `subagent-pipeline.md`).
-- Независимые задачи запускаются параллельно; пока субагенты работают,
-  оркестратор не простаивает и не дублирует их работу.
-- Рапорты разведки сверяются точечно по первоисточникам (быстрый grep/чтение
-  фрагмента): лёгкие модели галлюцинируют — сверка обязательна до принятия
-  решений на основе рапорта.
-- Ревью результатов — выборочное (ключевые файлы, самые конфликтные решения),
-  а не полное перечитывание: полное чтение съедает экономию.
-- Эскалация: субагент дважды не справился по внятной спеке — оркестратор
-  делает сам; третья итерация дороже собственного исполнения.
+- A spec for a subagent contains ready decisions: the subagent executes,
+  it does not invent (format — `subagent-task-templates.md`, transfer
+  between stages — the Handoff from `subagent-pipeline.md`).
+- Independent tasks run in parallel; while subagents work, the
+  orchestrator does not idle and does not duplicate their work.
+- Exploration reports are spot-checked against primary sources (a quick
+  grep / reading a fragment): light models hallucinate — verification is
+  mandatory before making decisions based on a report.
+- Review of results is selective (key files, the most contentious
+  decisions), not a full re-read: full reading eats up the savings.
+- Escalation: if a subagent failed twice on a clear spec — the
+  orchestrator does it itself; a third iteration costs more than doing it
+  directly.
 
-## Границы применимости
+## Applicability boundaries
 
-- Тривиальные правки (уровень quick-fix из `collaboration-modes.md`) не
-  делегируются: накладные расходы запуска субагента выше экономии.
-- Ответы на вопросы пользователя, обсуждение и выбор решений — работа
-  оркестратора, режим на них не влияет.
-- Экономия растёт с объёмом: чем больше файлов читается и пишется, тем строже
-  применять режим.
+- Trivial edits (quick-fix level from `collaboration-modes.md`) are not
+  delegated: the overhead of launching a subagent exceeds the savings.
+- Answering user questions, discussion, and choosing decisions are the
+  orchestrator's work; the mode does not affect them.
+- Savings grow with volume: the more files are read and written, the more
+  strictly the mode applies.

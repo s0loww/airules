@@ -1,196 +1,192 @@
 ---
-description: "Формализованный конвейер субагентов для нетривиального изменения: план → разработка → ревью соответствия спеке → опциональное ревью кода → гейт верификации, с обязательным форматом Handoff. Load for any full-cycle task delegated across subagents."
+description: "Formalized subagent pipeline for a non-trivial change: plan → implement → spec-conformance review → optional code review → verification gate, with a mandatory Handoff format. Load for any full-cycle task delegated across subagents. Триггеры: конвейер, субагент, полный цикл, передача между этапами."
 alwaysApply: false
 ---
 
-# Конвейер субагентов — full-cycle поток
+# Subagent pipeline — full-cycle flow
 
-**Когда грузить этот файл:** любая задача, превышающая порог quick-fix
-корневого роутера (больше ~20 изменённых строк, больше одного модуля, любое
-изменение метаданных, любое архитектурное влияние, любой нетривиальный баг).
-Для quick-fix конвейер — лишний оверхед: прямая правка + проверка синтаксиса
-достаточны.
+**When to load this file:** any task above the quick-fix threshold of the root
+router (more than ~20 changed lines, more than one module, any metadata
+change, any architectural impact, any non-trivial bug). For a quick-fix the
+pipeline is overhead: a direct edit + syntax check is enough.
 
-**Спутники:** `subagents-model-routing.md` (делегирование и роутинг ролей),
-`subagent-task-templates.md` (ограниченные промпты), `verification-matrix.md`
-(закрывающий гейт).
+**Companions:** `subagents-model-routing.md` (delegation and role routing),
+`subagent-task-templates.md` (bounded prompts), `verification-matrix.md`
+(closing gate).
 
-Конвейер адаптирован из практики subagent-driven development и совмещён с
-ролями реестра `core/agents/ROLES.md` (тела — `core/agents/roles/`).
+The pipeline is adapted from subagent-driven development practice and joined
+with the role registry `core/agents/ROLES.md` (bodies — `core/agents/roles/`).
 
-## Зачем фиксированный конвейер
+## Why a fixed pipeline
 
-Без фиксированного конвейера главный агент склонен:
+Without a fixed pipeline the main agent tends to:
 
-- начинать писать код до проверки плана;
-- пропускать структурную верификацию, потому что «код маленький и очевидный»;
-- сливать проверку соответствия спеке и рутинную проверку качества в одно
-  размытое ревью и упускать обе.
+- start writing code before the plan is checked;
+- skip structural verification because "the code is small and obvious";
+- merge spec-conformance checking and routine quality review into one blurry
+  review and miss both.
 
-Конвейер убирает эти режимы отказа, разделяя **что строить** (planner), **как
-строить** (developer), **соответствие спеке** (структурное ревью родителя),
-опциональное ревью кода по запросу пользователя и финальный гейт верификации.
+The pipeline removes these failure modes by separating **what to build**
+(planner), **how to build** (developer), **spec conformance** (parent's
+structural review), the optional user-requested code review, and the final
+verification gate.
 
-## Конвейер
+## The pipeline
 
 ```
-[запрос пользователя]
+[user request]
       │
       ▼
 ┌─────────────────────────────┐
-│ 1. Triage                   │  главный агент
+│ 1. Triage                   │  main agent
 │    quick-fix vs full-cycle  │
 └──────────────┬──────────────┘
                │ full-cycle
                ▼
 ┌─────────────────────────────┐
-│ 2. План                     │  делегировать → planner
-│    plan.md / tasks.md       │  (или architect, если архитектурно)
+│ 2. Plan                     │  delegate → planner
+│    plan.md / tasks.md       │  (or architect, if architectural)
 └──────────────┬──────────────┘
                │
                ▼
 ┌─────────────────────────────┐
-│ 3. Реализация               │  делегировать → developer
-│    код + правки метаданных   │  (или metadata-manager для XML-тяжёлых)
+│ 3. Implementation           │  delegate → developer
+│    code + metadata edits    │  (or metadata-manager for XML-heavy)
 └──────────────┬──────────────┘
                │
                ▼
 ┌─────────────────────────────┐
-│ 4a. Ревью соответствия спеке │  главный агент (дёшево, структурно)
-│     совпадает с планом?     │
+│ 4a. Spec-conformance review │  main agent (cheap, structural)
+│     does it match the plan? │
 └──────────────┬──────────────┘
-               │  проходит
+               │  passes
                ▼
 ╭ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╮
-  4b. Ревью качества кода        ОПЦИОНАЛЬНО — только когда
-      стиль, анти-паттерны,      пользователь явно просит ревью.
-      стандарты                  Делегировать → code-reviewer.
-                                 Иначе пропустить; гейты 2/3 этапа 5
-                                 уже покрывают рутинное качество.
+  4b. Code quality review        OPTIONAL — only when the user
+      style, anti-patterns,      explicitly asks for review.
+      standards                  Delegate → code-reviewer.
+                                 Otherwise skip; stage-5 gates 2/3
+                                 already cover routine quality.
 ╰ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╯
                │
                ▼
 ┌─────────────────────────────┐
-│ 5. Гейт верификации         │  главный агент
+│ 5. Verification gate        │  main agent
 │    verification-matrix      │
 └──────────────┬──────────────┘
                │  pass
                ▼
-        сдать пользователю
+        hand over to the user
 ```
 
-## Правила по этапам
+## Rules per stage
 
-### Этап 1 — Triage (главный агент)
+### Stage 1 — Triage (main agent)
 
-Применить triage-правило корневого роутера: в конвейер входят **только**
-full-cycle задачи. Если задача quick-fix — править напрямую и перейти к этапу 5
-с минимальной верификацией (только проверка синтаксиса). Задачи на пути
-**docs-fix** (только Markdown / правила / доки) обходят конвейер и валидаторы
-кода — использовать строку `verification-matrix.md` «Только доки/правила/плейбук».
-Задачи на пути **spec-authoring** (артефакты OpenSpec с фактами предметной
-области) тоже обходят конвейер, но несут обязательства по доказательствам из
-`sdd-integrations.md`.
+Apply the triage rule of the root router: only **full-cycle** tasks enter the
+pipeline. If the task is a quick-fix — edit directly and go to stage 5 with
+minimal verification (syntax check only). Tasks on the **docs-fix** path
+(Markdown / rules / docs only) bypass the pipeline and code validators — use
+the `verification-matrix.md` row "Docs/rules/playbook only". Tasks on the
+**spec-authoring** path (OpenSpec artifacts with domain facts) also bypass the
+pipeline but carry the evidence obligations from `sdd-integrations.md`.
 
-Если пользователь просит небольшое изменение, которое **выглядит** как
-quick-fix, но затрагивает транзакционный путь, публичный экспорт общего модуля,
-адаптированный объект расширения, подписку на событие / регламентное задание /
-условие ограничения доступа, либо метаданные, увязанные с существующим
-поведением (переименование / удаление / немедленное использование, изменение
-ограничений доступа / индексации / проверки заполнения) — повысить до
-full-cycle. **Изолированные добавления метаданных** (новый независимый регистр /
-определяемый тип / перечисление / константа / несвязанный реквизит, без
-затронутого потребителя в том же изменении) остаются на пути quick-fix. При
-сомнении побеждает full-cycle.
+If the user asks for a small change that **looks** like a quick-fix but
+touches a transactional path, a public export of a shared module, code that
+adapts or overrides extended base behavior, an event subscription / scheduled
+job / access-restriction rule, or metadata coupled to existing behavior
+(rename / delete / immediate use, changes to access restrictions / indexing /
+fill validation) — escalate to full-cycle. **Isolated metadata additions** (a
+new independent data store / defined type / enumeration / constant /
+standalone attribute, with no affected consumer in the same change) stay on
+the quick-fix path. When in doubt, full-cycle wins.
 
-### Этап 2 — План (делегировать планирующему субагенту)
+### Stage 2 — Plan (delegate to a planning subagent)
 
-Выбирать по форме задачи:
+Pick by the shape of the task:
 
-- **`analytic`** — когда до любого плана нужен письменный PRD / спецификация /
-  исследование области. Выход: письменный анализ, без кода.
-- **`explorer`** — для широкого read-only картирования до плана: локализация
-  связанных модулей, метаданных, точек входа, зависимостей и вызывающих.
-- **`architect`** — для новых подсистем, много-модульных дизайнов, интеграций
-  или границ расширения. Выход: архитектурный документ с границами модулей и
-  потоком данных.
-- **`arch-reviewer`** — когда архитектурный дизайн уже есть и его нужно
-  валидировать перед реализацией.
-- **`planner`** — для всего остального, что укладывается в одну фичу: выдаёт
-  нумерованный список задач.
+- **`analytic`** — when a written PRD / specification / domain study is needed
+  before any plan. Output: written analysis, no code.
+- **`explorer`** — for wide read-only mapping before the plan: locating
+  related modules, metadata, entry points, dependencies and callers.
+- **`architect`** — for new subsystems, multi-module designs, integrations or
+  extension boundaries. Output: an architecture document with module
+  boundaries and data flow.
+- **`arch-reviewer`** — when an architectural design already exists and needs
+  validation before implementation.
+- **`planner`** — for everything else that fits one feature: produces a
+  numbered task list.
 
-План должен удовлетворять критериям приёмки до этапа 3:
+The plan must satisfy the acceptance criteria before stage 3:
 
-- Каждая задача достаточно мала, чтобы её выполнил энергичный джуниор без
-  контекста проекта: обычно 1 файл / 1 процедура / ≤ ~20 изменённых строк на
-  задачу.
-- Каждая задача называет точные пути файлов и точные имена процедур — никаких
-  «обнови связанные модули».
-- У каждой задачи есть шаг верификации (проверка синтаксиса, запрос через
-  инструмент, утверждение, ручное воспроизведение).
-- Риски и откат явны, особенно для изменений метаданных (стабильность UUID,
-  движения по регистрам, выдача прав ролей).
-- План отревьюен пользователем. Одобрение пользователя — жёсткий гейт; без него
-  на этап 3 не переходить.
+- Each task is small enough for an eager junior with no project context:
+  usually 1 file / 1 routine / ≤ ~20 changed lines per task.
+- Each task names exact file paths and exact routine names — no "update the
+  related modules".
+- Each task has a verification step (syntax check, a tool query, an
+  assertion, manual reproduction).
+- Risks and rollback are explicit, especially for metadata changes (UUID
+  stability, data-store writes and migrations, role permission grants).
+- The plan is reviewed by the user. User approval is a hard gate; do not move
+  to stage 3 without it.
 
-Для проектов на рабочем процессе OpenSpec план живёт в
-`openspec/changes/<change-name>/tasks.md`, дизайн — в `design.md`. Конвейер не
-заменяет OpenSpec — он встраивается в фазу **apply**.
+For projects on the OpenSpec workflow the plan lives in
+`openspec/changes/<change-name>/tasks.md`, the design in `design.md`. The
+pipeline does not replace OpenSpec — it plugs into the **apply** phase.
 
-### Этап 3 — Реализация (делегировать реализующему субагенту)
+### Stage 3 — Implementation (delegate to an implementing subagent)
 
-Выбирать по форме задачи:
+Pick by the shape of the task:
 
-- **`developer`** — массовые изменения кода по модулям, общим модулям,
-  серверным / клиентским процедурам.
-- **`metadata-manager`** — когда основная масса изменения в метаданных: новые
-  объекты, формы, отчёты, макеты, роли, расширения, табличные части, реквизиты.
-- **`refactoring`** — чистка мёртвого кода, дедупликация, извлечение по многим
-  модулям.
-- **`performance-optimizer`** — когда явная задача оптимизировать медленный
-  запрос / цикл / проведение / отчёт.
-- **`error-fixer`** — исправление ошибок выполнения / синтаксиса без
-  архитектурной переработки. Внутри использовать методику систематической
-  отладки.
+- **`developer`** — bulk code changes across modules, shared modules,
+  server / client routines.
+- **`metadata-manager`** — when the bulk of the change is in metadata: new
+  objects, forms, reports, layouts, roles, extensions, nested tables,
+  attributes.
+- **`refactoring`** — dead-code cleanup, deduplication, extraction across
+  many modules.
+- **`performance-optimizer`** — when the explicit task is to optimize a slow
+  query / loop / transactional write / report.
+- **`error-fixer`** — fixing runtime / syntax errors without architectural
+  rework. Use the systematic debugging method inside.
 
-Реализующий субагент связан планом из этапа 2. Изменения вне плана («раз уж мы
-тут») запрещены — если разработчик замечает реальный дефект ортогонально плану,
-он должен сообщить о нём родителю, а не молча чинить.
+The implementing subagent is bound by the stage-2 plan. Out-of-plan changes
+("while we're here") are forbidden — if the developer notices a real defect
+orthogonal to the plan, it must report it to the parent, not silently fix it.
 
-Реализующий субагент отвечает за:
+The implementing subagent is responsible for:
 
-- правку кода / XML;
-- прогон собственной проверки синтаксиса каждого затронутого модуля до сдачи;
-- сохранение заголовков модулей, регионов и код-стиля проекта (правило
-  стандартов разработки — правило стека, если установлен оверлей);
-- удаление только тех импортов / переменных / процедур, которые **его
-  собственные** изменения сделали неиспользуемыми — никогда предсуществующего
-  мёртвого кода;
-- сведение diff против плана, файл за файлом;
-- выдачу структурированного блока **Handoff** (см. ниже «Этап 3 — Handoff между
-  реализующими субагентами»), когда то же изменение продолжит другой
-  реализующий субагент.
+- editing code / XML;
+- running its own syntax check on every touched module before handover;
+- preserving module headers, regions and the project code style (the
+  dev-standards rule — a stack rule, if an overlay is installed);
+- removing only those imports / variables / routines that **its own** changes
+  made unused — never pre-existing dead code;
+- reconciling the diff against the plan, file by file;
+- producing a structured **Handoff** block (see "Stage 3 — Handoff between
+  implementing subagents" below) whenever another implementing subagent will
+  continue the same change.
 
-### Этап 3 — Handoff между реализующими субагентами
+### Stage 3 — Handoff between implementing subagents
 
-Когда этап 3 разбит на несколько реализующих субагентов внутри одного изменения
-(типичная цепочка: `metadata-manager` делает заглушки и метаданные, затем
-`developer` наполняет тела; либо `developer` пишет основную массу, а
-`refactoring` консолидирует), родитель **обязан** не давать нижестоящему
-субагенту перечитывать то, что вышестоящий уже произвёл. Перечитывание раздувает
-контекст нижестоящего, тратит минуты на файл и является повторяющимся режимом
-отказа неформальных цепочек.
+When stage 3 is split across several implementing subagents within one change
+(typical chain: `metadata-manager` builds stubs and metadata, then
+`developer` fills the bodies; or `developer` writes the bulk and
+`refactoring` consolidates), the parent **must** prevent the downstream
+subagent from re-reading what the upstream already produced. Re-reading
+bloats the downstream context, costs minutes per file, and is a recurring
+failure mode of informal chains.
 
-Механизм — блок **Handoff** фиксированного формата, который каждый вышестоящий
-реализующий субагент ставит в начало своего финального отчёта, который родитель
-передаёт дословно и который нижестоящий субагент трактует как авторитетный
-инвентарь.
+The mechanism is a fixed-format **Handoff** block that every upstream
+implementing subagent places at the top of its final report, that the parent
+passes on verbatim, and that the downstream subagent treats as the
+authoritative inventory.
 
-**Обязательный формат Handoff (выдаётся вышестоящим субагентом в самом верху
-финального отчёта):**
+**Mandatory Handoff format (produced by the upstream subagent at the very top
+of its final report):**
 
 ```text
-## Handoff (для следующего субагента)
+## Handoff (for the next subagent)
 
 ### Artifacts
 - <full repo path> — <one-line role> [stub | done | edited]
@@ -198,14 +194,14 @@ full-cycle. **Изолированные добавления метаданны
 
 ### Public surface
 - <ObjectName>.<RoutineName>(<params>) → <return type> — <one-line purpose>
-- <Metadata.Object> — <attribute / tabular section / form name>: <type / role>
+- <Metadata.Object> — <attribute / nested table / form name>: <type / role>
 - ...
 
-### Open TODOs / stubs (для следующего субагента)
+### Open TODOs / stubs (for the next subagent)
 - <file>:<region or routine> — <what to implement> — <signature hint, if pre-agreed>
 - ...
 
-### Locked decisions (не пересматривать без согласования)
+### Locked decisions (do not revisit without approval)
 - <decision> — <one-line rationale>
 - ...
 
@@ -213,149 +209,148 @@ full-cycle. **Изолированные добавления метаданны
 - <CONFUSION-id> — <one-line summary> — <status: resolved / pending>
 ```
 
-Блок — **не** маркетинговая сводка, а машиночитаемый инвентарь. Держать каждую
-строку короткой (≤120 символов), один факт на строку, без прозаических абзацев
-внутри блока.
+The block is **not** a marketing summary but a machine-readable inventory.
+Keep every line short (≤120 chars), one fact per line, no prose paragraphs
+inside the block.
 
-**Обязанности родителя:**
+**Parent responsibilities:**
 
-- Вызывая следующего реализующего субагента на том же изменении, родитель
-  **обязан** включить блок Handoff вышестоящего дословно в промпт нового
-  субагента под заголовком `## Upstream Handoff`. Никакого пересказа,
-  переформатирования или выборочного пропуска — пересказ есть главный источник
-  дрейфа между этапами.
-- Если у родителя есть собственные дополнительные инструкции (доп. ограничения,
-  новая обратная связь пользователя), они идут в отдельной секции **после**
-  `## Upstream Handoff`, а не подмешиваются в него.
-- Родитель **не** переписывает артефакты в собственной прозе промпта — Handoff
-  и есть инвентарь.
+- When calling the next implementing subagent on the same change, the parent
+  **must** include the upstream Handoff block verbatim in the new subagent's
+  prompt under the heading `## Upstream Handoff`. No retelling, reformatting
+  or selective omission — retelling is the main source of drift between
+  stages.
+- If the parent has its own additional instructions (extra constraints, new
+  user feedback), they go in a separate section **after** `## Upstream
+  Handoff`, not mixed into it.
+- The parent does **not** rewrite the artifacts in its own prompt prose — the
+  Handoff is the inventory.
 
-**Обязанности нижестоящего субагента:**
+**Downstream subagent responsibilities:**
 
-- Нижестоящий субагент **обязан** прочитать блок `## Upstream Handoff` первым и
-  трактовать `### Artifacts`, `### Public surface` и `### Locked decisions` как
-  авторитетные. Переоткрытие их чтением файлов запрещено.
-- Нижестоящий субагент **не должен** делать широкие чтения файлов или дублировать
-  сбор контекста через инструменты (структура модуля, детали метаданных,
-  разметка формы, парсинг-хелперы, `Glob`) по объектам / файлам, уже
-  перечисленным в Handoff «для контекста» или «на проверку». Точечный вызов
-  допустим **только** когда конкретная деталь, нужная для текущей правки,
-  отсутствует в Handoff (например точный UUID, точная строка TODO-маркера внутри
-  существующего региона, полный список реквизитов табличной части, которую
-  вышестоящий свёл до `<attribute / tabular section …>`). Перед таким вызовом
-  субагент одним предложением называет, какой детали не хватает и почему одного
-  Handoff недостаточно.
-- Нижестоящий субагент **обязан** сохранять `### Locked decisions`, если только
-  пользователь (не родитель) явно не разрешит пересмотр. Если запертое решение
-  оказывается блокером корректной реализации — поднять `CONFUSION`, а не молча
-  переопределять.
-- Нижестоящий субагент добавляет собственный блок Handoff в начало **своего**
-  отчёта, если ожидается ещё один реализующий субагент; иначе его отчёт идёт
-  прямо на этап 4a.
+- The downstream subagent **must** read the `## Upstream Handoff` block first
+  and treat `### Artifacts`, `### Public surface` and `### Locked decisions`
+  as authoritative. Rediscovering them by reading files is forbidden.
+- The downstream subagent **must not** do broad file reads or duplicate
+  context gathering via tools (module structure, metadata details, form
+  markup, parsing helpers, `Glob`) on objects / files already listed in the
+  Handoff "for context" or "to check". A targeted call is allowed **only**
+  when a specific detail needed for the current edit is missing from the
+  Handoff (e.g. an exact UUID, the exact TODO-marker line inside an existing
+  region, the full attribute list of a nested table that the upstream reduced
+  to `<attribute / nested table …>`). Before such a call the subagent names
+  in one sentence which detail is missing and why the Handoff alone is not
+  enough.
+- The downstream subagent **must** preserve `### Locked decisions` unless the
+  user (not the parent) explicitly allows a revision. If a locked decision
+  turns out to block a correct implementation — raise a `CONFUSION`, do not
+  silently override.
+- The downstream subagent adds its own Handoff block at the top of **its**
+  report if yet another implementing subagent is expected; otherwise its
+  report goes straight to stage 4a.
 
-**Анти-паттерны:**
+**Anti-patterns:**
 
-- Нижестоящий субагент открывает `Read` по каждому файлу из `### Artifacts`
-  «чтобы загрузить контекст» — инвентарь **и есть** контекст.
-- Родитель пересказывает Handoff своими словами «чтобы короче» — пересказ стирает
-  ту самую точность, ради которой формат существует.
-- Вышестоящий выдаёт Handoff, где сказано лишь «см. файлы выше» — это подрывает
-  смысл; Handoff обязан перечислить артефакты и публичную поверхность, а не
-  указывать на diff.
-- Вышестоящий встраивает прозаические объяснения в `### Locked decisions` —
-  держать одну строку обоснования; длинное обсуждение идёт в тело отчёта, не в
-  инвентарь.
+- The downstream subagent opens `Read` on every file from `### Artifacts` "to
+  load context" — the inventory **is** the context.
+- The parent retells the Handoff in its own words "to keep it short" —
+  retelling erases exactly the precision the format exists for.
+- The upstream produces a Handoff that only says "see the files above" — this
+  defeats the purpose; the Handoff must list the artifacts and the public
+  surface, not point at the diff.
+- The upstream embeds prose explanations into `### Locked decisions` — keep
+  the one-line rationale; long discussion goes into the report body, not the
+  inventory.
 
-### Этап 4a — Ревью соответствия спеке (главный агент, дёшево)
+### Stage 4a — Spec-conformance review (main agent, cheap)
 
-Этот этап ведёт главный агент — **не** субагент. Это структурная проверка, не
-ревью кода.
+The main agent leads this stage — **not** a subagent. It is a structural
+check, not a code review.
 
-Чек-лист:
+Checklist:
 
-- Каждая задача плана выполнена; ни одна молча не пропущена.
-- Ни один файл вне плана не правился (проверить `git diff --name-only`).
-- Имена, типы параметров, типы возврата новых публичных процедур совпадают с
-  планом.
-- Новые / удалённые объекты метаданных совпадают с планом; UUID сохранены при
-  правках, а не перегенерированы.
-- Заголовки модулей (блоки комментариев `// Возвращает / Параметры` по правилу
-  стандартов разработки, если установлен оверлей стека) присутствуют на новых
-  публичных процедурах.
+- Every plan task is done; none silently skipped.
+- No file outside the plan was edited (check `git diff --name-only`).
+- Names, parameter types, return types of new public routines match the plan.
+- New / removed metadata objects match the plan; UUIDs preserved on edits,
+  not regenerated.
+- Module headers (return/parameter comment blocks per the dev-standards rule,
+  if a stack overlay is installed) are present on new public routines.
 
-Если что-то не проходит — вернуть на этап 3 с точной дельтой. Если применим
-опциональный 4b — не переходить к нему, пока 4a не чист. Это дешёвый гейт;
-запуск 4b до 4a — впустую потраченный ресурс.
+If something fails — return to stage 3 with the exact delta. If the optional
+4b applies — do not start it until 4a is clean. This is a cheap gate; running
+4b before 4a wastes the reviewer on a structurally wrong implementation.
 
-### Этап 4b — Ревью качества кода (делегировать `code-reviewer`, когда применимо)
+### Stage 4b — Code quality review (delegate to `code-reviewer` when applicable)
 
-Два важных ограничения из реестра ролей и `subagents-model-routing.md`:
+Two hard constraints from the role registry and `subagents-model-routing.md`:
 
-- Роль `code-reviewer` запускается **только когда пользователь явно просит ревью
-  кода**. Авто-триггер после каждой правки запрещён.
-- Для задач без запроса ревью родитель всё равно сам прогоняет статический анализ
-  и стилевое ревью на этапе 5 — этого достаточно для рутины.
+- The `code-reviewer` role runs **only when the user explicitly asks for a
+  code review**. Auto-triggering after every edit is forbidden.
+- For tasks without a review request the parent still runs static analysis
+  and style review itself at stage 5 — enough for routine work.
 
-Когда пользователь просит ревью, субагент смотрит на:
+When the user asks for review, the subagent looks at:
 
-- анти-паттерны из правил анти-паттернов и решений платформы (правила стека,
-  если установлен оверлей);
-- стандарты платформы через справочные инструменты профиля проекта;
-- предупреждения линтера через инструмент стилевого ревью;
-- паттерны запросов, транзакционную безопасность, гранулярность блокировок,
-  границы проведения.
+- anti-patterns from the anti-pattern and platform-solutions rules (stack
+  rules, if an overlay is installed);
+- platform standards via the project profile's reference tools;
+- linter warnings via the style-review tool;
+- query patterns, transactional safety, lock granularity, transaction
+  boundaries.
 
-Субагент сообщает проблемы по критичности (critical / major / minor). Critical
-блокируют сдачу; minor информационны.
+The subagent reports issues by severity (critical / major / minor). Critical
+blocks handover; minor is informational.
 
-### Этап 5 — Гейт верификации (главный агент)
+### Stage 5 — Verification gate (main agent)
 
-Прогнать закрывающий гейт из `verification-matrix.md`. Для full-cycle задач это
-не обсуждается.
+Run the closing gate from `verification-matrix.md`. For full-cycle tasks this
+is non-negotiable.
 
-## Контроль завершения субагента
+## Subagent completion control
 
-Оркестратор отвечает за жизненный цикл каждого запуска:
+The orchestrator owns the lifecycle of every launch:
 
-- Промпт субагенту всегда начинается строкой «выполняй сам, не жди фоновых
-  процессов» (см. `subagent-task-templates.md`) — это профилактика известного
-  отказа «жду фонового агента».
-- Получив отчёт, оркестратор проверяет, что субагент действительно **завершил**
-  работу: результат соответствует Definition of done его задачи, а не является
-  обещанием («запустил», «жду», «пришлю позже»). Отчёт-обещание = отказ.
-- Субагент, вернувший отказ или зависший в ожидании, перезапускается ОДНИМ
-  прямым сообщением «никого не жди, выполни сам до конца, начни с проверки
-  фактического состояния»; повторный отказ — остановить принудительно и
-  выполнить работу другой ролью или самому.
-- Долгоживущий субагент без промежуточных признаков работы (нет новых файлов,
-  логов, изменений состояния) — кандидат на принудительную остановку, а не на
-  ожидание.
+- Every subagent prompt starts with the line "do the work yourself, do not
+  wait for background processes" (see `subagent-task-templates.md`) — this
+  prevents the known "waiting for a background agent" failure.
+- On receiving a report, the orchestrator verifies the subagent actually
+  **finished**: the result matches the Definition of done of its task and is
+  not a promise ("started", "waiting", "will send later"). A promise-report =
+  a failure.
+- A subagent that returned a failure or hung waiting is restarted with ONE
+  direct message: "wait for no one, finish the work yourself, start by
+  checking the actual state"; a second failure — stop it forcibly and do the
+  work with another role or yourself.
+- A long-running subagent with no intermediate signs of work (no new files,
+  logs, state changes) is a candidate for forced stop, not for waiting.
 
-## Анти-паттерны конвейера
+## Pipeline anti-patterns
 
-- **Пропуск этапа 2** «потому что изменение маленькое» — если оно маленькое, оно
-  должно было быть quick-fix на этапе 1.
-- **Позволить реализующему субагенту перепланировать** — если план оказался
-  неверен, вернуться на этап 2, а не давать этапу 3 молча переписать его.
-- **Запуск опционального 4b до 4a** — тратит ревьюера на структурно неверную
-  реализацию.
-- **Авто-триггер `code-reviewer`** — явно запрещён без запроса пользователя.
-- **Параллелизация этапа 3 по умолчанию** — метаданные плотно перекрёстно
-  связаны; параллельные субагенты на одной конфигурации склонны портить UUID и
-  ломать ссылки. Параллелить только когда подзадачи доказуемо независимы
-  (например один новый отчёт + одна новая функция общего модуля без общих
-  метаданных).
-- **«Заодно поправлю этот линт, раз уж в файле»** на этапе 3 — хирургичность
-  правок; сообщить, а не чинить.
+- **Skipping stage 2** "because the change is small" — if it is small, it
+  should have been a quick-fix at stage 1.
+- **Letting the implementing subagent re-plan** — if the plan turned out
+  wrong, go back to stage 2, do not let stage 3 silently rewrite it.
+- **Running the optional 4b before 4a** — wastes the reviewer on a
+  structurally wrong implementation.
+- **Auto-triggering `code-reviewer`** — explicitly forbidden without a user
+  request.
+- **Parallelizing stage 3 by default** — metadata is densely cross-linked;
+  parallel subagents on the same configuration tend to corrupt UUIDs and
+  break references. Parallelize only when subtasks are provably independent
+  (e.g. one new report + one new shared-module function with no shared
+  metadata).
+- **"I'll fix this lint while I'm in the file"** at stage 3 — edits are
+  surgical; report, do not fix.
 
-## Когда отклоняться
+## When to deviate
 
-Конвейер — дефолт для full-cycle задач. Отклоняться только с явной причиной:
+The pipeline is the default for full-cycle tasks. Deviate only with an
+explicit reason:
 
-- чисто документационные изменения — `doc-writer` напрямую, без плана / разработки
-  / ревью;
-- чисто UI-прогоны против существующей сборки — `tester` напрямую;
-- чисто архитектурное ревью без изменения кода — `arch-reviewer` напрямую.
+- pure documentation changes — `doc-writer` directly, no plan / development /
+  review;
+- pure UI runs against an existing build — `tester` directly;
+- pure architecture review with no code change — `arch-reviewer` directly.
 
-Задокументировать отклонение в сводке сдачи, чтобы пользователь мог его
-проверить.
+Document the deviation in the handover summary so the user can check it.

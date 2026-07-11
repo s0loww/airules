@@ -1,32 +1,34 @@
 ---
-description: "Пред-полётный чек-лист перед нетривиальными правками в потенциально грязной рабочей копии. Load before full-cycle work, metadata/form/rules edits, refactoring, generators, or risky automation."
+description: "Pre-flight checklist before non-trivial edits in a potentially dirty working copy. Load before full-cycle work, metadata/form/rules edits, refactoring, generators, or risky automation. Триггеры: предполётная проверка, рабочая копия, бэкап, грязные файлы, область записи"
 alwaysApply: false
 ---
 
-# Пред-полётная проверка рабочей копии
+# Working copy pre-flight check
 
-Применять перед full-cycle работой, правками метаданных/форм/правил,
-рефакторингом, генераторами и рискованной автоматизацией.
+Apply before full-cycle work, metadata/form/rules edits, refactoring,
+generators, and risky automation.
 
-## Чек-лист
+## Checklist
 
-1. Классифицировать задачу: quick-fix или full-cycle.
-2. Проверить статус релевантной рабочей копии, когда это git-репозиторий.
-3. Выявить несвязанные грязные файлы и не откатывать их.
-4. Определить область записи и файлы, которые вероятно будут затронуты.
-5. Прочитать правила источника истины проекта до правок.
-6. Создать бэкап с меткой времени для правил, XML метаданных, форм,
-   генераторов, массовых правок или рискованных скриптов.
-7. Решить, могут ли лёгкие субагенты вести параллельную разведку или ревью.
-8. Назвать планируемую верификацию до начала реализации.
+1. Classify the task: quick-fix or full-cycle.
+2. Check the status of the relevant working copy when it is a git
+   repository.
+3. Identify unrelated dirty files and do not revert them.
+4. Determine the write scope and the files likely to be affected.
+5. Read the project's source-of-truth rules before editing.
+6. Create a timestamped backup for rules, metadata XML, forms, generators,
+   bulk edits, or risky scripts.
+7. Decide whether light subagents can run parallel exploration or review.
+8. Name the planned verification before starting the implementation.
 
-## Бэкап
+## Backup
 
-Использовать каталог бэкапов проекта (по умолчанию `.rules-backups/`; задаётся
-в корневом контракте), если правило проекта не задаёт иное. Приложить манифест с исходными путями и назначением. Никогда
-не удалять файлы бэкапа без явного указания пользователя.
+Use the project's backup directory (default `.rules-backups/`; set in the
+root contract) unless a project rule says otherwise. Attach a manifest
+with the original paths and the purpose. Never delete backup files without
+an explicit user instruction.
 
-## Вывод
+## Output
 
-Держать сводку для пользователя короткой: цель, область записи, риски, путь к
-бэкапу, если он создан.
+Keep the summary for the user short: goal, write scope, risks, backup path
+if one was created.

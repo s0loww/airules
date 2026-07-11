@@ -1,20 +1,27 @@
 ---
 name: powershell-windows
-description: "Windows-окружение: правила PowerShell-скриптинга. Use when running shell commands, Docker operations, or HTTP requests on Windows PowerShell."
+description: "Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7+. Use when running shell commands, Docker operations, or HTTP requests on Windows. Триггеры: PowerShell, шелл на Windows, команды Windows."
 ---
 
 # PowerShell Windows — Scripting Rules
 
+**Know your edition first.** `$PSVersionTable.PSVersion` — the rules below
+differ between Windows PowerShell 5.1 (`powershell.exe`, default on
+Windows) and PowerShell 7+ (`pwsh.exe`). When a script must run on both,
+follow the 5.1-safe column.
+
 ## Core Principles
 
 ### 1. Command Separation
-- **Wrong**: `cd "path" && command` (bash syntax)
-- **Correct**: `cd "path"; command` (PowerShell syntax)
+- PowerShell 7+: `&&` / `||` pipeline chain operators work as in bash.
+- Windows PowerShell 5.1: `&&` is a parse error — use `;` (unconditional)
+  or `if ($LASTEXITCODE -eq 0) { ... }` (conditional).
+- 5.1-safe: `cd "<project-dir>"; ./build.ps1`
 
 ### 2. Path Quoting
 - **Always use double quotes** for paths with spaces:
   ```powershell
-  cd "D:\My Projects\MyApp"
+  cd "<project-dir with spaces>"
   ```
 
 ### 3. Script Execution
@@ -24,78 +31,61 @@ description: "Windows-окружение: правила PowerShell-скрипт
   .\gradlew.bat clean build
   ```
 
-### 4. Docker Commands
-- Specify full path to docker-compose files:
-  ```powershell
-  docker-compose -f "D:\My Projects\app\docker-compose.yml" up -d
-  ```
-
-### 5. HTTP Requests
-- **Wrong**: `curl -s http://localhost:9090/status`
-- **Correct**:
+### 4. HTTP Requests
+- `curl.exe` ships with Windows 10+ — call it with the explicit `.exe`
+  suffix to bypass the 5.1 `curl` alias (which maps to Invoke-WebRequest
+  with different flags).
+- Portable alternative:
   ```powershell
   Invoke-WebRequest -Uri "http://localhost:9090/status" -UseBasicParsing
   ```
+- `-UseBasicParsing` is needed on 5.1 only; harmless (deprecated no-op) on 7+.
 
-### 6. Waiting/Delays
-- **Wrong**: `timeout 10`
-- **Correct**:
+### 5. Waiting/Delays
+- `timeout.exe` exists but breaks in non-interactive sessions ("input
+  redirection is not supported"). In scripts always:
   ```powershell
   Start-Sleep -Seconds 10
   ```
 
-### 7. JSON Handling
-- JSON parsing:
+### 6. JSON Handling
   ```powershell
   $response = Invoke-WebRequest -Uri "http://localhost:9090/status" -UseBasicParsing
   $json = $response.Content | ConvertFrom-Json
   $json | ConvertTo-Json -Depth 3
   ```
 
-### 8. Process Checking
-- Process search:
+### 7. Process Checking / Error Handling
   ```powershell
   Get-Process -Name "java" -ErrorAction SilentlyContinue
   ```
 
-### 9. Docker Operations
-- Stop containers:
+### 8. Docker Operations
+- Specify the full path to compose files when running outside the project
+  directory:
   ```powershell
-  docker-compose -f "path\to\file.yml" down
-  ```
-- Build images:
-  ```powershell
-  docker-compose -f "path\to\file.yml" build --no-cache
-  ```
-
-### 10. Error Handling
-- Ignore errors:
-  ```powershell
-  Get-Process -Name "java" -ErrorAction SilentlyContinue
+  docker-compose -f "<project-dir>\docker-compose.yml" up -d
+  docker-compose -f "<project-dir>\docker-compose.yml" down
+  docker-compose -f "<project-dir>\docker-compose.yml" build --no-cache
   ```
 
 ## Common Errors and Fixes
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `&& is not recognized` | Using bash syntax | Replace `&&` with `;` |
-| `curl not found` | curl not installed on Windows | Use `Invoke-WebRequest` |
-| `timeout not found` | timeout not supported | Use `Start-Sleep` |
-| `Path not found` | Missing quotes on spaced path | Wrap path in double quotes |
+| `&& is not recognized` | bash chaining on PowerShell 5.1 | `;` or upgrade to 7+ |
+| `curl: parameter cannot be processed` | 5.1 `curl` alias → Invoke-WebRequest | call `curl.exe` explicitly |
+| `timeout: input redirection not supported` | timeout.exe in non-interactive session | `Start-Sleep` |
+| `Path not found` | missing quotes on a spaced path | wrap path in double quotes |
 
 ## Correct Command Examples
 
 ```powershell
-# Change directory and execute command
-cd "D:\My Projects\MyApp"; ./gradlew clean build -x test
+# Change directory and build (5.1-safe)
+cd "<project-dir>"; ./gradlew clean build -x test
 
-# Wait and make HTTP request
+# Wait and probe an endpoint
 Start-Sleep -Seconds 10; Invoke-WebRequest -Uri "http://localhost:9090/status" -UseBasicParsing
-
-# Docker operations
-docker-compose -f "D:\My Projects\MyApp\docker-compose.yml" down
-docker-compose -f "D:\My Projects\MyApp\docker-compose.yml" build --no-cache
-docker-compose -f "D:\My Projects\MyApp\docker-compose.yml" up -d
 
 # Check server status
 $response = Invoke-WebRequest -Uri "http://localhost:9090/status" -UseBasicParsing
@@ -103,4 +93,4 @@ $json = $response.Content | ConvertFrom-Json
 Write-Host "Transport: $($json.mcp.transport)"
 ```
 
-Доменная COM-автоматизация — см. правило стека в соответствующем оверлее.
+Domain COM automation — see the stack rule in the corresponding overlay.

@@ -1,63 +1,63 @@
 ---
-description: "Контекст-паки: под тип задачи грузится пак = правило + скилл + категория инструментов + источник истины. Load when starting a recurring class of task and picking what to read up front."
+description: "Context packs: per task type a pack is loaded = rule + skill + tool category + source of truth. Load when starting a recurring class of task and picking what to read up front. Триггеры: контекст-пак, класс задач, источник истины, что читать"
 alwaysApply: false
 ---
 
-# Контекст-паки
+# Context packs
 
-Контекст-пак — маленькая стартовая карта для повторяющегося класса задач. Он
-избавляет от повторного переоткрытия одного и того же и держит контекст
-тяжёлой модели сфокусированным.
+A context pack is a small starting map for a recurring class of tasks. It
+avoids re-discovering the same things over and over and keeps the heavy
+model's context focused.
 
-Пак — это развёрнутая строка мини-таблицы роутинга из корневого контракта
-(`core/templates/AGENTS.md`): где мини-таблица даёт пару «триггер → правило →
-роль», пак раскрывает её до полного состава загрузки. Правила при этом всё
-равно грузятся лениво по Rule Index в момент применения — пак лишь называет,
-что именно подключить, а не предзагружает.
+A pack is an expanded row of the routing mini-table from the root contract
+(`core/templates/AGENTS.md`): where the mini-table gives a "trigger → rule →
+role" pair, the pack expands it into the full loading set. Rules are still
+loaded lazily via the Rule Index at the moment of application — the pack
+only names what to plug in, it does not preload.
 
-Каждый пак называет:
+Each pack names:
 
-- цель и когда его применять;
-- правила/скиллы к чтению (по Rule Index);
-- категорию инструментов профиля проекта для навигации;
-- файлы/каталоги источника истины;
-- обычную верификацию (по `verification-matrix.md`);
-- известные ловушки и запрещённые источники.
+- the goal and when to apply it;
+- rules/skills to read (via the Rule Index);
+- a project-profile tool category for navigation;
+- source-of-truth files/directories;
+- the usual verification (per `verification-matrix.md`);
+- known traps and forbidden sources.
 
-## Generic-паки
+## Generic packs
 
-### Изменение кода
+### Code change
 
-Читать: правила стандартов разработки проекта + `verification-matrix`.
+Read: the project's development standards rules + `verification-matrix`.
 
-Использовать: локальный источник истины проекта; поиск по коду / RAG профиля —
-только для навигации; шаблоны/документация — по мере нужды.
+Use: the project's local source of truth; profile code search / RAG — for
+navigation only; templates/documentation — as needed.
 
-Проверять: синтаксис; статический анализ логики и стилевое ревью — по риску
-(см. `verification-matrix.md`).
+Verify: syntax; static logic analysis and style review — by risk
+(see `verification-matrix.md`).
 
-### Метаданные / формы
+### Metadata / forms
 
-Читать: скилл работы с метаданными + правила форм проекта.
+Read: the metadata skill + the project's form rules.
 
-Использовать: локальный XML метаданных / файлы форм как источник истины.
+Use: local metadata XML / form files as the source of truth.
 
-Проверять: валидацию метаданных/формы и открываемость, когда доступны.
+Verify: metadata/form validation and that the form opens, when available.
 
 ### OpenSpec
 
-Читать: релевантный скилл `openspec-*` + `sdd-integrations`.
+Read: the relevant `openspec-*` skill + `sdd-integrations`.
 
-Использовать: `openspec/changes/<id>` и `openspec/specs`.
+Use: `openspec/changes/<id>` and `openspec/specs`.
 
-Проверять: дельты tasks/design/spec и проектную валидацию OpenSpec.
+Verify: tasks/design/spec deltas and the project's OpenSpec validation.
 
-## Доменные паки
+## Domain packs
 
-Доменные и проектные паки generic-слой не содержит — их добавляет оверлей
-стека или проектный слой. Такой пак живёт в правилах/командах/промптах
-целевого репозитория и переопределяет generic-карту выше: называет доменное
-правило, конкретный источник истины проекта, профильные инструменты навигации
-и специфические ловушки. Формат тот же — развёрнутая строка мини-таблицы
-роутинга, дополненная доменными строками, которые оверлей вписывает вместо
-плейсхолдеров доменного роутинга.
+The generic layer contains no domain or project packs — they are added by a
+stack overlay or the project layer. Such a pack lives in the target
+repository's rules/commands/prompts and overrides the generic map above: it
+names the domain rule, the project's concrete source of truth, the profile
+navigation tools, and the specific traps. The format is the same — an
+expanded routing mini-table row, extended with the domain rows that the
+overlay writes in place of the domain-routing placeholders.

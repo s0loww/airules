@@ -1,60 +1,75 @@
 ---
-description: "Как выбирать роль, tier и модель для субагента. Load when delegating work to subagents or configuring agent definitions."
+description: "How to pick the role, tier and model for a subagent. Load when delegating work to subagents or configuring agent definitions. Триггеры: выбор модели, тир, делегирование, роль субагента."
 alwaysApply: false
 ---
 
-# Маршрутизация ролей и моделей для субагентов
+# Role and model routing for subagents
 
-Единственный источник истины по ролям, tier и правам доступа —
-`core/agents/ROLES.md`. Это правило описывает, как им пользоваться; при
-расхождении побеждает `ROLES.md`.
+The single source of truth for roles, tiers and access rights is
+`core/agents/ROLES.md`. This rule describes how to use it; on any
+discrepancy `ROLES.md` wins.
 
-## Резолв модели
+## Model resolution
 
-Роль → tier → `core/channels/model-map.yaml` → модель канала. Модель не
-хардкодится в agent definition: в frontmatter агента указывается `tier`, а не
-имя модели. Конкретную модель канала инсталлятор подставляет при раскладке
-дистрибутива в целевой проект.
+Role → tier → `core/channels/model-map.yaml` → channel model. The model is
+not hardcoded in the agent definition: the agent frontmatter carries `tier`,
+not a model name. The concrete channel model is substituted by the installer
+when the distribution is laid out into the target project. The installer
+also appends the model-family profile block per
+`core/channels/model-profiles.md` — model-specific behavior lives there, not
+in role bodies.
 
-## Эскалация усилия
+## Effort escalation
 
-Максимальный reasoning-тир канала (и его аналоги) — это ручная эскалация по
-явному решению пользователя на конкретную сложную задачу, и никогда не
-дефолтная настройка роли. Дефолт держит контроль над затратами; повышение
-усилия — осознанное разовое решение, а не свойство роли.
+The channel's maximum reasoning tier (and its analogues) is a manual
+escalation by an explicit user decision for a specific hard task, and never
+a default role setting. The default keeps costs under control; raising
+effort is a deliberate one-off decision, not a property of a role.
 
-Отдельный случай — **условные тиры**, явно описанные в `ROLES.md` (сейчас —
-`analytic`): оркестратор выбирает tier запуска по описанному там условию
-(готовность входных данных). Это штатный механизм выбора между базовыми
-тирами, а не эскалация максимального reasoning-тира.
+A separate case is **conditional tiers**, explicitly described in `ROLES.md`
+(currently — `analytic`): the orchestrator picks the launch tier by the
+condition described there (readiness of the input data). This is the normal
+mechanism of choosing between base tiers, not an escalation of the maximum
+reasoning tier.
 
-## Правило скриптов
+## Reasoning stays internal
 
-Написание и изменение скриптов — задача для ролей уровня medium/high;
-исполнение уже готового и проверенного скрипта со снятием логов — задача
-для low-tier исполнителя.
+Never ask a subagent to reveal its internal reasoning ("show your thinking",
+"explain your chain of thought step by step"). On Fable-class Claude models
+such requests trip the reasoning_extraction refusal category and can derail
+the run; on every family the useful artifact is a concise rationale plus
+tool-backed evidence — exactly what the Handoff format already requires. The
+same applies in reverse: agents report rationale and evidence, not raw
+reasoning (see `core/channels/model-profiles.md`).
 
-Причина: исполнитель на облегчённой модели при ошибке склонен «чинить»
-входные файлы и фантазировать причины сбоя вместо того, чтобы сообщить о
-факте ошибки. Поэтому исполнителю дают копии входных файлов и сверяют его
-отчёт с реальными логами, а не полагаются на его пересказ.
+## The script rule
 
-## Режим экономии оркестратора
+Writing and changing scripts is a task for medium/high-tier roles; executing
+an already written and verified script and collecting logs is a task for a
+low-tier executor.
 
-Если модель головного агента принадлежит тиру `orchestrator` канала (класс
-выше `high`) или пользователь включил режим явно — действует
-`orchestrator-economy.md`: исполнение максимально уходит субагентам на
-канальных тирах, оркестратор оставляет себе решения, спеки и сверку.
+Reason: an executor on a light model, when hitting an error, tends to "fix"
+input files and invent failure causes instead of reporting the error as a
+fact. So the executor gets copies of the input files, and its report is
+checked against the real logs rather than trusted as a retelling.
 
-## Дисциплина прав
+## Orchestrator economy mode
 
-ro-роли имеют только чтение и поиск. Расширять права роли на лету нельзя:
-если задаче нужна запись, для неё берут rw-роль подходящего tier, а не
-временно повышают права ro-роли.
+If the main agent's model belongs to the channel's `orchestrator` tier (a
+class above `high`) or the user enables the mode explicitly —
+`orchestrator-economy.md` applies: execution goes to subagents on channel
+tiers as much as possible, the orchestrator keeps decisions, specs and
+verification.
 
-## Делегирование
+## Rights discipline
 
-Ограниченная, самодостаточная часть работы уходит субагенту. Декомпозиция
-задачи, финальные решения и интеграция результатов остаются за
-оркестратором. Отчётам разведывательных субагентов не доверяют вслепую —
-ключевые факты точечно сверяют с первоисточниками.
+ro-roles have read and search only. Rights must not be extended on the fly:
+if a task needs writes, take an rw-role of the appropriate tier instead of
+temporarily raising the rights of an ro-role.
+
+## Delegation
+
+A bounded, self-contained part of the work goes to a subagent. Task
+decomposition, final decisions and result integration stay with the
+orchestrator. Scouting subagents' reports are not trusted blindly — key
+facts are spot-checked against the primary sources.

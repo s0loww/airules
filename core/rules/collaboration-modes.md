@@ -1,81 +1,81 @@
 ---
-description: "Режимы совместной работы: разведка, правка, ревью, OpenSpec, экстренный фикс. Load when choosing how deep to go on a task or whether to delegate."
+description: "Collaboration modes: exploration, edit, review, OpenSpec, emergency fix. Load when choosing how deep to go on a task or whether to delegate. Триггеры: режим работы, разведка, правка, ревью, экстренный фикс"
 alwaysApply: false
 ---
 
-# Режимы совместной работы
+# Collaboration modes
 
-Явный режим выбирают, когда задачу можно решить дешевле или безопаснее, меняя
-глубину, инструменты или делегирование. Режимы согласованы с triage
-`quick-fix` / `full-cycle` из корневого контракта: разведка и правка —
-основные состояния full-cycle, экстренный фикс — ускоренный quick-fix.
+An explicit mode is chosen when the task can be solved cheaper or safer by
+changing depth, tooling, or delegation. Modes are aligned with the
+`quick-fix` / `full-cycle` triage from the root contract: exploration and
+edit are the main full-cycle states, emergency fix is an accelerated
+quick-fix.
 
-## Режимы
+## Modes
 
-### Разведка
+### Exploration
 
-Цель: понять объём без правок.
+Goal: understand the scope without making edits.
 
-Когда: неясные требования, анализ влияния, навигация по кодовой базе, поиск
-рисков.
+When: unclear requirements, impact analysis, codebase navigation, risk
+discovery.
 
-Выход: короткая карта объектов/файлов, релевантные правила и инструменты
-профиля проекта, риски, рекомендуемый следующий шаг.
+Output: a short map of objects/files, relevant rules and project-profile
+tools, risks, recommended next step.
 
-Субагенты: подходит роль `explorer` (read-only, tier low) — см.
+Subagents: the `explorer` role fits (read-only, tier low) — see
 `subagents-model-routing.md`.
 
-### Правка
+### Edit
 
-Цель: минимальное изменение, безопасное для боевой системы.
+Goal: a minimal change that is safe for the production system.
 
-Когда: ограниченная реализация после того, как контекста набрано достаточно.
+When: bounded implementation after enough context has been gathered.
 
-Выход: изменённые файлы, выполненные проверки, остаточный риск.
+Output: changed files, checks performed, residual risk.
 
-Субагенты: пишущая роль (`developer` / `metadata-manager`, tier medium) —
-только при непересекающейся области записи и заранее ясной ожидаемой правке.
+Subagents: a writing role (`developer` / `metadata-manager`, tier medium) —
+only with a non-overlapping write scope and an expected edit that is clear
+in advance.
 
-### Ревью
+### Review
 
-Цель: найти реальные баги, регрессии, пропущенные проверки и рискованные
-допущения.
+Goal: find real bugs, regressions, missed checks, and risky assumptions.
 
-Когда: пользователь просит ревью либо после рискованной реализации.
+When: the user asks for a review, or after a risky implementation.
 
-Выход: сначала находки, упорядоченные по критичности со ссылками
-`файл:строка`; сводка после находок.
+Output: findings first, ordered by severity with `file:line` references;
+summary after the findings.
 
-Субагенты: независимый ревьюер (`code-reviewer` / `arch-reviewer`, tier high)
-для высокорисковых или широких изменений.
+Subagents: an independent reviewer (`code-reviewer` / `arch-reviewer`,
+tier high) for high-risk or wide changes.
 
 ### OpenSpec
 
-Цель: держать proposal / design / tasks / specs согласованными.
+Goal: keep proposal / design / tasks / specs consistent.
 
-Когда: фичи-треки, архитектурные решения, поэтапная реализация.
+When: feature tracks, architectural decisions, staged implementation.
 
-Выход: текущий статус изменения, обновлённые tasks/specs, проверки.
+Output: current status of the change, updated tasks/specs, checks.
 
-Субагенты: делегировать ограниченные проверки артефактов, а не финальную
-приёмку.
+Subagents: delegate bounded artifact checks, not the final acceptance.
 
-### Экстренный фикс
+### Emergency fix
 
-Цель: восстановить сломанный путь с минимальным радиусом поражения.
+Goal: restore a broken path with a minimal blast radius.
 
-Когда: ошибки синтаксиса / выполнения, упавшие проверки, срочные регрессии.
+When: syntax / runtime errors, failing checks, urgent regressions.
 
-Выход: первопричина, минимальный фикс, верификация.
+Output: root cause, minimal fix, verification.
 
-Субагенты: избегать, кроме read-only побочной проверки, которую можно
-запустить параллельно.
+Subagents: avoid, except for a read-only side check that can run in
+parallel.
 
-## Выбор режима
+## Choosing a mode
 
-- Если пользователь только задаёт вопрос — стартовать в `Разведке`.
-- Если просит реализовать или починить — стартовать в `Правке` после минимального
-  контекста.
-- Если просит ревью — `Ревью`.
-- Если ссылается на `openspec/` — `OpenSpec`.
-- Если проверки падают или боевой путь заблокирован — `Экстренный фикс`.
+- If the user only asks a question — start in `Exploration`.
+- If they ask to implement or fix — start in `Edit` after minimal
+  context.
+- If they ask for a review — `Review`.
+- If they reference `openspec/` — `OpenSpec`.
+- If checks are failing or a production path is blocked — `Emergency fix`.

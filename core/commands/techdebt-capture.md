@@ -2,31 +2,34 @@
 name: /techdebt-capture
 id: techdebt-capture
 category: OpenSpec
-description: Зафиксировать техдолг в openspec/specs/<capability>/todo.md
+description: Record tech debt in openspec/specs/<capability>/todo.md
 ---
 
-<!-- Формат todo.md описан в правиле sdd-integrations: одна задача = секция `## <TaskName>`, буллеты — детали той же задачи. -->
+<!-- The todo.md format is defined in the sdd-integrations rule ("todo.md — tech-debt format"): one task = one `## <TaskName>` section; bullets are details of that same task. -->
 
-Зафиксируй техдолг в OpenSpec todo-файле по шаблону проекта.
+Record tech debt in the OpenSpec todo file using the project template.
 
-## Правила
+## Rules
 
-1. Целевой файл: `openspec/specs/<capability>/todo.md`.
-   - Capability обязательна. Если пользователь её не указал — просканируй `openspec/specs/*`,
-     выведи список существующих capability и спроси, к какой из них относится техдолг
-     (или как назвать новую).
-2. Формат записи:
-   - одна задача = один раздел `## <Краткое название>`;
-   - внутри раздела укажи:
-     - `Temporary solution:` (если есть);
-     - `Production follow-up:` со списком `- ...`.
-3. Не разбивай одну задачу на несколько разделов, если пользователь описал единый техдолг.
-4. Если `todo.md` отсутствует — создай файл с заголовком `# TODO`, затем добавь задачу.
-5. Если раздел с тем же названием уже есть — обнови его, а не дублируй.
+1. Target file: `openspec/specs/<capability>/todo.md`.
+   - The capability is mandatory. If the user did not specify it — scan
+     `openspec/specs/*`, list the existing capabilities and ask which one the
+     debt belongs to (or what to name a new one).
+2. Entry format:
+   - one task = one `## <Short title>` section;
+   - inside the section include:
+     - `Temporary solution:` (if any);
+     - `Production follow-up:` with a `- ...` list.
+3. Do not split a single task into several sections when the user described
+   one piece of debt.
+4. If `todo.md` does not exist — create it with a `# TODO` header, then add
+   the task.
+5. If a section with the same title already exists — update it, do not
+   duplicate.
 
-## Порядок действий
+## Steps
 
-1. Определи capability (спроси, если не передана явно) и целевой `todo.md`.
-2. Прочитай текущий файл (если есть).
-3. Добавь или обнови раздел задачи по шаблону.
-4. Покажи пользователю, что именно зафиксировано и в каком файле.
+1. Determine the capability (ask if not given) and the target `todo.md`.
+2. Read the current file (if it exists).
+3. Add or update the task section per the template.
+4. Show the user exactly what was recorded and in which file.

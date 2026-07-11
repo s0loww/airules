@@ -1,58 +1,69 @@
 ---
-description: "Интеграция с OpenSpec. Load when working with the openspec/ workspace (specs and change proposals)."
+description: "OpenSpec integration. Load when working with the openspec/ workspace (specs and change proposals). Триггеры: спецификации, предложение изменений, артефакты, воркспейс openspec"
 alwaysApply: false
 ---
 
-# SDD-интеграция — OpenSpec
+# SDD integration — OpenSpec
 
-[OpenSpec](https://github.com/Fission-AI/OpenSpec) — единственный SDD-фреймворк,
-поддерживаемый в этом дистрибутиве. Другие SDD-фреймворки (Memory Bank, Spec
-Kit, TaskMaster и т. п.) **не** поддерживаются — не генерировать и не
-обновлять для них артефакты, даже если соответствующие папки или MCP-серверы
-случайно присутствуют в проекте.
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) is the only SDD
+framework supported in this distribution. Other SDD frameworks (Memory
+Bank, Spec Kit, TaskMaster, etc.) are **not** supported — do not generate
+or update artifacts for them, even if the corresponding folders or MCP
+servers happen to be present in the project.
 
-## Канонические источники
+## Canonical sources
 
-Структура воркспейса, формат spec, формат дельт и полный workflow описаны в
-самом воркспейсе — не дублировать их здесь:
+The workspace structure, the spec format, the delta format, and the full
+workflow are described in the workspace itself — do not duplicate them
+here:
 
-| Тема | Файл |
+| Topic | File |
 |------|------|
-| Структура воркспейса, команды, политика обновления | [`openspec/README.md`](../openspec/README.md) |
-| Формат spec и соглашения для `openspec/specs/` | [`openspec/specs/README.md`](../openspec/specs/README.md) |
-| Структура change-предложения и формат дельт для `openspec/changes/` | [`openspec/changes/README.md`](../openspec/changes/README.md) |
+| Workspace structure, commands, update policy | [`openspec/README.md`](../openspec/README.md) |
+| Spec format and conventions for `openspec/specs/` | [`openspec/specs/README.md`](../openspec/specs/README.md) |
+| Change proposal structure and delta format for `openspec/changes/` | [`openspec/changes/README.md`](../openspec/changes/README.md) |
 
-Прочитать эти файлы перед тем, как писать или редактировать артефакты OpenSpec.
+Read these files before writing or editing OpenSpec artifacts.
 
-## Соответствие субагент → артефакт OpenSpec
+## Subagent → OpenSpec artifact mapping
 
-Каждый субагент отвечает за конкретные артефакты OpenSpec. Таблица определяет,
-куда какому субагенту разрешено писать.
+Each subagent is responsible for specific OpenSpec artifacts. The table
+defines where each subagent is allowed to write.
 
-| Субагент | Читает | Пишет |
+| Subagent | Reads | Writes |
 |----------|--------|-------|
-| **analytic** | существующие `specs/` для контекста | `changes/<id>/proposal.md`, новые записи в `specs/` (через дельты) |
+| **analytic** | existing `specs/` for context | `changes/<id>/proposal.md`, new entries in `specs/` (via deltas) |
 | **planner** | `specs/`, `changes/<id>/proposal.md`, `design.md` | `changes/<id>/tasks.md` |
 | **architect** | `specs/`, `changes/<id>/proposal.md` | `changes/<id>/design.md` |
-| **arch-reviewer** | `changes/<id>/design.md`, `proposal.md`, `specs/` | заметки ревью (без записи артефактов) |
-| **developer** | `specs/`, активный `changes/<id>/` | код; обновляет дельты `changes/<id>/specs/` и отмечает пункты в `tasks.md` |
-| **metadata-manager** | `specs/`, активный `changes/<id>/` | структура/схема данных; дельты spec под `changes/<id>/specs/` для новых/изменённых объектов схемы |
-| **refactoring** | `specs/`, активный `changes/<id>/` | код; обновляет дельты только при изменении наблюдаемого поведения |
-| **performance-optimizer** | `specs/` (нефункциональные/перф-требования) | код; дельты только при изменении перф-требования |
-| **error-fixer** | активный `changes/<id>/` | код; обычно без изменений spec (фикс бага сохраняет задуманное поведение) |
-| **tester** | `specs/` (сценарии), `changes/<id>/tasks.md` | результаты тестов, отметки в `tasks.md` |
-| **code-reviewer** | `specs/`, дельты `changes/<id>/specs/` | вердикт ревью относительно требований (без записи артефактов) |
-| **doc-writer** | `specs/`, `changes/archive/` | пользовательская документация, производная от specs |
+| **arch-reviewer** | `changes/<id>/design.md`, `proposal.md`, `specs/` | review notes (no artifact writes) |
+| **developer** | `specs/`, active `changes/<id>/` | code; updates `changes/<id>/specs/` deltas and checks off items in `tasks.md` |
+| **metadata-manager** | `specs/`, active `changes/<id>/` | data structure/schema; spec deltas under `changes/<id>/specs/` for new/changed schema objects |
+| **refactoring** | `specs/`, active `changes/<id>/` | code; updates deltas only when observable behavior changes |
+| **performance-optimizer** | `specs/` (non-functional/perf requirements) | code; deltas only when a perf requirement changes |
+| **error-fixer** | active `changes/<id>/` | code; usually no spec changes (a bug fix preserves the intended behavior) |
+| **tester** | `specs/` (scenarios), `changes/<id>/tasks.md` | test results, checkmarks in `tasks.md` |
+| **code-reviewer** | `specs/`, `changes/<id>/specs/` deltas | review verdict against the requirements (no artifact writes) |
+| **doc-writer** | `specs/`, `changes/archive/` | user documentation derived from specs |
 
-## Соответствие фазы → субагент
+## Phase → subagent mapping
 
-Дефолтный workflow `propose → apply → archive` раскладывается по субагентам так:
+The default `propose → apply → archive` workflow maps onto subagents as
+follows:
 
-| Фаза | Ведущий(е) субагент(ы) | Результат |
+| Phase | Lead subagent(s) | Result |
 |------|------------------------|-----------|
-| Требования | `analytic` | `proposal.md` + первичные дельты в `changes/<id>/specs/` |
-| Дизайн | `architect` (опционально ревью от `arch-reviewer`) | `design.md` |
-| Планирование | `planner` | `tasks.md` |
-| Реализация | `developer`, `metadata-manager`, `refactoring`, `performance-optimizer`, `error-fixer` | код + обновлённые дельты + отмеченный `tasks.md` |
-| Верификация | `tester`, `code-reviewer` | результаты тестов, вердикт ревью |
-| Документация и архивация | `doc-writer`, затем скилл `openspec-archive-change` | пользовательская документация; дельты вмержены в `specs/`, change перенесён в `changes/archive/` |
+| Requirements | `analytic` | `proposal.md` + initial deltas in `changes/<id>/specs/` |
+| Design | `architect` (optional review by `arch-reviewer`) | `design.md` |
+| Planning | `planner` | `tasks.md` |
+| Implementation | `developer`, `metadata-manager`, `refactoring`, `performance-optimizer`, `error-fixer` | code + updated deltas + checked-off `tasks.md` |
+| Verification | `tester`, `code-reviewer` | test results, review verdict |
+| Documentation and archiving | `doc-writer`, then the `openspec-archive-change` skill | user documentation; deltas merged into `specs/`, change moved to `changes/archive/` |
+
+## todo.md — tech-debt format
+
+Tech debt lives in `openspec/specs/<capability>/todo.md`. Format: one task =
+one `## <TaskName>` section; bullets inside the section are details of that
+same task (`- ...`, `- [ ] ...`, `- [x] ...`). A task is `open` while it has
+at least one unchecked box (or no boxes at all), `done` when all boxes are
+checked. The `/techdebt-capture` and `/todolist` commands read and write this
+format.

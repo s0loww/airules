@@ -2,44 +2,48 @@
 name: /todolist
 id: todolist
 category: OpenSpec
-description: Проверить техдолг в OpenSpec todo.md и вывести таблицей
+description: Check tech debt in OpenSpec todo.md files and print it as a table
 ---
 
-<!-- Формат todo.md описан в правиле sdd-integrations: одна задача = секция `## <TaskName>`, буллеты — детали той же задачи. -->
+<!-- The todo.md format is defined in the sdd-integrations rule ("todo.md — tech-debt format"): one task = one `## <TaskName>` section; bullets are details of that same task. -->
 
-Собери список зафиксированного техдолга из OpenSpec TODO-файлов и покажи результат таблицей.
+Collect the recorded tech debt from OpenSpec TODO files and show the result
+as a table.
 
-## Что считать источником техдолга
+## What counts as a tech-debt source
 
-- Ищи файлы `openspec/specs/**/todo.md`.
-- Если пользователь явно указал capability — ограничься файлом `openspec/specs/<capability>/todo.md`;
-  иначе просканируй все `openspec/specs/*/todo.md`.
-- Формат задачи:
-  - **одна задача = один раздел `## <Название задачи>`**;
-  - bullets внутри раздела (`- ...`, `- [ ] ...`, `- [x] ...`) — это детали этой же задачи.
-- Статус задачи:
-  - если внутри раздела есть хотя бы один `- [ ]`, статус `open`;
-  - иначе, если есть только `- [x]`, статус `done`;
-  - если чекбоксов нет, статус `open`.
+- Look for `openspec/specs/**/todo.md` files.
+- If the user named a capability explicitly — limit to
+  `openspec/specs/<capability>/todo.md`; otherwise scan all
+  `openspec/specs/*/todo.md`.
+- Task format:
+  - **one task = one `## <Task name>` section**;
+  - bullets inside the section (`- ...`, `- [ ] ...`, `- [x] ...`) are
+    details of that same task.
+- Task status:
+  - if the section contains at least one `- [ ]`, the status is `open`;
+  - otherwise, if it contains only `- [x]`, the status is `done`;
+  - if there are no checkboxes, the status is `open`.
 
-## Шаги
+## Steps
 
-1. Найди все `openspec/specs/**/todo.md` (или только указанную capability, если она передана).
-2. Для каждого файла:
-   - Определи capability как имя каталога под `openspec/specs/<capability>/`.
-   - Разбери разделы `## ...` как отдельные задачи.
-   - Для каждой задачи определи статус по правилам выше.
-3. Покажи итог в markdown-таблице с колонками:
+1. Find all `openspec/specs/**/todo.md` (or only the given capability).
+2. For each file:
+   - Determine the capability as the directory name under
+     `openspec/specs/<capability>/`.
+   - Parse `## ...` sections as individual tasks.
+   - Determine each task's status by the rules above.
+3. Show the result as a markdown table with the columns:
    - `Capability`
    - `Status`
    - `Task`
    - `Source`
-4. В конце добавь сводку:
+4. Append a summary:
    - `Total`
    - `Open`
    - `Done`
 
-## Формат вывода
+## Output format
 
 ```markdown
 | Capability | Status | Task | Source |
@@ -47,4 +51,4 @@ description: Проверить техдолг в OpenSpec todo.md и вывес
 | <capability> | open | <task name> | openspec/specs/<capability>/todo.md |
 ```
 
-Если TODO-файлы не найдены — выведи: `OpenSpec todo.md files were not found.`
+If no TODO files are found — print: `OpenSpec todo.md files were not found.`
