@@ -70,6 +70,13 @@ yourself what gets delegated.**
 
 - Trivial edits (quick-fix level from `collaboration-modes.md`) are not
   delegated: the overhead of launching a subagent exceeds the savings.
+- Payback rule of thumb: launching a subagent costs a fixed overhead of
+  roughly tens of thousands of tokens (root contract + lazily loaded rules +
+  agent definition + tool schemas; calibrate against your channel's real
+  numbers). Delegate a bounded stream only when its expected work volume is
+  at least ~3x that overhead; below that, direct execution wins. Measured on
+  production streams: ~43k startup vs 200-300k of work per stream — a 5-7x
+  return.
 - If a tool-output compression proxy is installed (`tool-output-economy.md`),
   scouting subagents wrap their bulk reads with it — the two economies
   stack; the orchestrator's own spot-checks stay raw (verification, not
