@@ -23,6 +23,9 @@
   scope-expanding actions — do not run them without explicit approval.
 - Report skipped, blocked, failing or unverified work plainly.
 - Do not claim a check that was not performed.
+- If the rtk proxy is installed (`rtk --version` succeeds), prefix high-volume
+  read-only commands (git log/diff/status, ls/tree/find, grep, test runs) with
+  `rtk`; what never to wrap and recovery — `rules/tool-output-economy.md`.
 
 ## Work cycle
 
