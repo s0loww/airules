@@ -44,7 +44,12 @@ Always delegated:
 - mechanical multi-file edits — a bounded-worker with a non-overlapping
   write scope;
 - running ready scripts and collecting logs — a low-tier executor
-  (see `script-contract.md`).
+  (see `script-contract.md`) — but only when the run is part of an
+  iterative loop (debugging, retries) or its output must be digested at
+  volume. A one-shot run of a contract script or test suite that writes a
+  machine-readable report is cheaper executed directly in the background:
+  the orchestrator consumes the one-line verdict and the report path, not
+  the log. Delegate the debug loop, not the launch.
 
 Output rule: the orchestrator's own text is minimal — decisions, specs,
 summaries. **The orchestrator does not write file bodies. Do not do

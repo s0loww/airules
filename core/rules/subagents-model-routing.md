@@ -53,6 +53,14 @@ input files and invent failure causes instead of reporting the error as a
 fact. So the executor gets copies of the input files, and its report is
 checked against the real logs rather than trusted as a retelling.
 
+One-shot runs are the exception: launching a ready contract script or a
+test suite that writes a machine-readable report costs the orchestrator
+only the compact verdict — running it directly (in the background) is
+cheaper than a subagent launch (see the payback rule of thumb in
+`orchestrator-economy.md`). What gets delegated is the iteration: a failed
+run hands the *report path* (not the pasted log) to the fixing role, which
+owns the run-read-fix loop in its own context.
+
 ## Orchestrator economy mode
 
 If the main agent's model belongs to the channel's `orchestrator` tier (a
