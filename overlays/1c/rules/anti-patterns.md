@@ -395,7 +395,10 @@ Rate findings on a scale from 0 to 100:
 | **51-75** | High — likely real issue |
 | **76-100** | Very high — confirmed issue with evidence |
 
-**Report only findings with confidence ≥ 75 for code review, ≥ 50 for architecture review.**
+**Report every finding with its score attached — including the low ones.** The
+score is a label for the reader, not a gate for the reviewer: a suppressed
+finding cannot be recovered downstream, while a labelled one is discarded in
+a second. Filtering by score is the orchestrator's separate pass.
 
 ## Quick Reference Checklist
 

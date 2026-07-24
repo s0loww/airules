@@ -299,8 +299,17 @@ When the user asks for review, the subagent looks at:
 - query patterns, transactional safety, lock granularity, transaction
   boundaries.
 
-The subagent reports issues by severity (critical / major / minor). Critical
-blocks handover; minor is informational.
+The subagent reports **every** issue with a severity (critical / major /
+minor) and a confidence; it does not drop uncertain findings. The parent
+filters in a separate pass: critical blocks handover, minor is
+informational, low-confidence items are judged or discarded here — not
+silently suppressed inside the reviewer.
+
+**Two speeds.** Review precision holds up at the role's default effort, so a
+fast pass is worth running whenever a review is requested mid-work. Reserve
+an escalated-effort pass for the run right before a release gate — that
+escalation is a per-run decision, never the role's default (`ROLES.md`,
+"Effort semantics").
 
 ### Stage 5 — Verification gate (main agent)
 

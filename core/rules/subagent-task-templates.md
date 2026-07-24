@@ -94,8 +94,10 @@ read-only.
 ```text
 Independent review. Working copy: <path>. Review the current change for
 bugs, regressions, missed checks and project-rule violations. Do not edit
-files. High-confidence findings only. Return findings first with file:line
-references, then test gaps and residual risk.
+files. Optimize for coverage: report every finding with a severity and a
+confidence, including uncertain ones — filtering is my pass, not yours.
+Return findings first with file:line references, grouped confirmed /
+possible, then test gaps and residual risk.
 ```
 
 ## smoke-check
