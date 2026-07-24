@@ -1,7 +1,26 @@
+# Переводы строк дистрибутива фиксируются явно, а не отдаются на откуп
+# core.autocrlf: файлы отсюда копируются в целевые проекты, где их байты
+# хешируются в .airules-manifest.json как есть. Расширение, оставленное на
+# `text=auto`, на Windows-клоне уедет в CRLF и приедет в цель уже не тем,
+# что предписывает её .gitattributes — см. docs/SYNC.md.
+
 * text=auto
+
 *.md text eol=lf
 *.py text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
-*.ps1 text eol=crlf
 *.json text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.example text eol=lf
+*.feature text eol=lf
+VERSION text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.githooks/pre-commit text eol=lf
+
+# PowerShell — CRLF и обязательный UTF-8 BOM (правило ps1-bom).
+*.ps1 text eol=crlf
+
+*.pyc binary
