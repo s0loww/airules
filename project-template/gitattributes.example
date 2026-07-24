@@ -1,0 +1,52 @@
+# airules: обвязка дистрибутива хранится с фиксированными переводами строк.
+#
+# Кладётся в корень ЦЕЛЕВОГО проекта как `.gitattributes` (или дописывается
+# в существующий). Имя в дистрибутиве — `gitattributes.example`, чтобы файл
+# не действовал на сам репозиторий дистрибутива.
+#
+# Зачем. Манифест `.airules-manifest.json` хранит sha256 от БАЙТОВ файла как
+# есть, без нормализации содержимого (docs/SYNC.md). При `core.autocrlf=true`
+# (дефолт git для Windows) и отсутствии этих правил git подменяет переводы
+# строк на checkout — байты меняются, sha перестаёт сходиться, и режим
+# обновления считает изменённым ПОЛЬЗОВАТЕЛЕМ каждый управляемый файл.
+# Обновление превращается в сотни вопросов на ровном месте.
+#
+# Границы. Правила покрывают только пути, управляемые манифестом. Исходники
+# проекта, инструменты вне дистрибутива и прочее содержимое репозитория они
+# не затрагивают — там действует настройка git пользователя. Пути ниже
+# приведены под стандартную раскладку; если каталог в проекте не создавался,
+# строку убрать, а проектные каталоги в список НЕ добавлять.
+
+AGENTS.md              text eol=lf
+CLAUDE.md              text eol=lf
+memory.md              text eol=lf
+env.example            text eol=lf
+.gitignore             text eol=lf
+.gitattributes         text eol=lf
+.mcp.json              text eol=lf
+.airules-manifest.json text eol=lf
+
+rules/**               text eol=lf
+skills/**              text eol=lf
+.claude/**             text eol=lf
+.codex/**              text eol=lf
+.cursor/**             text eol=lf
+
+# openspec: правила распространяются ТОЛЬКО на файлы каркаса из дистрибутива.
+# Содержимое `openspec/changes/**` и `openspec/specs/**` пишет проект — его
+# переводы строк не наши.
+openspec/README.md         text eol=lf
+openspec/project.md        text eol=lf
+openspec/config.yaml       text eol=lf
+openspec/changes/README.md text eol=lf
+openspec/specs/README.md   text eol=lf
+
+# Библиотеки оверлея, если они устанавливались (`tools/<имя>/`): перечислять
+# поимённо, чтобы не задеть проектные инструменты в том же каталоге.
+# tools/<имя-библиотеки>/**  text eol=lf
+
+# PowerShell дистрибутива хранится с CRLF (и обязательным UTF-8 BOM —
+# см. правило ps1-bom в ci/check_layers.py).
+skills/**/*.ps1        text eol=crlf
+.claude/**/*.ps1       text eol=crlf
+# tools/<имя-библиотеки>/**/*.ps1  text eol=crlf
