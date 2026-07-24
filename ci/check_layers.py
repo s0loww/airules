@@ -4,8 +4,8 @@
 Scans the layered distribution (core/, overlays/, project-template/) and reports
 content that violates the purity contract of its layer: leaked credentials,
 machine paths, domain names, stack terms in the generic core, hardcoded models,
-unmarked xhigh reasoning defaults, missing UTF-8 BOM in script files, and
-credentials echoed into console output.
+unmarked max-effort defaults, retired self-verification wording, missing UTF-8
+BOM in script files, and credentials echoed into console output.
 
 Pure standard library, cross-platform, Python 3.9+.
 
@@ -49,6 +49,9 @@ MODEL_PROFILES_REL = os.path.join("core", "channels", "model-profiles.md")
 # Rule id for the file-level (not line-level) BOM check below.
 PS1_BOM_RULE_ID = "ps1-bom"
 UTF8_BOM = b"\xef\xbb\xbf"
+
+# Rule ids whose lines are cleared by a manual-escalation marker.
+ESCALATION_RULE_ID = "max-default"
 
 
 # Each rule: id, compiled regex, severity, layers it applies to, description.
@@ -139,25 +142,49 @@ def _build_rules():
         # --- hardcoded model: core only, model-map.yaml excepted ---
         {
             "id": "model-hardcode",
-            "regex": r"(?i)\bmodel\s*:\s*(opus|sonnet|haiku|gpt-|claude-|qwen|deepseek|glm)",
+            "regex": (
+                r"(?i)\bmodel\s*:\s*"
+                r"(opus|sonnet|haiku|fable|mythos|gpt-|claude-|qwen|deepseek|glm)"
+            ),
             "severity": "error",
             "layers": ("core",),
             "description": "Hardcoded model in core (belongs in channels/model-map.yaml).",
         },
-        # --- xhigh default: core incl. model-map, unless marked as escalation ---
+        # --- max effort default: core incl. model-map, unless marked as escalation ---
+        # The guard sits on the channel's TOP effort step, not on xhigh: xhigh is
+        # a legitimate default for planning and heavy implementation, while max
+        # costs more for a worse result and is only ever a manual escalation.
         {
-            "id": "xhigh-default",
-            "regex": r"xhigh",
+            "id": "max-default",
+            "regex": r"(?i)\bmax\b",
             "severity": "error",
             "layers": ("core",),
-            "description": "xhigh reasoning default without manual-escalation marker.",
+            "description": "Top effort step (max) used without a manual-escalation marker.",
+        },
+        # --- retired self-verification wording: core only ---
+        # Removed in 0.4.0: the model verifies its own work without being told,
+        # and these phrasings stack with that behavior at pure extra cost.
+        # Instrumental gates (syntax, static analysis, validators) are NOT this
+        # rule's target — they never phrase themselves this way.
+        {
+            "id": "stale-verification",
+            "regex": (
+                r"(?i)(?:\bdouble[-\s]check\b|\bre-verify\b|\bre-read your\b"
+                r"|\bproofread (?:your|the) own\b"
+                r"|\b(?:verification|verifying|re-check(?:ing)?) subagent\b"
+                r"|\bsubagent (?:for|to) (?:verify|verification|double)"
+                r"|двойная проверка|перепроверь\b)"
+            ),
+            "severity": "error",
+            "layers": ("core",),
+            "description": "Retired self-verification wording (see docs/LAYERS.md).",
         },
     ]
     # model-hardcode second flavour: bare opus/sonnet/haiku in core .md rules/agents.
     raw.append(
         {
             "id": "model-hardcode",
-            "regex": r"(?i)\b(opus|sonnet|haiku)\b",
+            "regex": r"(?i)\b(opus|sonnet|haiku|fable|mythos)\b",
             "severity": "error",
             "layers": ("core",),
             "description": "Hardcoded model name in core markdown.",
@@ -226,8 +253,9 @@ def _placeholder_ok(fragment):
     return False
 
 
-def _xhigh_ok(line):
-    """xhigh is allowed only if the line marks it as manual escalation."""
+def _escalation_ok(line):
+    """The top effort step is allowed only if the line marks it as a manual
+    escalation."""
     low = line.lower()
     return ("escalation" in low) or ("эскалация" in low)
 
@@ -253,8 +281,8 @@ def check_line(rule, line, rel_path):
     if rule["id"] in ("creds-password", "creds-token", "creds-p-flag"):
         if _placeholder_ok(fragment):
             return None
-    if rule["id"] == "xhigh-default":
-        if _xhigh_ok(line):
+    if rule["id"] == ESCALATION_RULE_ID:
+        if _escalation_ok(line):
             return None
     return fragment
 
