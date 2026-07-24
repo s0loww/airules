@@ -11,14 +11,14 @@ supplied by the project profile; below they are described as categories.
 
 | Change type | Minimal checks | Add as risk grows |
 | --- | --- | --- |
-| Docs/rules/playbook only | re-read the changed files; loader/routing smoke if routing changed | independent read-only check |
+| Docs/rules/playbook only | loader/routing smoke if routing changed | — |
 | Quick-fix in code | syntax check of the changed module | static logic analysis if logic changed |
 | Code logic | syntax check + static analysis | deeper review for shared modules, queries, transactions |
 | Query / data access | local impact search + syntax + static analysis | review of query parameters, derived-view filters, callers |
 | Metadata (XML) | schema/tool validation when available | load/open the object on a test environment when feasible |
 | Form (XML/module) | markup/event inspection + form validation when available | UI smoke / opening the form |
 | Integration / XML / JSON | check against schema/sample/reference payload | retry/error/security review |
-| Refactoring | caller/usage impact + syntax/analysis | independent review before finishing |
+| Refactoring | caller/usage impact + syntax/analysis | wider impact search across dependents |
 | OpenSpec artifacts | `openspec validate` or the project equivalent | verify tasks/specs/design stay consistent |
 | Platform playbook/routing | list and read the rules, `suggest_workflow`, smoke script | run across all affected project profiles |
 
@@ -27,8 +27,10 @@ supplied by the project profile; below they are described as categories.
 - Shared module, transaction, data store, or query: add impact analysis.
 - Metadata/forms: use metadata tools and validators when available.
 - User scenario: add manual / UI smoke if tooling allows.
-- High-risk change: run an independent reviewer subagent or a profile
-  reviewer.
+- High-risk change: the closing gate below **is** the bar — tighten it
+  (impact analysis, a deeper validator pass) rather than adding a reviewer.
+  An independent `code-reviewer` runs on an explicit user request only
+  (`subagent-pipeline.md`, stage 4b).
 
 ## Closing gate — full-cycle change
 

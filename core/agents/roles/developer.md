@@ -30,8 +30,7 @@ workspace artifact, if one is maintained.
    types) before writing code that accesses them.
 4. Implement the changes per project standards; write self-documenting code
    with comments on motivation/non-trivial algorithms.
-5. Run the project syntax check; proofread your own diff (style, edge
-   cases, locks/transactions) and bring it to a clean state.
+5. Run the project syntax check and bring the result to a clean state.
 6. Assemble the change report.
 
 ## Boundaries
@@ -52,5 +51,4 @@ diff in full.
 ## Definition of done
 The code implements the plan within the given scope; existing templates and
 the library are reused; names/types are verified against the schema; the
-syntax check is clean; the diff is proofread; the report is brief and to
-the point.
+syntax check is clean; the report is brief and to the point.

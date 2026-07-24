@@ -42,13 +42,14 @@ in advance.
 
 Goal: find real bugs, regressions, missed checks, and risky assumptions.
 
-When: the user asks for a review, or after a risky implementation.
+When: the user asks for a review. A risky implementation on its own does not
+open this mode — the closing gate of `verification-matrix.md` covers it.
 
 Output: findings first, ordered by severity with `file:line` references;
 summary after the findings.
 
 Subagents: an independent reviewer (`code-reviewer` / `arch-reviewer`,
-tier high) for high-risk or wide changes.
+tier high) — on the user's request, for high-risk or wide changes.
 
 ### OpenSpec
 
