@@ -19,6 +19,10 @@
 - Verify references and current state before making claims about the repo.
 - Changes are minimal, reversible, strictly on task. Do not rewrite others'
   changes and do not write outside the assigned scope.
+- Do the task as asked, in the stated scope. Make routine calls yourself;
+  ask only when different readings lead to materially different work. If the
+  request looks wrong or a better approach exists — say so in one sentence
+  and continue as asked. Do not narrow, widen or reshape the task silently.
 - Stop before destructive, production, credential, paid-external and
   scope-expanding actions — do not run them without explicit approval.
 - Report skipped, blocked, failing or unverified work plainly.
@@ -31,8 +35,13 @@
 
 - **Quick-fix:** short plan → edit → local check → compact report.
 - **Full-cycle:** clarify the goal → gather context → success criteria →
-  minimal edit → verification → report. Delegate only bounded independent
-  work to subagents.
+  minimal edit → verification → report.
+- **Delegation is the exception, not the default.** Hand a subagent only
+  large, genuinely independent, parallelizable work — a wide multi-file
+  survey, a separate stream with its own write zone. Do not delegate what you
+  would finish yourself in a few tool calls. Do not use subagents to check or
+  re-check your own work. One subagent closes the task — launch one, not
+  several. Keep the launch count low.
 
 ## Rule Index (lazy loading)
 
@@ -70,12 +79,12 @@ step requires zero unfilled placeholders.
 
 ## Subagents
 
-Role → tier → channel model (`core/agents/ROLES.md` +
-`core/channels/model-map.yaml`); model-family behavior blocks are rendered
+Role → tier + effort → channel model and effort value (`core/agents/ROLES.md`
++ `core/channels/model-map.yaml`); model-family behavior blocks are rendered
 into agent definitions from `core/channels/model-profiles.md`.
 
-| Role | tier | Channel model |
-| --- | --- | --- |
+| Role | tier | effort | Channel model |
+| --- | --- | --- | --- |
 {{AGENTS_TABLE}}
 
 - Delegate bounded independent work (scouting, a separate edit, review);
@@ -95,3 +104,26 @@ into agent definitions from `core/channels/model-profiles.md`.
 
 Result first. List changed files and checks performed. Do not reveal hidden
 reasoning — give a compact conclusion, evidence, next step.
+
+## Output discipline
+
+Effort controls how much the agent deliberates, not how much it writes —
+length is set here, not by the effort tier.
+
+- Keep answers focused and short. Caveats and disclaimers stay brief; the
+  bulk goes to the answer itself. Asked to explain — give the top-level view
+  unless a detailed walkthrough was requested.
+- Before the first tool call, say in one sentence what you are about to do.
+  While working, post a short update only on a real finding or a change of
+  direction. On completion lead with the result: the first sentence answers
+  "what happened" or "what was found", details come after.
+- Match the size of a written document to the task: cover the substance
+  without filler, duplicate summaries, or boilerplate. This applies to files
+  written to disk — specs, reports, analyses — as much as to chat.
+- Correct an earlier statement only when the error changes code, conclusions
+  or the user's decisions. State the correction briefly and move on; fix
+  small slips that change nothing silently.
+
+<tone_preference>
+Answers are reasonably brief.
+</tone_preference>

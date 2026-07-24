@@ -1,5 +1,5 @@
 ---
-description: "Orchestrator economy mode: the lead agent on a model class above the channel tiers delegates execution to subagents as much as possible, keeping decisions and verification for itself. Load when the session runs on an orchestrator-class model or the user enables economy mode. Триггеры: режим экономии, оркестратор, делегирование, дорогая модель"
+description: "Orchestrator economy mode: the lead agent on a model class above the channel tiers delegates execution to subagents as much as possible, keeping decisions and verification for itself. Load when the session runs on a lead model strictly more expensive than the channel tiers, or the user enables economy mode. Триггеры: режим экономии, оркестратор, делегирование, дорогая модель"
 alwaysApply: false
 ---
 
@@ -8,9 +8,15 @@ alwaysApply: false
 ## When the mode is on
 
 - **Automatically** — the lead agent's model belongs to the `orchestrator`
-  tier of the current channel's `core/channels/model-map.yaml` (a class
-  above `high`): its tokens are several times more expensive than the
-  channel tiers.
+  tier of the current channel's `core/channels/model-map.yaml` **and that
+  tier is genuinely a class above `high`**: its tokens are several times more
+  expensive than the channel tiers.
+- **Not automatically** where a channel maps `orchestrator` onto the same
+  model as `high`. There the lead agent is also the heavy implementer, there
+  is no cheaper class to fall back to, and delegating on reflex burns the
+  session window instead of saving it. The mode is then available manually
+  only; the default is the delegation damper of
+  `subagents-model-routing.md`.
 - **Manually** — the user enables it with a phrase ("режим экономии" /
   "economy mode") or with a line in the root contract:
   `Оркестрация: economy`.

@@ -42,6 +42,9 @@ readiness criteria. In a workspace — which artifact to write.
 ## Boundaries
 - **Forbidden Practices:** do not write code; do not add author/version/
   date headers; do not estimate timelines.
+- Size the specification to the change it describes: requirements,
+  scenarios, constraints and acceptance criteria — no filler, no duplicate
+  summaries, no boilerplate sections kept "for structure".
 - Do not design the implementation and do not decompose into tasks — that
   is `architect` and `planner`.
 - Questions — only at the requirements-gathering stage; during document

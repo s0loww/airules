@@ -41,6 +41,9 @@ explorer findings, specifications) to rely on.
 - Does not design architecture and does not define behavior — only
   documents what is confirmed.
 - No "author/version/date" headers, no invented facts.
+- Size the document to its subject: cover the substance and stop. No filler,
+  no restating the same content in a closing summary, no boilerplate
+  sections kept "for structure".
 - Concrete tool names are substituted by the installer from the project
   profile.
 

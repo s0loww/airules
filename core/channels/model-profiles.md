@@ -14,13 +14,18 @@ rule (ONBOARD §9.5, `docs/SYNC.md`).
 
 Model-specific behavior lives **only here** — never inside role bodies,
 rules, or task templates. Do not port a profile to another family: guidance
-that fixes one family's failure mode (e.g. encouraging delegation on Opus)
-amplifies the opposite failure mode on another (Fable already delegates
-readily).
+that fixes one family's failure mode amplifies the opposite failure mode on
+another. A delegation damper is the standing example — it is correct for a
+family that fans out on reflex and actively harmful for one that serializes
+work it should have split.
 
-Sources: Anthropic's model-specific prompting guides (Fable 5 vs Opus 4.8)
-and OpenAI's GPT-5.x guidance; adapted for this distribution's contract
-vocabulary.
+The same caution applies **across versions of one family**: a profile written
+for an earlier generation can invert. Re-read the block against the current
+vendor guidance before carrying it forward — the failure mode it counters may
+no longer be the failure mode the model has.
+
+Sources: Anthropic's model-specific prompting guides and OpenAI's GPT-5.x
+guidance; adapted for this distribution's contract vocabulary.
 
 ## Family detection
 
@@ -76,18 +81,25 @@ case-insensitive, first hit wins:
 
 ```
 ## Model profile: Claude Opus
-- Prefer higher effort for coding, review, research, and multi-step agentic
-  work when effort controls are available. For shallow results on complex
-  tasks, raise effort rather than adding verbose reasoning instructions.
+- Effort is set per role by the routing map; do not simulate extra
+  deliberation in prose. For shallow results on a genuinely hard task,
+  escalate effort by an explicit decision — but never to the channel's top
+  step as a habit: above xhigh the result degrades while the price rises.
 - Trigger tools explicitly when file contents, repo state, current docs, CLI
   behavior, or runtime configuration matter. Reasoning alone is not enough
   for codebase claims.
-- In review work, optimize the first pass for coverage: report possible
-  correctness issues with severity and confidence instead of silently
-  filtering uncertain or lower-severity findings.
-- Use subagents when fan-out, isolation, or specialist context is valuable;
-  this family under-delegates by default — delegate independent parallel
-  streams instead of serializing them yourself.
+- In review work, optimize for coverage: report every possible correctness
+  issue with severity and confidence. Do not silently drop uncertain or
+  lower-severity findings — filtering is a separate pass, not something you
+  do while looking.
+- This family delegates readily — that is the failure mode to watch. Keep
+  launches few and large: no subagent for what a handful of tool calls
+  closes, none for checking your own work, one rather than several when one
+  suffices.
+- Written artifacts run long by default. Size a document to its task: cover
+  the substance without filler, duplicate summaries, or boilerplate.
+- Narrate sparingly: one sentence before the first tool call, short updates
+  only on a real finding or a change of direction, result first at the end.
 - For frontend/design work, request or specify a concrete visual direction
   before building; do not rely on default warm cream/serif aesthetics for
   dashboards, dev tools, or enterprise UIs.
@@ -115,8 +127,20 @@ case-insensitive, first hit wins:
 - **Reasoning-effort steering differs by family.** GPT-family behavior is
   steered primarily through parameters (`model_reasoning_effort` in the
   codex channel config) — set by the installer from `model-map.yaml`, not by
-  prose exhortations. Claude-family effort is likewise a channel setting;
-  "think harder" prose is not a substitute for the right tier.
+  prose exhortations. Claude-family effort is likewise a channel setting
+  (the `effort` frontmatter field of an agent definition); "think harder"
+  prose is not a substitute for the right step.
+- **Effort is not a length control.** It governs how much the model
+  deliberates, not how much it writes; lowering it does not reliably shorten
+  the answer. Response and document length is set by the contract
+  (`core/templates/AGENTS.md`, "Output discipline") and by the profile
+  blocks above.
+- **Do not disable thinking to save cost.** Where a channel allows it at all,
+  disabling it introduces artifacts — tool calls leaking into visible text
+  (which then poisons later turns of an agentic loop) and internal markup in
+  the output. Cut cost with the effort step instead. On the claude channel a
+  subagent inherits the session's thinking configuration; there is no
+  per-agent switch, so this is a session-level decision.
 - **Never ask a subagent to reveal its internal reasoning** ("show your
   thinking", "explain your chain of thought step by step"). On Fable-class
   models this trips the reasoning_extraction refusal category; on all
