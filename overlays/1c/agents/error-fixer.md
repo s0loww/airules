@@ -2,6 +2,7 @@
 name: 1c-error-fixer
 description: "Быстрый точечный фикс ошибок 1С: устраняет синтаксические, рантайм-ошибки и предупреждения BSL Language Server минимальным диффом, без архитектурных изменений. Звать ПРОАКТИВНО, когда в коде 1С возникает ошибка."
 tier: medium
+effort: medium
 tools: rw
 allowParallel: true
 ---

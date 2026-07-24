@@ -1,8 +1,8 @@
 # Agent definition template
 
-Channel-neutral template for describing a subagent. Roles, tiers and rights
-come from `core/agents/ROLES.md`; model selection and delegation rules —
-from `core/rules/subagents-model-routing.md`.
+Channel-neutral template for describing a subagent. Roles, tiers, efforts and
+rights come from `core/agents/ROLES.md`; model selection and delegation rules
+— from `core/rules/subagents-model-routing.md`.
 
 ## Frontmatter
 
@@ -11,6 +11,7 @@ from `core/rules/subagents-model-routing.md`.
 name: <role>
 description: "<when to call this agent — triggers for the orchestrator>"
 tier: <high|medium|low>     # no model here: resolved via model-map at install
+effort: <low|medium|high|xhigh>   # channel-neutral; resolved the same way
 tools: <ro|rw>
 allowParallel: true         # optional; see semantics below
 ---

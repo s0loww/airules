@@ -2,6 +2,7 @@
 name: 1c-performance-optimizer
 description: "Анализ производительности 1С (только чтение): ищет узкие места, анти-паттерны запросов, горячие пути, оценивает приоритет по Impact×Frequency×Data Volume. Выдаёт рекомендации, но НЕ правит код — правки уходят в developer/refactoring. Звать ПРОАКТИВНО при подозрении на проблемы производительности или после ревью, выявившего медленный код."
 tier: high
+effort: high
 tools: ro
 allowParallel: true
 ---
