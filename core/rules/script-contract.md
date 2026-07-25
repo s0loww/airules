@@ -1,5 +1,5 @@
 ---
-description: "Automation script contract: DryRun/Apply, exit codes, reports, credentials, idempotency. Load when writing or reviewing automation scripts. Триггеры: скрипт, автоматизация, мутации данных, отчёт скрипта, идемпотентность"
+description: "Automation script contract: DryRun/Apply, exit codes, reports, artifact integrity, credentials, idempotency. Load when writing or reviewing automation scripts, or when an artifact's integrity is fixed by a checksum. Триггеры: скрипт, автоматизация, мутации данных, отчёт скрипта, идемпотентность, манифест, контрольная сумма, целостность артефакта"
 alwaysApply: false
 ---
 
@@ -29,6 +29,20 @@ A mutating script writes a machine-readable report (CSV/JSON): what it
 found, what it changed, what it skipped and why. The report is saved to
 the project's log directory, not only printed to the console — otherwise
 the result cannot be re-checked after the run.
+
+## Artifact integrity
+
+When an artifact's integrity is fixed by hashing its bytes — a checksum
+manifest over reports, evidence, or reference files — pin line endings for
+that artifact tree with a `.gitattributes` inside it. Otherwise
+`core.autocrlf` rewrites the bytes on checkout and the hash holds only on the
+machine that computed it. The failure is silent and delayed: it surfaces on
+the first fresh clone, not when the manifest is written. Verify with
+`git ls-files --eol <path>` — index and working tree must agree.
+
+Pin the directories the project owns. Do not widen an attribute list that
+belongs to someone else (a distribution, a vendored tree): a broad rule
+rewrites foreign files with mixed endings without asking.
 
 ## Verification after Apply
 
