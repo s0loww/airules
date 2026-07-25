@@ -232,30 +232,59 @@ function Invoke-Deploy {
     if ($extensionName) { $planMessage += "; расширение $extensionName (-Extension)" }
     Add-Step 'deploy.plan' 'ok' $planMessage
 
-    $log = Join-Path $script:RunDir 'deploy.log'
-    $args = New-Object System.Collections.ArrayList
-    [void]$args.Add('DESIGNER')
-    foreach ($arg in (Get-TargetArguments $target $credentials.path)) { [void]$args.Add($arg) }
-    Add-Credentials $args $credentials
-    [void]$args.Add('/DisableStartupDialogs')
-    [void]$args.Add('/LoadConfigFromFiles'); [void]$args.Add(('"' + $source + '"'))
-    if ($extensionName) {
-        [void]$args.Add('-Extension'); [void]$args.Add((Quote-IfNeeded $extensionName))
-        [void]$args.Add('-Format'); [void]$args.Add('Hierarchical')
-    }
-    [void]$args.Add('/UpdateDBCfg')
-    if ($extensionName) { [void]$args.Add('-Extension'); [void]$args.Add((Quote-IfNeeded $extensionName)) }
-    [void]$args.Add('/Out'); [void]$args.Add(('"' + $log + '"'))
+    # Общая часть командной строки DESIGNER — переиспользуется каждым запуском.
+    $common = New-Object System.Collections.ArrayList
+    [void]$common.Add('DESIGNER')
+    foreach ($arg in (Get-TargetArguments $target $credentials.path)) { [void]$common.Add($arg) }
+    Add-Credentials $common $credentials
+    [void]$common.Add('/DisableStartupDialogs')
 
-    $redactedCommand = Format-DeployCommandLine $platform.FullName $args $credentials.password
-    Add-Step 'deploy.command' 'planned' $redactedCommand
+    $runs = New-Object System.Collections.ArrayList
+    if ($extensionName) {
+        # Платформа (проверено на 8.3.27) отвергает /LoadConfigFromFiles -Extension и
+        # /UpdateDBCfg -Extension в ОДНОМ запуске DESIGNER. Для расширения деплой
+        # выполняется двумя последовательными запусками с теми же флагами; для основной
+        # конфигурации совмещённый запуск работает и остаётся одним.
+        $loadLog = Join-Path $script:RunDir 'deploy-load.log'
+        $load = New-Object System.Collections.ArrayList
+        [void]$load.AddRange($common)
+        [void]$load.Add('/LoadConfigFromFiles'); [void]$load.Add(('"' + $source + '"'))
+        [void]$load.Add('-Extension'); [void]$load.Add((Quote-IfNeeded $extensionName))
+        [void]$load.Add('-Format'); [void]$load.Add('Hierarchical')
+        [void]$load.Add('/Out'); [void]$load.Add(('"' + $loadLog + '"'))
+        [void]$runs.Add(@{ name = 'load'; args = $load; log = $loadLog })
+
+        $updateLog = Join-Path $script:RunDir 'deploy-update.log'
+        $update = New-Object System.Collections.ArrayList
+        [void]$update.AddRange($common)
+        [void]$update.Add('/UpdateDBCfg'); [void]$update.Add('-Extension'); [void]$update.Add((Quote-IfNeeded $extensionName))
+        [void]$update.Add('/Out'); [void]$update.Add(('"' + $updateLog + '"'))
+        [void]$runs.Add(@{ name = 'update'; args = $update; log = $updateLog })
+    }
+    else {
+        $log = Join-Path $script:RunDir 'deploy.log'
+        $single = New-Object System.Collections.ArrayList
+        [void]$single.AddRange($common)
+        [void]$single.Add('/LoadConfigFromFiles'); [void]$single.Add(('"' + $source + '"'))
+        [void]$single.Add('/UpdateDBCfg')
+        [void]$single.Add('/Out'); [void]$single.Add(('"' + $log + '"'))
+        [void]$runs.Add(@{ name = 'load+update'; args = $single; log = $log })
+    }
+
+    foreach ($run in $runs) {
+        $redactedCommand = Format-DeployCommandLine $platform.FullName $run.args $credentials.password
+        Add-Step "deploy.command.$($run.name)" 'planned' $redactedCommand
+    }
 
     if (-not $Apply) { Add-Step 'deploy.apply' 'dry-run' 'Для применения требуется -Apply'; return }
 
-    $process = Start-Process -FilePath $platform.FullName -ArgumentList $args -Wait -PassThru -NoNewWindow
-    [void]$script:Artifacts.Add($log)
-    if ($process.ExitCode -ne 0) { throw "Deploy завершился с кодом $($process.ExitCode). См. $log" }
-    Add-Step 'deploy.apply' 'ok' "Тестовая ИБ обновлена; лог: $log"
+    foreach ($run in $runs) {
+        $process = Start-Process -FilePath $platform.FullName -ArgumentList $run.args -Wait -PassThru -NoNewWindow
+        [void]$script:Artifacts.Add($run.log)
+        if ($process.ExitCode -ne 0) { throw "Deploy ($($run.name)) завершился с кодом $($process.ExitCode). См. $($run.log)" }
+        Add-Step "deploy.apply.$($run.name)" 'ok' "Шаг выполнен; лог: $($run.log)"
+    }
+    Add-Step 'deploy.apply' 'ok' ("Тестовая ИБ обновлена; запусков: " + $runs.Count)
 }
 
 function Get-OneScriptBin {

@@ -154,9 +154,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools\agent-1c\agent-1c
 - к `/LoadConfigFromFiles` — `-Extension {{ИмяРасширения}} -Format Hierarchical`;
 - к `/UpdateDBCfg` — `-Extension {{ИмяРасширения}}`.
 
-Проверьте в DryRun строку `deploy.command`, что `-Extension` присутствует у **обеих**
-операций, прежде чем запускать `-Apply`. Без блока `extension` контур работает с
-основной конфигурацией — для проекта-расширения это недопустимо.
+**Расширение деплоится двумя запусками DESIGNER, а не одним.** Платформа (проверено
+на 8.3.27) отвергает `/LoadConfigFromFiles -Extension` и `/UpdateDBCfg -Extension`
+в одной командной строке. Поэтому для расширения `deploy` выполняет:
+
+1. запуск `load` — `/LoadConfigFromFiles … -Extension … -Format Hierarchical`, лог `deploy-load.log`;
+2. запуск `update` — `/UpdateDBCfg -Extension …`, лог `deploy-update.log`.
+
+Для основной конфигурации совмещённый запуск работает и остаётся одним (`deploy.log`).
+
+В DryRun это видно как две строки `deploy.command.load` и `deploy.command.update`
+вместо одной. Проверьте, что `-Extension` присутствует у **обеих** операций, прежде
+чем запускать `-Apply`. Без блока `extension` контур работает с основной
+конфигурацией — для проекта-расширения это недопустимо.
 
 ### 2.2 Настройка тестовой ИБ
 
