@@ -34,6 +34,26 @@ path**. In a workspace — which plan artifact to write.
    workspace — to the corresponding task artifact (see the workspace
    integration rule).
 
+## Wide refactors — expand–contract
+
+A wide mechanical change whose blast radius fans across the codebase
+(renaming a shared symbol, retyping a shared surface, moving a common
+dependency) cannot land as one small green step — one edit breaks every
+call site at once. Plan it as an explicit expand–contract sequence
+(adapted from mattpocock/skills, MIT):
+
+1. **Expand** — add the new form alongside the old; nothing breaks.
+2. **Migrate** — move call sites in batches sized by blast radius (per
+   package / per directory); each batch is its own plan step, blocked by
+   the expand step. Checks stay green between batches because the old form
+   still exists.
+3. **Contract** — remove the old form; blocked by all migrate batches.
+
+If even individual batches cannot stay green, the plan says so explicitly:
+the batches share one integration branch, everything blocks a final
+integrate-and-verify step, and green is promised only there — never
+implied in between.
+
 ## Boundaries
 - Does not design architecture and does not select the approach/components
   — escalate to `architect`.
