@@ -83,7 +83,8 @@
   правило `tool-output-economy`, а автоперехват — только глобальный `rtk init -g` (решение
   пользователя). Проектные фильтры `.rtk/filters.toml` требуют разового одобрения
   пользователем на машине (`rtk trust`).
-- `.claude/commands/*.md` — копия из `core/commands/*.md`.
+- `.claude/commands/*.md` — копия из `core/commands/*.md` (+ оверлейные
+  `overlays/<stack>/commands/*`, если стек подтверждён).
 - `.mcp.json` — корень: `{ "mcpServers": { … } }`, один блок на сервер из декларации MCP
   проекта.
 
