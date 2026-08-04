@@ -27,7 +27,10 @@ When `{TASK}` is required and not provided — ask the user once and reuse the s
 
 > For tasks without code generation (review, analysis, documentation) — parameters are not blocking.
 
-See `.dev.env.example` for template.
+See `.dev.env.example` in the project root for the template (installed from
+the overlay). `PREFIX` and `PLATFORM_VERSION` must match the root contract
+and the project passport (`openspec/project.md`) — on mismatch, ask the
+user which source is current instead of picking one silently.
 
 ## 2. Code Style (single source of truth — referenced from `AGENTS.md`)
 
