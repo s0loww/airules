@@ -39,7 +39,7 @@ defines where each subagent is allowed to write.
 | **developer** | `specs/`, active `changes/<id>/` | code; updates `changes/<id>/specs/` deltas and checks off items in `tasks.md` |
 | **metadata-manager** | `specs/`, active `changes/<id>/` | data structure/schema; spec deltas under `changes/<id>/specs/` for new/changed schema objects |
 | **refactoring** | `specs/`, active `changes/<id>/` | code; updates deltas only when observable behavior changes |
-| **performance-optimizer** | `specs/` (non-functional/perf requirements) | code; deltas only when a perf requirement changes |
+| **performance-optimizer** | `specs/` (non-functional/perf requirements) | recommendations only (no artifact writes — a read-only role; edits go to `developer`/`refactoring`) |
 | **error-fixer** | active `changes/<id>/` | code; usually no spec changes (a bug fix preserves the intended behavior) |
 | **tester** | `specs/` (scenarios), `changes/<id>/tasks.md` | test results, checkmarks in `tasks.md` |
 | **code-reviewer** | `specs/`, `changes/<id>/specs/` deltas | review verdict against the requirements (no artifact writes) |
@@ -55,8 +55,8 @@ follows:
 | Requirements | `analytic` | `proposal.md` + initial deltas in `changes/<id>/specs/` |
 | Design | `architect` (optional review by `arch-reviewer`) | `design.md` |
 | Planning | `planner` | `tasks.md` |
-| Implementation | `developer`, `metadata-manager`, `refactoring`, `performance-optimizer`, `error-fixer` | code + updated deltas + checked-off `tasks.md` |
-| Verification | `tester`, `code-reviewer` | test results, review verdict |
+| Implementation | `developer`, `metadata-manager`, `refactoring`, `error-fixer` (`performance-optimizer` advises read-only) | code + updated deltas + checked-off `tasks.md` |
+| Verification | `tester`; `code-reviewer` **only on an explicit user request** | test results; review verdict when requested |
 | Documentation and archiving | `doc-writer`, then the `openspec-archive-change` skill | user documentation; deltas merged into `specs/`, change moved to `changes/archive/` |
 
 ## todo.md — tech-debt format
