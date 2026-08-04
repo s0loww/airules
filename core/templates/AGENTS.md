@@ -79,14 +79,15 @@ Rule Index at the moment it applies, never preloaded.
 | requirements interview, decision elicitation / интервью, уточнение требований | `decision-interview` | analytic |
 | {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
 
-Rows with `{{DOMAIN_ROUTES}}` are filled by the domain overlay when the stack
-is confirmed. When installing **without** an overlay the installer replaces
-`{{DOMAIN_ROUTES}}` with `—` (the row remains a role hint without a bound
-rule) and removes the all-placeholder domain row entirely — the verification
-step requires zero unfilled placeholders. An overlay that ships its own
-debugging adaptation appends it to the debugging row next to
-`debugging-loop` instead of replacing it (the adaptation takes precedence
-for stack tasks).
+Rows carrying the `DOMAIN_ROUTES` placeholder are filled by the domain
+overlay when the stack is confirmed (route source — the overlay README's
+routing section, or the overlay rules' descriptions). When installing
+**without** an overlay the installer replaces that placeholder with `—`
+(the row remains a role hint without a bound rule) and removes the
+all-placeholder domain row entirely — the verification step requires zero
+unfilled placeholders. An overlay that ships its own debugging adaptation
+appends it to the debugging row next to `debugging-loop` instead of
+replacing it (the adaptation takes precedence for stack tasks).
 
 ## Subagents
 
