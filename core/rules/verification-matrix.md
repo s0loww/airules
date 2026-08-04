@@ -13,7 +13,7 @@ supplied by the project profile; below they are described as categories.
 | --- | --- | --- |
 | Docs/rules/playbook only | loader/routing smoke if routing changed | — |
 | Quick-fix in code | syntax check of the changed module | static logic analysis if logic changed |
-| Code logic | syntax check + static analysis | deeper review for shared modules, queries, transactions |
+| Code logic | syntax check + static analysis + affected automated tests (when a suite exists) | deeper review for shared modules, queries, transactions |
 | Query / data access | local impact search + syntax + static analysis | review of query parameters, derived-view filters, callers |
 | Metadata (XML) | schema/tool validation when available | load/open the object on a test environment when feasible |
 | Form (XML/module) | markup/event inspection + form validation when available | UI smoke / opening the form |
@@ -74,10 +74,11 @@ and a bounded retry budget.
 
 ### Soft gates — as applicable
 
-- **A. Reproduction case (debugging tasks)** — repeat the exact reproduction
-  scenario from phase 1 of the systematic debugging method after the fix; the
-  symptom is gone. Document it in the summary. Remove all temporary debug log
-  writes, value dumps, breakpoints, hardcoded test values.
+- **A. Reproduction case (debugging tasks)** — re-run the phase-1 feedback
+  loop from `debugging-loop.md` on the original, unminimised scenario after
+  the fix; the symptom is gone. Document it in the summary. Remove all
+  temporary debug log writes, value dumps, breakpoints, hardcoded test
+  values (search by the debug tag — `debugging-loop.md`, phase 4).
 - **B. Plan conformance (any written plan / OpenSpec apply / chat-approved
   plan)** — every step done, none silently skipped; diff reconciled per file
   (`git diff --name-only`); no file outside the plan edited without
@@ -87,6 +88,14 @@ and a bounded retry budget.
   `code-reviewer` role; close critical/major before handover. Do **not**
   trigger the reviewer automatically — gates 2-3 already cover the routine
   bar.
+- **D. Automated tests (only when the project has a test suite)** — the
+  tests affected by the change pass. A bug fix additionally carries a
+  regression test at a correct seam, built from the minimised reproduction —
+  or the absence of a correct seam is recorded in "Risks"
+  (`debugging-loop.md`, phase 5). New tests follow `test-discipline.md`: no
+  tautological or implementation-coupled tests, seams pre-agreed in the
+  plan. Do not introduce a test suite into a project that has none as a side
+  effect of a change.
 
 ### Handover summary — what the user sees
 
