@@ -58,10 +58,7 @@ Scope: <where it applies>
 Verification: <how to know it still holds>
 ```
 
-## Recorded decisions
-
-This section is maintained in the target project. Example entry (a
-template, not a real decision):
+Example entry (a template, not a real decision):
 
 ```text
 Decision: <short statement of the chosen decision>
@@ -69,3 +66,8 @@ Reason: <root cause: a failure, a constraint, or an agreement>
 Scope: <where it applies — project, class of modules, class of queries>
 Verification: <rule/checklist/test where the decision is captured and checked>
 ```
+
+Do **not** append entries to this file: the installed copy is
+manifest-managed and gets replaced on update — an in-file journal would be
+lost or block the sync forever. Entries live in the locations listed under
+"Where to record".
