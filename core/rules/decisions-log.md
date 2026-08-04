@@ -8,6 +8,19 @@ alwaysApply: false
 Record decisions that are stable, non-obvious, reusable, and likely to
 prevent future mistakes.
 
+**Threshold — all three at once** (adapted from mattpocock/skills, MIT):
+
+1. **Hard to reverse** — changing your mind later has a real cost.
+2. **Surprising without context** — a future reader would ask "why on earth
+   did they do it this way?".
+3. **A real trade-off** — genuine alternatives existed and one was chosen.
+
+A decision that fails any of the three is not worth an entry — the code or
+the current files already carry it. Explicit "no" decisions (a rejected
+alternative with a non-obvious reason, an intentional deviation from the
+obvious path) pass the threshold as often as "yes" decisions — record them
+so the next agent does not "fix" the deviation back.
+
 Good candidates:
 
 - source of truth choices;
@@ -15,6 +28,7 @@ Good candidates:
 - project rules stricter than the standard;
 - recurring verification requirements;
 - architectural trade-offs accepted by the user;
+- rejected alternatives whose rejection reason is not visible in the code;
 - domain constraints.
 
 Do not record secrets, personal data, transient observations, or facts that
