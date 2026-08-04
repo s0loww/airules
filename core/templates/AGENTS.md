@@ -70,6 +70,8 @@ Rule Index at the moment it applies, never preloaded.
 | tests, regression test, mocking / тесты, регрессия, моки | `test-discipline` | developer / tester |
 | work mode, scouting vs edit, emergency fix / режим работы, разведка | `collaboration-modes` | (orchestrator) |
 | debugging, bug, error reproduction / отладка, баг | `debugging-loop` | error-fixer |
+| session handoff, new session, context limit / передача сессии, хэндофф | `session-handoff` | (orchestrator) |
+| requirements interview, decision elicitation / интервью, уточнение требований | `decision-interview` | analytic |
 | {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
 
 Rows with `{{DOMAIN_ROUTES}}` are filled by the domain overlay when the stack
