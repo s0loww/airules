@@ -1,14 +1,23 @@
 ---
-description: "Formalized subagent pipeline for a non-trivial change: plan → implement → spec-conformance review → optional code review → verification gate, with a mandatory Handoff format. Load for any full-cycle task delegated across subagents. Триггеры: конвейер, субагент, полный цикл, передача между этапами."
+description: "Formalized stage discipline for a non-trivial change: plan → implement → spec-conformance review → optional code review → verification gate, with a mandatory Handoff format. Stages fix the order and gates; whether a stage is delegated follows the delegation rules. Load for any full-cycle task. Триггеры: конвейер, субагент, полный цикл, передача между этапами."
 alwaysApply: false
 ---
 
 # Subagent pipeline — full-cycle flow
 
-**When to load this file:** any task above the quick-fix threshold of the root
-router (more than ~20 changed lines, more than one module, any metadata
-change, any architectural impact, any non-trivial bug). For a quick-fix the
+**When to load this file:** any full-cycle task (the quick-fix / full-cycle
+boundary lives in the root contract, "Work cycle"). For a quick-fix the
 pipeline is overhead: a direct edit + syntax check is enough.
+
+**Stages vs delegation.** The pipeline prescribes the *order of stages and
+their gates* — it does not mandate delegation. Whether a stage is delegated
+or done by the main agent is governed by the delegation rules
+(`subagents-model-routing.md` damper, `orchestrator-economy.md` when
+active): stage headers name the fitting role *for when the stage is
+delegated*. In particular, heavy multi-file implementation may deliberately
+stay with the main agent (the role registry's calibration) — the stage
+order, its responsibilities and its gates apply unchanged to whoever runs
+the stage.
 
 **Companions:** `subagents-model-routing.md` (delegation and role routing),
 `subagent-task-templates.md` (bounded prompts), `verification-matrix.md`
@@ -44,14 +53,14 @@ verification gate.
                │ full-cycle
                ▼
 ┌─────────────────────────────┐
-│ 2. Plan                     │  delegate → planner
-│    plan.md / tasks.md       │  (or architect, if architectural)
+│ 2. Plan                     │  planner (or architect) —
+│    plan.md / tasks.md       │  or main agent, per delegation rules
 └──────────────┬──────────────┘
                │
                ▼
 ┌─────────────────────────────┐
-│ 3. Implementation           │  delegate → developer
-│    code + metadata edits    │  (or metadata-manager for XML-heavy)
+│ 3. Implementation           │  developer (or metadata-manager) —
+│    code + metadata edits    │  or main agent, per delegation rules
 └──────────────┬──────────────┘
                │
                ▼
@@ -83,13 +92,15 @@ verification gate.
 
 ### Stage 1 — Triage (main agent)
 
-Apply the triage rule of the root router: only **full-cycle** tasks enter the
-pipeline. If the task is a quick-fix — edit directly and go to stage 5 with
-minimal verification (syntax check only). Tasks on the **docs-fix** path
-(Markdown / rules / docs only) bypass the pipeline and code validators — use
-the `verification-matrix.md` row "Docs/rules/playbook only". Tasks on the
-**spec-authoring** path (OpenSpec artifacts with domain facts) also bypass the
-pipeline but carry the evidence obligations from `sdd-integrations.md`.
+Apply the triage boundary of the root contract ("Work cycle"): only
+**full-cycle** tasks enter the pipeline. If the task is a quick-fix — edit
+directly and go to stage 5 with minimal verification (syntax check only).
+Two bypass paths sit outside both modes: tasks touching **docs only**
+(Markdown / rules / docs) skip the pipeline and code validators — use the
+`verification-matrix.md` row "Docs/rules/playbook only"; tasks authoring
+**OpenSpec artifacts with domain facts** also skip the pipeline but must
+ground every domain fact in project sources (code, structure, data), not in
+memory — `sdd-integrations.md` names the canonical artifacts.
 
 If the user asks for a small change that **looks** like a quick-fix but
 touches a transactional path, a public export of a shared module, code that
@@ -101,9 +112,9 @@ new independent data store / defined type / enumeration / constant /
 standalone attribute, with no affected consumer in the same change) stay on
 the quick-fix path. When in doubt, full-cycle wins.
 
-### Stage 2 — Plan (delegate to a planning subagent)
+### Stage 2 — Plan (planning role — or the main agent, per "Stages vs delegation")
 
-Pick by the shape of the task:
+When delegating, pick by the shape of the task:
 
 - **`analytic`** — when a written PRD / specification / domain study is needed
   before any plan. Output: written analysis, no code.
@@ -134,9 +145,9 @@ For projects on the OpenSpec workflow the plan lives in
 `openspec/changes/<change-name>/tasks.md`, the design in `design.md`. The
 pipeline does not replace OpenSpec — it plugs into the **apply** phase.
 
-### Stage 3 — Implementation (delegate to an implementing subagent)
+### Stage 3 — Implementation (implementing role — or the main agent, per "Stages vs delegation")
 
-Pick by the shape of the task:
+When delegating, pick by the shape of the task:
 
 - **`developer`** — bulk code changes across modules, shared modules,
   server / client routines.
