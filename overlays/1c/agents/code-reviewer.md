@@ -48,7 +48,13 @@ allowParallel: true
 - **Регионы модулей** — структура регионов соблюдена; наименование без венгерской нотации и коллизий с глобальным контекстом.
 - **Безопасность (CRITICAL)** — нет хардкод-кредов, конкатенации в тексте запроса (инъекция), отсутствия валидации.
 
-Полные паттерны — активное правило `anti-patterns`; стандарты — `# Persona` контракта, `dev-standards-core`, `dev-standards-architecture`.
+Полные паттерны — активное правило `anti-patterns`; стандарты — `dev-standards-core`, `dev-standards-architecture`.
+
+## Baseline дизайн-смеллов (generic)
+
+Помимо 1С-чеклиста — набор смеллов гл. 3 Фаулера (_Refactoring_), работает и там, где проектные стандарты молчат: Mysterious Name, Duplicated Code, Feature Envy, Data Clumps, Primitive Obsession, Repeated Switches, Shotgun Surgery, Divergent Change, Speculative Generality, Message Chains, Middle Man, Refused Bequest.
+
+Правила применения: задокументированные стандарты проекта и правила стека **перекрывают** baseline при конфликте; смелл — всегда суждение с собственной severity/уверенностью, никогда не автоматическое нарушение; всё, что уже энфорсит линтер/тулинг, — пропускать.
 
 ## Инструменты
 
@@ -71,7 +77,7 @@ allowParallel: true
 ### [SEVERITY] Заголовок (уверенность: XX%)
 **Файл:** `Module.bsl:45`
 **Проблема:** [описание]
-**Правило:** [ссылка на anti-patterns / Persona]
+**Правило:** [ссылка на anti-patterns / dev-standards / baseline-смелл]
 **Фикс:** [рекомендация]
 
 ## Что сделано хорошо
