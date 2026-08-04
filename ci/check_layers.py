@@ -5,7 +5,8 @@ Scans the layered distribution (core/, overlays/, project-template/) and reports
 content that violates the purity contract of its layer: leaked credentials,
 machine paths, domain names, stack terms in the generic core, hardcoded models,
 unmarked max-effort defaults, retired self-verification wording, missing UTF-8
-BOM in script files, and credentials echoed into console output.
+BOM in script files, credentials echoed into console output, and
+distribution-only paths inside installable files.
 
 Pure standard library, cross-platform, Python 3.9+.
 
@@ -161,6 +162,20 @@ def _build_rules():
             "layers": ("core",),
             "description": "Top effort step (max) used without a manual-escalation marker.",
         },
+        # --- distribution-only paths in installable files ---
+        # Rules and overlay content install FLAT into the target (rules/,
+        # tools/, .claude/skills/ ...), so references like core/rules/... or
+        # overlays/<stack>/... resolve only inside this repository and break
+        # after install. Install-time artifacts (core/channels, the role
+        # registry, layer READMEs) are exempt via _is_installable_path.
+        {
+            "id": "install-path",
+            "regex": r"(?:\b(?:core|overlays)/[A-Za-z0-9_.\-]+/|\.codex/rules/|\.claude/rules/)",
+            "severity": "error",
+            "layers": ("core", "overlays", "project-template"),
+            "description": "Distribution-only path in an installable file (breaks after flat install).",
+            "install_only": True,
+        },
         # --- retired self-verification wording: core only ---
         # Removed in 0.4.0: the model verifies its own work without being told,
         # and these phrasings stack with that behavior at pure extra cost.
@@ -202,11 +217,37 @@ def _build_rules():
 RULES = _build_rules()
 
 
+def _is_installable_path(rel_path):
+    """Files that are copied or rendered into target projects. core/channels,
+    the registry/template files consumed only at install time, and layer-level
+    READMEs stay distribution-internal and may reference repository paths."""
+    norm = rel_path.replace("\\", "/")
+    parts = norm.split("/")
+    top = parts[0]
+    if top == "project-template":
+        return not (len(parts) == 2 and parts[1] == "README.md")
+    if top == "core":
+        if len(parts) < 3:
+            return False
+        second = parts[1]
+        if second == "channels":
+            return False
+        if second == "agents":
+            return len(parts) >= 4 and parts[2] == "roles"
+        return second in ("rules", "templates", "skills", "commands")
+    if top == "overlays":
+        return not (len(parts) == 3 and parts[2] == "README.md")
+    return False
+
+
 def _rule_applies_to_path(rule, rel_path):
     """Return True if this rule should be evaluated for rel_path."""
     top = rel_path.replace("\\", "/").split("/", 1)[0]
     layers = rule["layers"]
     if "*" not in layers and top not in layers:
+        return False
+
+    if rule.get("install_only") and not _is_installable_path(rel_path):
         return False
 
     # model-hardcode markdown flavour is scoped to specific dirs + .md only.
