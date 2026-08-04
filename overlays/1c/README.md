@@ -8,8 +8,9 @@
 
 Состав:
 
-- `rules/` — 23 правила стека: стандарты разработки, анти-паттерны, формы,
-  блокировки/транзакции, регистры, СКД, расширения, COM-автоматизация
+- `rules/` — 25 правил стека: стандарты разработки, анти-паттерны, формы,
+  блокировки/транзакции, регистры, СКД, расширения, слои и доменная модель
+  (`clean-architecture-1c`, `ddd-1c`), COM-автоматизация
   (`com-powershell-1c`), карта инструментов по типам задач (`tooling-playbooks`).
 - `agents/` — 13 полных 1С-специализаций ролей реестра `core/agents/ROLES.md`
   (замещают generic-роли при установке на 1С-проект).
@@ -33,5 +34,6 @@
 | Триггер | Правило | Роль |
 | --- | --- | --- |
 | refactoring, duplicates, dead code / рефакторинг, дубли | `refactor-add` | refactoring |
+| layers, dependencies, bounded contexts, DDD / слои, зависимости, границы контекстов | `clean-architecture-1c` + `ddd-1c` | architect |
 | debugging, bug / отладка, баг — рядом с `debugging-loop` | `systematic-debugging` | error-fixer |
 | формы, метаданные, СКД, макеты / forms, metadata | `forms` + скилл `1c-metadata-manage` | metadata-manager |
