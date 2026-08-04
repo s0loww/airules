@@ -72,6 +72,12 @@ Output: root cause, minimal fix, verification.
 Subagents: avoid, except for a read-only side check that can run in
 parallel.
 
+Urgency overrides the non-trivial-bug escalation of the pipeline triage:
+restore first with the minimal fix, then route the root-cause work through
+normal triage (`debugging-loop.md`, "Scope and scale"). If the minimal fix
+itself touches a stage-1 risk escalator (`subagent-pipeline.md`), the
+follow-up full-cycle pass is mandatory, not optional.
+
 ## Choosing a mode
 
 - If the user only asks a question — start in `Exploration`.

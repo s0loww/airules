@@ -27,6 +27,12 @@ You MUST complete all four phases in order. Do not jump to phase 4 ("write the f
 
 Goal: a deterministic, minimal reproduction case in a controlled environment.
 
+Prefer an **agent-runnable** reproduction (a query, a script, a re-posting
+scenario the agent can trigger itself) over manual UI steps; when only a
+manual reproduction exists, record the exact steps verbatim and minimize the
+case — drop inputs and steps one at a time while the symptom survives —
+before hypothesizing.
+
 Required outputs of this phase:
 
 - exact infobase (file or SQL — record the connection string), platform version, configuration / extension versions;
@@ -66,7 +72,9 @@ Tools to use:
 - **`its_help` → `fetch_its`** to verify the documented behaviour of the platform mechanism you suspect.
 - **`ask_1c_ai`** as a hint generator (treat as a draft — do not let an AI hint replace the falsifying experiment).
 
-Produce at least 2 hypotheses. A single hypothesis is anchoring bias — challenge it with a competing one even if it feels obviously right.
+Produce 3–5 ranked hypotheses (2 only when the space is genuinely binary).
+A single hypothesis is anchoring bias — challenge it with a competing one
+even if it feels obviously right.
 
 ### Phase 3 — Experiment
 
@@ -101,7 +109,7 @@ Goal: minimal code change that addresses the **confirmed** root cause, plus a re
 Required:
 
 - The fix touches only the code paths involved in the confirmed hypothesis (Surgical Changes principle from the root router and `preflight-worktree.md`).
-- A regression guard exists: a query, a `ЖурналРегистрации` event, an `Утверждение`, or — at minimum — a documented manual reproduction step in the change description.
+- A regression guard exists: a query, a `ЖурналРегистрации` event, an `Утверждение`, or — at minimum — a documented manual reproduction step in the change description. When the project has an automated test suite, hold the core bar instead: a regression test written before the fix at a correct seam (`rules/test-discipline.md`).
 - All temporary `ЗаписьЖурналаРегистрации("Debug.*"`, `ПоказатьЗначение`, hard-coded values, breakpoints, and TODO markers introduced in phase 3 are removed.
 - Verification chain runs cleanly: `syntaxcheck` → `check_1c_code` → `review_1c_code` → impact / call-graph analysis against the touched objects (see `verification-matrix.md`).
 - The original reproduction case from phase 1 no longer triggers the symptom.
@@ -131,8 +139,10 @@ Reproduce ──► Hypothesize ──► Experiment ──► Fix
 
 ## Companion rules
 
-- `debugging-loop.md` (core) — the generic feedback-loop method this file
-  specializes for the platform; the phase order and gates are shared.
+- `debugging-loop.md` (core) — the generic feedback-loop method. On
+  1C-stack tasks **this adaptation takes precedence**; for non-stack code
+  (PowerShell tooling, scripts) use the core loop. The shared core
+  principle: reproduce first, hypothesize second, change code last.
 - `verification-matrix.md` — the post-fix gate.
 - `subagent-pipeline.md` — when to delegate the bug to `1c-error-fixer` vs. handle it directly.
 - `tooling-playbooks.md → Error Fixing` — concrete MCP tool sequence for each phase.

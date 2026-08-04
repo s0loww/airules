@@ -7,9 +7,12 @@ alwaysApply: false
 
 Adapted from the `diagnosing-bugs` skill of
 [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). A stack
-overlay may ship a platform adaptation of this loop with concrete debugger,
-log and query tooling; the phase order and the gates below stay in force
-either way. Concrete tool names come from the project profile.
+overlay may ship a platform adaptation of this method with concrete
+debugger, log and query tooling — its phase structure may differ. On tasks
+inside the overlay's stack the adaptation takes precedence; this rule
+governs everything else (scripts, tooling, cross-stack code). The shared
+core principle either way: reproduce first, hypothesize second, change code
+last. Concrete tool names come from the project profile.
 
 ## Core principle
 
@@ -18,6 +21,19 @@ either way. Concrete tool names come from the project profile.
 Until one command exists that reproduces the bug and fails on it, do not
 theorize about the cause. Every "should be fixed now" without a reproduction
 signal is a regression waiting to happen.
+
+## Scope and scale
+
+- **Quick-fix path** (root contract, "Work cycle" boundary): a syntax error
+  or a one-line fix whose cause is evident from the failure itself does not
+  require phases 1–3 — fix directly; soft gate A of the closing gate still
+  applies when a reproduction existed.
+- **Emergency fix** (`collaboration-modes.md`): restore the broken path
+  first with the minimal change; build the loop only when the cause is not
+  evident. If the root cause remains unconfirmed after restoration, a full
+  loop pass runs as follow-up work — restoration closes the outage, not the
+  investigation.
+- **Everything else with a non-obvious cause:** the full loop below.
 
 ## Phase 1 — Build a feedback loop
 
