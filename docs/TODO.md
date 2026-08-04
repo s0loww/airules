@@ -68,7 +68,9 @@ ROLES.md, agent-template.md), `core/templates/AGENTS.md`, `core/commands/*`,
   решить формат (без CJK-мантр, согласовать с `subagent-pipeline.md`).
 - `subagent-pipeline`: рассмотреть вынос Handoff-формата в отдельное правило
   (сейчас единый файл; ядро ценности — блок Handoff — при разбиении вынести
-  целиком).
+  целиком). Межсессионный handoff закрыт 2026-08-04 отдельным правилом
+  `core/rules/session-handoff.md`; кандидатом остаётся только вынос
+  субагентного блока.
 - `git-hooks` / `playbook-smoke-test` / `rag-reindex` из донора не портированы
   (платформенная инфраструктура; функцию контроля в airules несёт
   `ci/check_layers.py`).
