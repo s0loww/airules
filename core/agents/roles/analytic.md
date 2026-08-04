@@ -15,8 +15,9 @@ decomposition to `planner`. The result is a specification document, not a
 decision on how to build.
 
 Conditional tier: **medium** — the data is prepared in advance; **high** —
-working from raw sources without prior preparation (see `ROLES.md`, section
-"Conditional tiers"). The launch tier is chosen by the orchestrator.
+working from raw sources without prior preparation. The role is rendered as
+a pair of definitions (`analytic` / `analytic-deep`); the orchestrator
+chooses the launch tier by launching the matching one.
 
 ## Inputs
 The orchestrator must provide: the subject of analysis (feature/area/

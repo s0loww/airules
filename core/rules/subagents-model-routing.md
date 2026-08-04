@@ -33,10 +33,11 @@ Two things stay outside the registry:
   manual escalation by an explicit user decision for one hard task. It is
   never a role default: on that step the result is *worse* than on `xhigh`
   at a higher price, so it buys nothing by itself.
-- **Conditional tiers**, explicitly described in `ROLES.md` (currently —
-  `analytic`): the orchestrator picks the launch tier and effort by the
-  condition described there (readiness of the input data). This is the normal
-  mechanism of choosing between base tiers, not an escalation.
+- **Conditional tiers** (currently — `analytic`): the installer renders the
+  role as a pair of definitions (`analytic` for prepared data,
+  `analytic-deep` for raw-source work); the orchestrator picks the launch
+  tier by launching the matching definition. This is the normal mechanism of
+  choosing between base tiers, not an escalation.
 
 Sweep effort on your own tasks when adopting a new model family — carried-over
 defaults are the usual reason a routing table underperforms. Sweep for

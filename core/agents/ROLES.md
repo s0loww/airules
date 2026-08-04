@@ -70,9 +70,13 @@ For the `analytic` role, the tier depends on input data readiness:
 - **high** tier, `xhigh` effort — the analyst works from raw sources without
   prior preparation (the run is then spec authoring, not summarizing).
 
-The orchestrator decides at launch time. The agent definition does not
-change: the installer sets the base tier (`medium`) and the base effort
-(`high`); the upgrade is a parameter of the specific run.
+The orchestrator decides at launch time **by picking the definition**: the
+installer renders a conditional-tier role as a *pair* of agent definitions
+from the same role body — `analytic` (base: medium tier, high effort) and
+`analytic-deep` (high tier, xhigh effort). No channel needs per-run
+override mechanics — the upgrade is launching the other definition. The
+registry keeps a single row; the `*` marks the conditional pair, and both
+definitions appear in the root contract's Subagents table.
 
 ## Principles
 
