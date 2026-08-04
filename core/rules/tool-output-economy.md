@@ -76,8 +76,8 @@ instead of requesting everything at once.
 ## Channel and environment notes
 
 - Deeper integration (automatic rewriting of every shell call via the
-  harness hook) exists for some channels — see the claude-channel note in
-  `core/channels/adapters.md`. Installing such hooks is a user decision;
+  harness hook) exists for some channels — an install-time decision noted in
+  the distribution's channel adapters. Installing such hooks is a user decision;
   this rule only covers explicit `rtk`-prefixed calls, which work in any
   channel with no configuration.
 - Telemetry of the reference proxy is opt-in; for fully offline work set

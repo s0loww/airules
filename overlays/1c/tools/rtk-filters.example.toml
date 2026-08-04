@@ -1,6 +1,6 @@
 # rtk project-filter recipe for the 1C overlay.
 # Copy the [filters.*] blocks you need into the target project's
-# .rtk/filters.toml (see core/rules/tool-output-economy.md). The user must
+# .rtk/filters.toml (see rules/tool-output-economy.md). The user must
 # approve project filters once per machine: `rtk trust` (the agent must not
 # run it itself).
 #

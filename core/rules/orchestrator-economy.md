@@ -8,7 +8,7 @@ alwaysApply: false
 ## When the mode is on
 
 - **Automatically** — the lead agent's model belongs to the `orchestrator`
-  tier of the current channel's `core/channels/model-map.yaml` **and that
+  tier of the current channel's model map (an install-time artifact) **and that
   tier is genuinely a class above `high`**: its tokens are several times more
   expensive than the channel tiers.
 - **Not automatically** where a channel maps `orchestrator` onto the same

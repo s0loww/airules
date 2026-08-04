@@ -31,4 +31,4 @@ After refactoring:
 | Query / architecture rules the refactor must preserve | `rules/dev-standards-architecture.md` |
 | Register design invariants (dimensions, movements) | `rules/registers-design.md` |
 | Locks / transactions when touching posting paths | `rules/locks-and-transactions.md` |
-| Safe refactoring verification gates | `core/rules/verification-matrix.md` |
+| Safe refactoring verification gates | `rules/verification-matrix.md` |

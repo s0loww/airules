@@ -137,6 +137,6 @@ Suite-скелет shipped рядом с контуром — каталог `va
 - [DEPLOYMENT.md](DEPLOYMENT.md) — полный рецепт развёртывания «до боевого
   состояния»: baseline-политика, `-Extension` при деплое расширения, портативная
   установка тест-стека, боевые грабли, критерий готовности.
-- `core/rules/script-contract.md` — generic-контракт автоматизационных скриптов
+- `rules/script-contract.md` — generic-контракт автоматизационных скриптов
   (DryRun/Apply, exit-коды, отчёты, обращение с кредами).
-- `overlays/1c/rules/com-powershell-1c.md` — грабли COM/PowerShell 1С.
+- `rules/com-powershell-1c.md` — грабли COM/PowerShell 1С.

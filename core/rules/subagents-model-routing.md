@@ -5,19 +5,20 @@ alwaysApply: false
 
 # Role and model routing for subagents
 
-The single source of truth for roles, tiers and access rights is
-`core/agents/ROLES.md`. This rule describes how to use it; on any
-discrepancy `ROLES.md` wins.
+The single source of truth for roles, tiers and access rights is the
+distribution's role registry, rendered at install time into the channel
+agent definitions and the root contract's Subagents table. This rule
+describes how to use it; on any discrepancy the rendered registry (agent
+definition + Subagents table) wins.
 
 ## Model resolution
 
-Role → tier → `core/channels/model-map.yaml` → channel model. The model is
-not hardcoded in the agent definition: the agent frontmatter carries `tier`,
-not a model name. The concrete channel model is substituted by the installer
-when the distribution is laid out into the target project. The installer
-also appends the model-family profile block per
-`core/channels/model-profiles.md` — model-specific behavior lives there, not
-in role bodies.
+Role → tier → the channel model map (an install-time artifact of the
+distribution) → channel model. The model is not hardcoded in the role: the
+role carries `tier`, not a model name. The concrete channel model is
+substituted by the installer when the distribution is laid out into the
+target project. The installer also appends the model-family profile block —
+model-specific behavior lives there, not in role bodies.
 
 ## Effort
 
@@ -50,7 +51,7 @@ requests trip the reasoning_extraction refusal category and can derail the
 run; on every family the useful artifact is a concise rationale plus
 tool-backed evidence — exactly what the Handoff format already requires. The
 same applies in reverse: agents report rationale and evidence, not raw
-reasoning (see `core/channels/model-profiles.md`).
+reasoning (the model-profile block of the agent definition).
 
 ## The script rule
 

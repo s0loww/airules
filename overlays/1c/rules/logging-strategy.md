@@ -52,7 +52,7 @@ Examples:
 - `ФоновоеЗадание.ОбновлениеКурсовВалют.Старт`
 - `ФоновоеЗадание.ОбновлениеКурсовВалют.Финиш`
 
-Reserved prefix `Debug.*` — **only** during active debugging, must be removed before commit (`core/rules/verification-matrix.md → Soft gate A`). Never ship `Debug.*` to production.
+Reserved prefix `Debug.*` — **only** during active debugging, must be removed before commit (`rules/verification-matrix.md → Soft gate A`). Never ship `Debug.*` to production.
 
 ## 4. Structured payload
 
@@ -135,6 +135,6 @@ Record project-specific PII classifications that affect logging in the project's
 |---|---|
 | Ban on uninvited `ЗаписьЖурналаРегистрации` calls | `rules/dev-standards-core.md §2 → "Forbidden Calls and Constructs"` |
 | Ban on empty `Попытка / Исключение` | `rules/dev-standards-architecture.md §3 → "Error Handling"` |
-| Removing `Debug.*` log entries before commit | `core/rules/verification-matrix.md → "Soft gate A"`, `rules/systematic-debugging.md → "Phase 4"` |
+| Removing `Debug.*` log entries before commit | `rules/verification-matrix.md → "Soft gate A"`, `rules/systematic-debugging.md → "Phase 4"` |
 | Background-job lifecycle logging | `rules/platform-solutions.md §2 → "Long-running operations"` |
 | Integration request / response logging | `rules/integrations-add.md` |

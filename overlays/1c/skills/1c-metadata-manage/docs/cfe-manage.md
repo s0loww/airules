@@ -169,6 +169,6 @@ Mutating steps (`init`, `borrow`, `patch`) run as dry run by default: they print
 
 ## SDD Integration
 
-When creating extensions as part of a feature, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating extensions as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Document borrowed objects, interceptors, and extension scope in spec deltas under `openspec/changes/`.

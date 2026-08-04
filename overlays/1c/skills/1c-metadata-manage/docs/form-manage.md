@@ -1098,6 +1098,6 @@ Mutating steps (`scaffold`, `compile`, `edit`) run as dry run by default: they p
 
 ## SDD Integration
 
-When creating or modifying managed forms as part of a feature, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating or modifying managed forms as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Add spec deltas describing the form purpose, key UI elements, and user scenarios in `openspec/changes/`.

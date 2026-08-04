@@ -7,14 +7,15 @@ alwaysApply: false
 
 Use together with `subagents-model-routing.md`. Keep delegated work bounded,
 self-contained and useful while the main agent continues non-overlapping
-work. The tier of each role comes from `core/agents/ROLES.md`; the concrete
-channel model is substituted by the installer.
+work. The tier of each role comes from the role registry (rendered into the
+root contract's Subagents table); the concrete channel model is substituted
+by the installer.
 
 **Mandatory first line of every subagent prompt:** "Do the work yourself with
 your own tools; do not launch other agents and do not wait for background
 processes — you have none; temporary files go to `var/tmp/`; finished the
-final report — stop." The full discipline block is
-`core/channels/adapters.md` §4; in the prompt this one line is enough. Known
+final report — stop." The full discipline block is rendered into every
+agent definition at install time; in the prompt this one line is enough. Known
 failure without it: the subagent "launches a background task" and waits
 forever for a notification that never comes.
 
@@ -117,8 +118,8 @@ Role: any implementing role (tier per ROLES.md). Use for implementation
 streams bigger than a trivial bounded edit, and always when several workers
 run in parallel. For codex-channel workers additionally open with an explicit
 role statement ("Act as the assigned <role> for one bounded stream") — the
-GPT family works better with an explicit role and starting context (see
-`core/channels/model-profiles.md`).
+GPT family works better with an explicit role and starting context (the
+model-profile block of the agent definition).
 
 ```text
 Bounded worker stream.

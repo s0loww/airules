@@ -126,6 +126,6 @@ Mutating steps (`init`, `edit`) run as dry run by default: they print the plan a
 
 ## SDD Integration
 
-When creating a new configuration as part of a project, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating a new configuration as part of a project, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Create initial specs in `openspec/specs/` describing configuration purpose, compatibility, and scope.

@@ -113,7 +113,7 @@ Invoke-WebRequest -Uri "http://localhost:<port>/<AppName>" -UseBasicParsing | Se
 ```
 
 For a real UI smoke (start page renders, login works) use the test contour of
-`agent-1c` (see `overlays/1c/tools/agent-1c/DEPLOYMENT.md`) or drive a browser
+`agent-1c` (see `tools/agent-1c/DEPLOYMENT.md`) or drive a browser
 manually. Scripted browser scenarios previously covered by the unported
 Playwright runner should live in the project's own test contour until
 `1c-web-ops` is restored.

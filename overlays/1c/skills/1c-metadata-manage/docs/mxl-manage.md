@@ -357,6 +357,6 @@ Stops after 20 errors by default (configurable via `-MaxErrors`). Summary line w
 
 ## SDD Integration
 
-When creating or modifying MXL spreadsheet layouts as part of a feature, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating or modifying MXL spreadsheet layouts as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Add spec deltas describing layout purpose, areas, and parameters in `openspec/changes/`.

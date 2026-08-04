@@ -520,6 +520,6 @@ Exit code: 0 = all checks passed, 1 = errors found.
 
 ## SDD Integration
 
-When creating or modifying configuration objects as part of a larger feature, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating or modifying configuration objects as part of a larger feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Add or update spec deltas in `openspec/changes/<change-id>/specs/` describing the new object, its attributes, and purpose.

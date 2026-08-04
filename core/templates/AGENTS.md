@@ -90,9 +90,9 @@ for stack tasks).
 
 ## Subagents
 
-Role → tier + effort → channel model and effort value (`core/agents/ROLES.md`
-+ `core/channels/model-map.yaml`); model-family behavior blocks are rendered
-into agent definitions from `core/channels/model-profiles.md`.
+Role → tier + effort → channel model and effort value — resolved at install
+time from the distribution's role registry and channel model map;
+model-family behavior blocks are rendered into the agent definitions.
 
 | Role | tier | effort | Channel model |
 | --- | --- | --- | --- |

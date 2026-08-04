@@ -10,7 +10,7 @@ avoids re-discovering the same things over and over and keeps the heavy
 model's context focused.
 
 A pack is an expanded row of the routing mini-table from the root contract
-(`core/templates/AGENTS.md`): where the mini-table gives a "trigger → rule →
+(root `AGENTS.md`): where the mini-table gives a "trigger → rule →
 role" pair, the pack expands it into the full loading set. Rules are still
 loaded lazily via the Rule Index at the moment of application — the pack
 only names what to plug in, it does not preload.

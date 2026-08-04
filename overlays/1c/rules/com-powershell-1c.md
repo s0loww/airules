@@ -10,7 +10,7 @@ alwaysApply: false
 справочники, регистры или вызывают методы базы через COM.
 
 Generic-контракт таких скриптов (DryRun/Apply, exit-коды, отчёты, креды,
-идемпотентность) — `core/rules/script-contract.md`. Правило ниже — стековая
+идемпотентность) — `rules/script-contract.md`. Правило ниже — стековая
 надстройка над ним: что именно ломается в связке COM + PowerShell и как это
 обходить.
 
@@ -85,7 +85,7 @@ function Get-ComPropertySafe {
 Invoke-ComMethod -Object $documentObject -Name 'Записать' | Out-Null
 ```
 
-Готовые обёртки — в `overlays/1c/tools/com-tools/` (`OneC-Com.ps1`).
+Готовые обёртки — в `tools/com-tools/` (`OneC-Com.ps1`).
 
 ## 3. Коллекции
 
@@ -202,7 +202,7 @@ Invoke-ComMethod -Object $documentObject -Name 'Записать' | Out-Null
 
 ## 10. Перед написанием нового скрипта
 
-- Готовая библиотека — `overlays/1c/tools/com-tools/`: сначала смотреть туда,
+- Готовая библиотека — `tools/com-tools/`: сначала смотреть туда,
   переиспользовать `lib/`-модули, не дублировать логику подключения / обёрток /
   запросов.
-- Generic-контракт скриптов — `core/rules/script-contract.md`.
+- Generic-контракт скриптов — `rules/script-contract.md`.

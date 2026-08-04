@@ -37,7 +37,7 @@ try {
 
 ## DryRun / -Apply
 
-Контракт режима записи един (см. `core/rules/script-contract.md`): по умолчанию
+Контракт режима записи един (см. `rules/script-contract.md`): по умолчанию
 скрипт работает в DryRun (только чтение / превью), реальные мутации включаются
 явным флагом `-Apply`. Резолв флага — `Resolve-ComApplyMode` из `OneC-Params.ps1`
 (поддержаны legacy-алиасы `-Write`/`-WhatIf`/`-DryRun` для совместимости). После
@@ -100,7 +100,7 @@ com-tools/
 
 ## Что почитать перед написанием скрипта
 
-- `overlays/1c/rules/com-powershell-1c.md` — грабли COM/PowerShell и проверенные
+- `rules/com-powershell-1c.md` — грабли COM/PowerShell и проверенные
   обходы (runtime, обёртки, коллекции, документы, запросы, безопасность записи).
-- `core/rules/script-contract.md` — generic-контракт автоматизационных скриптов
+- `rules/script-contract.md` — generic-контракт автоматизационных скриптов
   (DryRun/Apply, exit-коды, отчёты, креды, идемпотентность).

@@ -390,6 +390,6 @@ After creating or editing role XML manually (section 1):
 
 ## SDD Integration
 
-When creating or modifying roles as part of a feature, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating or modifying roles as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Add spec deltas describing role purpose, access scope, and RLS rules in `openspec/changes/`.

@@ -37,8 +37,6 @@ For collaboration modes, preflight, context packs, decisions, and verification d
 - `context-packs.md`
 - `decisions-log.md`
 - `verification-matrix.md`
-- `playbook-smoke-test.md`
-- `git-hooks.md`
 
 ## MCP-first search — quick first-pick
 

@@ -149,6 +149,6 @@ Mutating steps (`compile`, `edit`) run as dry run by default: they print the pla
 
 ## SDD Integration
 
-When creating or modifying subsystems as part of a feature, update SDD artifacts if present (see `.codex/rules/sdd-integrations.md` for detection):
+When creating or modifying subsystems as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
 
 - **OpenSpec**: Add spec deltas describing subsystem purpose and included objects in `openspec/changes/`.
