@@ -67,15 +67,18 @@ Rule Index at the moment it applies, never preloaded.
 | spec, behavior change, proposal, OpenSpec / спека, предложение | `sdd-integrations` | analytic / architect |
 | refactoring, duplicates, dead code / рефакторинг, дубли | {{DOMAIN_ROUTES}} | refactoring |
 | check, review, verification / проверка, ревью | `verification-matrix` | code-reviewer |
+| tests, regression test, mocking / тесты, регрессия, моки | `test-discipline` | developer / tester |
 | work mode, scouting vs edit, emergency fix / режим работы, разведка | `collaboration-modes` | (orchestrator) |
-| debugging, bug, error reproduction / отладка, баг | {{DOMAIN_ROUTES}} | error-fixer |
+| debugging, bug, error reproduction / отладка, баг | `debugging-loop` | error-fixer |
 | {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
 
 Rows with `{{DOMAIN_ROUTES}}` are filled by the domain overlay when the stack
 is confirmed. When installing **without** an overlay the installer replaces
 `{{DOMAIN_ROUTES}}` with `—` (the row remains a role hint without a bound
 rule) and removes the all-placeholder domain row entirely — the verification
-step requires zero unfilled placeholders.
+step requires zero unfilled placeholders. An overlay that ships its own
+debugging adaptation appends it to the debugging row next to
+`debugging-loop` instead of replacing it.
 
 ## Subagents
 

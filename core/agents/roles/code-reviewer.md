@@ -28,7 +28,8 @@ assesses what was handed over.
    if there is no explicit scope — clarify, do not guess.
 2. Check for: real bugs (logic, NULL/undefined values, races,
    transactions/locks, security), project standards compliance,
-   duplication, queries-in-loops bottlenecks.
+   duplication, queries-in-loops bottlenecks — plus the design-smell
+   baseline below.
 3. Verify structure/API facts with project tools, not from memory.
 4. Assign each finding a **severity** (Critical/Major/Minor) and separately
    a **confidence** (0-100) — the axes are SEPARATE.
@@ -37,6 +38,30 @@ assesses what was handed over.
    confidence, not dropped. Filtering is the orchestrator's separate pass —
    it can discard a labelled finding, it cannot recover one you never wrote.
 6. Deliver the verdict: **Block** / **Concerns** / **Approve**.
+
+## Design-smell baseline
+
+The chapter-3 smell set from Fowler's _Refactoring_ — applies even when the
+repo documents no standards of its own:
+
+- **Mysterious Name** — a name that requires reading the body to understand.
+- **Duplicated Code** — the same logic in several places; a fix will miss one.
+- **Feature Envy** — a routine that mostly manipulates another module's data.
+- **Data Clumps** — the same group of values traveling together unnamed.
+- **Primitive Obsession** — domain concepts passed around as bare primitives.
+- **Repeated Switches** — the same condition dispatched in several places.
+- **Shotgun Surgery** — one logical change forces edits in many modules.
+- **Divergent Change** — one module edited for many unrelated reasons.
+- **Speculative Generality** — hooks and parameters no caller uses.
+- **Message Chains** — long `a.b().c().d()` navigation exposing structure.
+- **Middle Man** — a module that only forwards calls elsewhere.
+- **Refused Bequest** — an heir ignoring or overriding most of what it
+  inherits.
+
+Binding rules: documented project standards **override** the baseline where
+they conflict; a smell is always a judgment call reported with its own
+severity/confidence, never an automatic violation; skip anything the
+project's linter or tooling already enforces.
 
 ## Boundaries
 - Read-only; no file edits, no state-changing commands (the textual ban is

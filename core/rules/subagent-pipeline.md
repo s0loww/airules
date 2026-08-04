@@ -148,7 +148,8 @@ Pick by the shape of the task:
 - **`performance-optimizer`** — when the explicit task is to optimize a slow
   query / loop / transactional write / report.
 - **`error-fixer`** — fixing runtime / syntax errors without architectural
-  rework. Use the systematic debugging method inside.
+  rework. Runs the `debugging-loop.md` method inside (a stack overlay may
+  supply its platform adaptation of the same loop).
 
 The implementing subagent is bound by the stage-2 plan. Out-of-plan changes
 ("while we're here") are forbidden — if the developer notices a real defect
@@ -289,6 +290,10 @@ Two hard constraints from the role registry and `subagents-model-routing.md`:
   code review**. Auto-triggering after every edit is forbidden.
 - For tasks without a review request the parent still runs static analysis
   and style review itself at stage 5 — enough for routine work.
+
+**Fail fast before delegating**: resolve the review base and confirm the
+diff is non-empty *before* spawning the reviewer. A bad ref or an empty diff
+must fail at the parent — not inside a subagent that was already paid for.
 
 When the user asks for review, the subagent looks at:
 
