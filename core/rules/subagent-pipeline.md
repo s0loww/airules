@@ -106,11 +106,11 @@ memory — `sdd-integrations.md` names the canonical artifacts.
 If the user asks for a small change that **looks** like a quick-fix but
 touches a transactional path, a public export of a shared module, code that
 adapts or overrides extended base behavior, an event subscription / scheduled
-job / access-restriction rule, or metadata coupled to existing behavior
-(rename / delete / immediate use, changes to access restrictions / indexing /
-fill validation) — escalate to full-cycle. **Isolated metadata additions** (a
-new independent data store / defined type / enumeration / constant /
-standalone attribute, with no affected consumer in the same change) stay on
+job / access-restriction rule, or a data structure coupled to existing
+behavior (rename / delete / immediate use; changes to access restrictions,
+indexing, or validation rules) — escalate to full-cycle. **Isolated
+structure additions** (a new independent data store / type / constant /
+standalone field, with no affected consumer in the same change) stay on
 the quick-fix path. When in doubt, full-cycle wins.
 
 ### Stage 2 — Plan (planning role — or the main agent, per "Stages vs delegation")
@@ -143,8 +143,9 @@ The plan must satisfy the acceptance criteria before stage 3:
   assertion, manual reproduction).
 - For changes that will carry automated tests, the plan names the seams to
   test (`test-discipline.md`); seam approval travels with plan approval.
-- Risks and rollback are explicit, especially for metadata changes (UUID
-  stability, data-store writes and migrations, role permission grants).
+- Risks and rollback are explicit, especially for data-structure changes
+  (stable identifiers preserved where the format carries them, data-store
+  writes and migrations, permission grants).
 - The plan is reviewed by the user. User approval is a hard gate; do not move
   to stage 3 without it.
 
@@ -159,8 +160,8 @@ When delegating, pick by the shape of the task:
 - **`developer`** — bulk code changes across modules, shared modules,
   server / client routines.
 - **`metadata-manager`** — when the bulk of the change is in metadata: new
-  objects, forms, reports, layouts, roles, extensions, nested tables,
-  attributes.
+  schema objects, views/forms, reports, layouts, permission roles,
+  extension artifacts, nested collections, fields.
 - **`refactoring`** — dead-code cleanup, deduplication, extraction across
   many modules.
 - **`performance-optimizer`** — when the explicit task is to optimize a slow
@@ -213,7 +214,7 @@ of its final report):**
 
 ### Public surface
 - <ObjectName>.<RoutineName>(<params>) → <return type> — <one-line purpose>
-- <Metadata.Object> — <attribute / nested table / form name>: <type / role>
+- <object path> — <field / nested collection / view name>: <type / role>
 - ...
 
 ### Open TODOs / stubs (for the next subagent)
@@ -225,8 +226,15 @@ of its final report):**
 - ...
 
 ### Open questions raised
-- <CONFUSION-id> — <one-line summary> — <status: resolved / pending>
+- CONFUSION-<n> — <one-line summary> — <status: resolved / pending>
 ```
+
+A `CONFUSION-<n>` (sequential number within the change) is an open question
+the subagent could not resolve inside its boundaries. Raising one means:
+add it to `### Open questions raised` with status `pending` and report to
+the parent — the parent resolves it or takes it to the user. A locked
+decision that blocks a correct implementation becomes a CONFUSION; it is
+never silently overridden.
 
 The block is **not** a marketing summary but a machine-readable inventory.
 Keep every line short (≤120 chars), one fact per line, no prose paragraphs
@@ -255,9 +263,9 @@ inside the block.
   markup, parsing helpers, `Glob`) on objects / files already listed in the
   Handoff "for context" or "to check". A targeted call is allowed **only**
   when a specific detail needed for the current edit is missing from the
-  Handoff (e.g. an exact UUID, the exact TODO-marker line inside an existing
-  region, the full attribute list of a nested table that the upstream reduced
-  to `<attribute / nested table …>`). Before such a call the subagent names
+  Handoff (e.g. an exact stable identifier, the exact TODO-marker line inside
+  an existing region, the full field list of a nested collection that the
+  upstream reduced to `<field / nested collection …>`). Before such a call the subagent names
   in one sentence which detail is missing and why the Handoff alone is not
   enough.
 - The downstream subagent **must** preserve `### Locked decisions` unless the
@@ -291,8 +299,8 @@ Checklist:
 - Every plan task is done; none silently skipped.
 - No file outside the plan was edited (check `git diff --name-only`).
 - Names, parameter types, return types of new public routines match the plan.
-- New / removed metadata objects match the plan; UUIDs preserved on edits,
-  not regenerated.
+- New / removed structure objects match the plan; stable identifiers (for
+  formats that carry them) preserved on edits, not regenerated.
 - Module headers (return/parameter comment blocks per the dev-standards rule,
   if a stack overlay is installed) are present on new public routines.
 
@@ -367,11 +375,11 @@ The orchestrator owns the lifecycle of every launch:
   structurally wrong implementation.
 - **Auto-triggering `code-reviewer`** — explicitly forbidden without a user
   request.
-- **Parallelizing stage 3 by default** — metadata is densely cross-linked;
-  parallel subagents on the same configuration tend to corrupt UUIDs and
-  break references. Parallelize only when subtasks are provably independent
-  (e.g. one new report + one new shared-module function with no shared
-  metadata).
+- **Parallelizing stage 3 by default** — structured artifacts are densely
+  cross-linked; parallel subagents on the same artifact tree tend to corrupt
+  stable identifiers and break references. Parallelize only when subtasks
+  are provably independent (e.g. one new report + one new shared-module
+  function with no shared structures).
 - **"I'll fix this lint while I'm in the file"** at stage 3 — edits are
   surgical; report, do not fix.
 

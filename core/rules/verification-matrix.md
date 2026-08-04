@@ -20,7 +20,7 @@ supplied by the project profile; below they are described as categories.
 | Integration / XML / JSON | check against schema/sample/reference payload | retry/error/security review |
 | Refactoring | caller/usage impact + syntax/analysis | wider impact search across dependents |
 | OpenSpec artifacts | `openspec validate` or the project equivalent | verify tasks/specs/design stay consistent |
-| Platform playbook/routing | list and read the rules, `suggest_workflow`, smoke script | run across all affected project profiles |
+| Platform playbook/routing | list and read the rules, the tool profile's routing self-check when one exists, smoke script | run across affected profiles when the project defines several |
 
 ## Escalation
 
