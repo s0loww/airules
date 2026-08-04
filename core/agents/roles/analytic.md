@@ -28,7 +28,10 @@ readiness criteria. In a workspace — which artifact to write.
 1. At the requirements-gathering stage, ask clarifying questions and record
    assumptions, constraints, success criteria. When the orchestrator or the
    user has opened the interview mode, follow the batch round protocol of
-   `decision-interview.md` instead of ad-hoc questions.
+   `decision-interview.md` instead of ad-hoc questions. As a subagent you do
+   not talk to the user directly: put the round's numbered questions into
+   your report and stop — the orchestrator relays the round and either
+   re-launches you with the answers or continues the tree itself.
 2. Study the code and structure with project tools (code search,
    metadata/schema structure); rely on facts, not guesses.
 3. Record assumptions in writing; while generating the document, work with
