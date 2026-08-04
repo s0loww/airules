@@ -10,7 +10,8 @@ generators, and risky automation.
 
 ## Checklist
 
-1. Classify the task: quick-fix or full-cycle.
+1. Classify the task: quick-fix or full-cycle (the boundary — root
+   contract, "Work cycle").
 2. Check the status of the relevant working copy when it is a git
    repository.
 3. Identify unrelated dirty files and do not revert them.

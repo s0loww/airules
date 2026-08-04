@@ -36,6 +36,11 @@
 - **Quick-fix:** short plan → edit → local check → compact report.
 - **Full-cycle:** clarify the goal → gather context → success criteria →
   minimal edit → verification → report.
+- **Boundary:** a task is full-cycle when any of these holds — more than
+  ~20 changed lines, more than one module, any data-structure/schema
+  change, any architectural impact, any non-trivial bug. Risk escalators
+  that force full-cycle even for a small edit are listed in
+  `rules/subagent-pipeline.md`, stage 1. When in doubt, full-cycle wins.
 - **Delegation is the exception, not the default.** Hand a subagent only
   large, genuinely independent, parallelizable work — a wide multi-file
   survey, a separate stream with its own write zone. Do not delegate what you
@@ -80,7 +85,8 @@ is confirmed. When installing **without** an overlay the installer replaces
 rule) and removes the all-placeholder domain row entirely — the verification
 step requires zero unfilled placeholders. An overlay that ships its own
 debugging adaptation appends it to the debugging row next to
-`debugging-loop` instead of replacing it.
+`debugging-loop` instead of replacing it (the adaptation takes precedence
+for stack tasks).
 
 ## Subagents
 

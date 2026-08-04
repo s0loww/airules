@@ -79,7 +79,7 @@ yourself what gets delegated.**
 
 ## Applicability boundaries
 
-- Trivial edits (quick-fix level from `collaboration-modes.md`) are not
+- Trivial edits (quick-fix per the root contract's "Work cycle" boundary) are not
   delegated: the overhead of launching a subagent exceeds the savings.
 - Payback rule of thumb: launching a subagent costs a fixed overhead of
   roughly tens of thousands of tokens (root contract + lazily loaded rules +
