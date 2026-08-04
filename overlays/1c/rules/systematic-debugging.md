@@ -131,6 +131,8 @@ Reproduce ──► Hypothesize ──► Experiment ──► Fix
 
 ## Companion rules
 
+- `debugging-loop.md` (core) — the generic feedback-loop method this file
+  specializes for the platform; the phase order and gates are shared.
 - `verification-matrix.md` — the post-fix gate.
 - `subagent-pipeline.md` — when to delegate the bug to `1c-error-fixer` vs. handle it directly.
 - `tooling-playbooks.md → Error Fixing` — concrete MCP tool sequence for each phase.
