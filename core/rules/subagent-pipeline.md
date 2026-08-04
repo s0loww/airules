@@ -132,11 +132,17 @@ When delegating, pick by the shape of the task:
 The plan must satisfy the acceptance criteria before stage 3:
 
 - Each task is small enough for an eager junior with no project context:
-  usually 1 file / 1 routine / ≤ ~20 changed lines per task.
+  usually 1 file / 1 routine / ≤ ~20 changed lines per task. Exception — a
+  wide mechanical refactor planned as expand–contract (the planner's rule):
+  a migrate batch may exceed the size bar when it applies **one** uniform
+  transformation across sites; batches run sequentially unless provably
+  independent (the stage-3 parallelization rule applies to them unchanged).
 - Each task names exact file paths and exact routine names — no "update the
   related modules".
 - Each task has a verification step (syntax check, a tool query, an
   assertion, manual reproduction).
+- For changes that will carry automated tests, the plan names the seams to
+  test (`test-discipline.md`); seam approval travels with plan approval.
 - Risks and rollback are explicit, especially for metadata changes (UUID
   stability, data-store writes and migrations, role permission grants).
 - The plan is reviewed by the user. User approval is a hard gate; do not move

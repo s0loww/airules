@@ -30,7 +30,10 @@ path**. In a workspace — which plan artifact to write.
    first, what can run in parallel), group related changes.
 5. For each step and for the plan as a whole, write out risks and edge
    cases.
-6. Write the plan TO A FILE at the path from the orchestrator; in a
+6. If the change will carry automated tests, name the seams to test — the
+   highest seam that still gives a deterministic signal; the plan carries
+   the seams to approval.
+7. Write the plan TO A FILE at the path from the orchestrator; in a
    workspace — to the corresponding task artifact (see the workspace
    integration rule).
 
@@ -48,6 +51,10 @@ call site at once. Plan it as an explicit expand–contract sequence
    the expand step. Checks stay green between batches because the old form
    still exists.
 3. **Contract** — remove the old form; blocked by all migrate batches.
+
+Batches run sequentially by default — the implementation-stage
+parallelization rule applies to them unchanged; parallel batches require
+provably disjoint write zones and an explicit orchestrator decision.
 
 If even individual batches cannot stay green, the plan says so explicitly:
 the batches share one integration branch, everything blocks a final
