@@ -179,7 +179,12 @@ def main(argv):
         # The matcher in settings.json already narrows to "compact"; this is a
         # second guard for the case where it does not.
         if source in (None, "compact"):
-            print(COMPACT_NOTICE)
+            # Отметка времени делает срабатывание проверяемым: без неё нельзя
+            # отличить «хук впрыснул текст» от «модель помнит этот текст».
+            import datetime
+
+            print("[rule-inject {0}] {1}".format(
+                datetime.datetime.now().strftime("%H:%M:%S"), COMPACT_NOTICE))
         return 0
 
     payload = json.load(sys.stdin)
