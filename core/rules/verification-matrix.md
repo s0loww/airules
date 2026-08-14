@@ -1,5 +1,5 @@
 ---
-description: "Verification matrix by change type and the closing full-cycle gate. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить."
+description: "Verification matrix by change type and the closing full-cycle gate, including coverage reconciliation when many inputs must be covered by a set of rules. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить, сверка покрытия, все ли входы покрыты."
 alwaysApply: false
 kind: process
 ---
@@ -18,7 +18,7 @@ supplied by the project profile; below they are described as categories.
 | Query / data access | local impact search + syntax + static analysis | review of query parameters, derived-view filters, callers |
 | Metadata (XML) | schema/tool validation when available | load/open the object on a test environment when feasible |
 | Form (XML/module) | markup/event inspection + form validation when available | UI smoke / opening the form |
-| Integration / XML / JSON | check against schema/sample/reference payload | retry/error/security review |
+| Integration / XML / JSON | check against schema/sample/reference payload | retry/error/security review; coverage reconciliation (gate E) when many input shapes map onto handling rules |
 | Refactoring | caller/usage impact + syntax/analysis | wider impact search across dependents |
 | OpenSpec artifacts | `openspec validate` or the project equivalent | verify tasks/specs/design stay consistent |
 | Platform playbook/routing | list and read the rules, the tool profile's routing self-check when one exists, smoke script | run across affected profiles when the project defines several |
@@ -28,6 +28,7 @@ supplied by the project profile; below they are described as categories.
 - Shared module, transaction, data store, or query: add impact analysis.
 - Metadata/forms: use metadata tools and validators when available.
 - User scenario: add manual / UI smoke if tooling allows.
+- Many varied inputs onto one set of handling rules: add gate E below.
 - High-risk change: the closing gate below **is** the bar — tighten it
   (impact analysis, a deeper validator pass) rather than adding a reviewer.
   An independent `code-reviewer` runs on an explicit user request only
@@ -97,6 +98,26 @@ and a bounded retry budget.
   tautological or implementation-coupled tests, seams pre-agreed in the
   plan. Do not introduce a test suite into a project that has none as a side
   effect of a change.
+- **E. Coverage reconciliation (a set of inputs must be fully covered by a set
+  of rules)** — applies when the change maps many varied inputs onto branches,
+  profiles or mapping rules: file shapes onto parsers, source fields onto
+  target fields, message types onto handlers, incoming documents onto
+  processing rules. Run it as a **separate pass after the code is written**,
+  never inside the same pass that writes it — an author checking their own
+  mapping reproduces the same blind spot that produced it.
+  1. Fix the registry of inputs explicitly — the full list, never a sample.
+  2. For each input, name the rule / branch / profile that handles it.
+  3. Build the input → rule table; mark **uncovered** inputs and **conflicts**
+     (one input matching more than one rule).
+  4. Fix the code or the rules, then repeat from step 2.
+
+  Pass: an explicit count — `N/N covered, 0 conflicts`. "Seems to work" is not
+  a pass, and neither is a spot check of a few inputs. Classify each input by
+  its **actual content**, not by its name or label — names lie, and a wrong
+  classification hides an uncovered input behind a plausible one. The first
+  round almost always finds discrepancies; they converge over a few rounds.
+  This gate prepares acceptance, it does not replace it — final acceptance on
+  real data stays with the user.
 
 ### Handover summary — what the user sees
 

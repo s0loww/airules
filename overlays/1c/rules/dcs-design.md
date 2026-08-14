@@ -20,6 +20,8 @@ The 1C Data Composition System (СхемаКомпоновкиДанных, СК
 
 Default: **Запрос** for everything you can express as a query. Promote to **Объединение** only when shape really matches. Use **Объект** only when no query expression is possible.
 
+**Объект in the schema file also costs reference navigation.** The object's fields are untyped, so any composition that navigates through a reference field fails at layout **compile** time («Поле не найдено») — before a single row is read. If the data must be prepared in BSL but the composition still navigates references, keep the schema query-based and substitute the data set at runtime on the compiled layout (`dcs-composition-recipes.md §2`).
+
 ## 2. Computed fields vs resources
 
 Two different mechanisms — choose by **when the value is materialized**, not by "ease of typing".
@@ -40,6 +42,7 @@ Anti-pattern: aggregating in `Вычисляемое поле` via `Вычисл
 - **Periodicity parameters** for register virtual tables (`Остатки(&Период, ...)`, `ОстаткиИОбороты(&НачалоПериода, &КонецПериода, ...)`) — **always** parameter-driven, never literal dates in the query text.
 - **`Доступен` (Available) flag** — set to `Ложь` for parameters that are computed programmatically (e.g. current user, current date) and must not be editable by the user.
 - **`Использование` (Use)** — `ВсегдаИспользовать` only for parameters that genuinely cannot be empty; otherwise `Авто` so the engine can drop unused parameters from the plan.
+- **The lookup / set API is asymmetric.** `ПараметрыДанных.НайтиЗначениеПараметра` expects a `ПараметрКомпоновкиДанных` and fails with a type mismatch on a plain string, while `УстановитьЗначениеПараметра` accepts the string. Wrap the name when looking up: `НайтиЗначениеПараметра(Новый ПараметрКомпоновкиДанных(ИмяПараметра))`.
 
 ## 4. Variants and settings
 
@@ -127,6 +130,7 @@ Notes:
 
 | Concern | File |
 |---|---|
+| Going around the standard output (memory, flat export, preprocessing before the fold) | `dcs-composition-recipes.md` |
 | XML / schema mechanics for `.dcs` | the `1c-metadata-manage` skill (`skd-manage` doc) |
 | Query anti-patterns | `anti-patterns.md` |
 | Authoritative query rules | `dev-standards-architecture.md §3 → "Queries"` |
