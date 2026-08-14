@@ -48,7 +48,7 @@ ROLES.md, agent-template.md), `core/templates/AGENTS.md`, `core/commands/*`,
 `core/skills/powershell-windows`, новый `core/channels/model-profiles.md`.
 Остаток (переводить по мере правок):
 
-- `core/channels/adapters.md` — канальные грабли, переводить с особой
+- `core/channels/adapters.md` — грабли раскладки, переводить с особой
   аккуратностью;
 - `ONBOARD.md` — исполняется агентом при установке;
 - `overlays/1c/agents/*.md` (13, русские тела) и

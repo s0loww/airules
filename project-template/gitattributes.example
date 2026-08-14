@@ -34,8 +34,6 @@ env.example            text eol=lf
 rules/**               text eol=lf
 skills/**              text eol=lf
 .claude/**             text eol=lf
-.codex/**              text eol=lf
-.cursor/**             text eol=lf
 
 # openspec: правила распространяются ТОЛЬКО на файлы каркаса из дистрибутива.
 # Содержимое `openspec/changes/**` и `openspec/specs/**` пишет проект — его

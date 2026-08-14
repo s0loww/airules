@@ -117,10 +117,7 @@ Return the exact commands or tool calls, the observed result and pass/fail.
 
 Role: any implementing role (tier per ROLES.md). Use for implementation
 streams bigger than a trivial bounded edit, and always when several workers
-run in parallel. For codex-channel workers additionally open with an explicit
-role statement ("Act as the assigned <role> for one bounded stream") — the
-GPT family works better with an explicit role and starting context (the
-model-profile block of the agent definition).
+run in parallel.
 
 ```text
 Bounded worker stream.

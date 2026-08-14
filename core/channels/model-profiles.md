@@ -24,8 +24,8 @@ for an earlier generation can invert. Re-read the block against the current
 vendor guidance before carrying it forward — the failure mode it counters may
 no longer be the failure mode the model has.
 
-Sources: Anthropic's model-specific prompting guides and OpenAI's GPT-5.x
-guidance; adapted for this distribution's contract vocabulary.
+Sources: Anthropic's model-specific prompting guides, adapted for this
+distribution's contract vocabulary.
 
 ## Family detection
 
@@ -37,8 +37,7 @@ case-insensitive, first hit wins:
 | `fable`, `mythos` | Claude common + Claude Fable |
 | `opus` | Claude common + Claude Opus |
 | `sonnet`, `haiku`, `claude` | Claude common |
-| `gpt-`, `codex` (incl. `gpt-5.6-sol` / `-terra` / `-luna`) | GPT |
-| anything else (third-party / local models) | none — record "no profile" in the install report |
+| anything else | none — record "no profile" in the install report |
 
 ## Profile: Claude common
 
@@ -105,31 +104,11 @@ case-insensitive, first hit wins:
   dashboards, dev tools, or enterprise UIs.
 ```
 
-## Profile: GPT
-
-```
-## Model profile: GPT
-- Follow the configured reasoning effort; do not simulate extra deliberation
-  in prose. If the task genuinely exceeds the configured tier, stop and
-  report — tier escalation is the user's manual decision, never yours.
-- Work as the assigned specialist for one bounded stream only; the
-  orchestrator already performed routing. Do not optimize for broad
-  discovery.
-- Inspect the files and docs named in the task before acting; verify claims
-  against them rather than reasoning from memory.
-- Enforce the stop rules from your prompt: scope growth, write-zone
-  conflict, unexpectedly failing verification, or missing context → stop and
-  report instead of improvising.
-```
-
 ## Notes for the orchestrator
 
-- **Reasoning-effort steering differs by family.** GPT-family behavior is
-  steered primarily through parameters (`model_reasoning_effort` in the
-  codex channel config) — set by the installer from `model-map.yaml`, not by
-  prose exhortations. Claude-family effort is likewise a channel setting
-  (the `effort` frontmatter field of an agent definition); "think harder"
-  prose is not a substitute for the right step.
+- **Effort is a setting, not an exhortation.** It is the `effort` frontmatter
+  field of an agent definition, set by the installer from `model-map.yaml`.
+  "Think harder" in prose is not a substitute for the right step.
 - **Effort is not a length control.** It governs how much the model
   deliberates, not how much it writes; lowering it does not reliably shorten
   the answer. Response and document length is set by the contract
@@ -138,13 +117,13 @@ case-insensitive, first hit wins:
 - **Do not disable thinking to save cost.** Where a channel allows it at all,
   disabling it introduces artifacts — tool calls leaking into visible text
   (which then poisons later turns of an agentic loop) and internal markup in
-  the output. Cut cost with the effort step instead. On the claude channel a
-  subagent inherits the session's thinking configuration; there is no
-  per-agent switch, so this is a session-level decision.
+  the output. Cut cost with the effort step instead. A subagent inherits the
+  session's thinking configuration; there is no per-agent switch, so this is
+  a session-level decision.
 - **Never ask a subagent to reveal its internal reasoning** ("show your
   thinking", "explain your chain of thought step by step"). On Fable-class
-  models this trips the reasoning_extraction refusal category; on all
-  families the useful artifact is rationale + evidence, which the Handoff
-  format already requires. See `subagents-model-routing.md`.
+  models this trips the reasoning_extraction refusal category; in every case
+  the useful artifact is rationale + evidence, which the Handoff format
+  already requires. See `subagents-model-routing.md`.
 - **Do not transplant profiles across families** — see the warning at the
   top of this file.

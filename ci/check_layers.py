@@ -176,7 +176,7 @@ def _build_rules():
         # registry, layer READMEs) are exempt via _is_installable_path.
         {
             "id": "install-path",
-            "regex": r"(?:\b(?:core|overlays)/[A-Za-z0-9_.\-]+/|\.codex/rules/|\.claude/rules/)",
+            "regex": r"(?:\b(?:core|overlays)/[A-Za-z0-9_.\-]+/|\.claude/rules/)",
             "severity": "error",
             "layers": ("core", "overlays", "project-template"),
             "description": "Distribution-only path in an installable file (breaks after flat install).",

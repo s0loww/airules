@@ -10,7 +10,7 @@
 | Инструмент | Зачем | Репозиторий / скачивание |
 | --- | --- | --- |
 | Git | репозиторий цели, бэкапы, диффы | <https://git-scm.com/downloads> |
-| Кодинг-агент (один из) | исполнитель ONBOARD и рабочих сессий | Claude Code — <https://claude.com/claude-code>; Codex CLI — <https://github.com/openai/codex>; Cursor — <https://cursor.com>; сторонние агенты — канал `plain` |
+| Кодинг-агент | исполнитель ONBOARD и рабочих сессий | Claude Code — <https://claude.com/claude-code> |
 
 ## Контрибьюторам дистрибутива
 
