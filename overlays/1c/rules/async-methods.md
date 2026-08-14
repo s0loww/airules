@@ -1,5 +1,5 @@
 ---
-description: 1C asynchronous methods (`Асинх` / `Ждать` / `Обещание`) — patterns and pitfalls for platform 8.3.18+. Load when writing or reviewing client-side async code.
+description: "1C asynchronous methods (`Асинх` / `Ждать` / `Обещание`) — patterns and pitfalls for platform 8.3.18+. Load when writing or reviewing client-side async code. Триггеры: асинхронный вызов, Ждать, Обещание, модальность, вопрос при закрытии формы, устаревший ПоказатьВопрос."
 alwaysApply: false
 kind: invariant
 ---

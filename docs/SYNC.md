@@ -36,7 +36,7 @@ PowerShell `Get-FileHash -Algorithm SHA256`, Python
 `core.autocrlf=true` (дефолт git для Windows) и без `.gitattributes` в цели
 checkout переписывает LF на CRLF — и обновление видит изменённым **каждый**
 управляемый файл. Поэтому установка кладёт в корень цели `.gitattributes` из
-`project-template/gitattributes.example` (ONBOARD §4.7), пиная текст в LF, а
+`project-template/gitattributes.example` (ONBOARD §4.1), пиная текст в LF, а
 `*.ps1` в CRLF, и покрывает только управляемые пути. Проверка — `git
 ls-files --eol`: колонка `w/` обязана совпадать с тем, что предписывает
 `attr/`.

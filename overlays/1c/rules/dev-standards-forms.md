@@ -1,5 +1,5 @@
 ---
-description: "Development standards — module structure templates and form modification rules"
+description: "Development standards — module structure templates and form modification rules. Триггеры: доработка типовой формы, добавить поле на форму программно, структура модуля формы, проверка заполнения."
 alwaysApply: false
 kind: invariant
 ---

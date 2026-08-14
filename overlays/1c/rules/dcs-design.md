@@ -1,5 +1,5 @@
 ---
-description: "1C Data Composition System (СКД / DCS) design rules — data sets, computed fields vs resources, parameters, settings, variants, programmatic override patterns. Load when deciding how a report should be built or reviewing that decision. Not about running one: if the report already exists and the trouble is memory, speed, or the standard output not fitting the task, that is `dcs-composition-recipes`."
+description: "1C Data Composition System (СКД / DCS) design rules — data sets, computed fields vs resources, parameters, settings, variants, programmatic override patterns. Load when deciding how a report should be built or reviewing that decision. Not about running one: if the report already exists and the trouble is memory, speed, or the standard output not fitting the task, that is `dcs-composition-recipes`. Триггеры: как строить отчёт, СКД, вычисляемое поле или ресурс, параметр отчёта, итоги не считаются, набор данных."
 alwaysApply: false
 kind: invariant
 ---

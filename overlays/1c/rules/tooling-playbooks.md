@@ -1,5 +1,5 @@
 ---
-description: "Per-task MCP tool playbooks (writing code, review, refactoring, error fixing, performance, forms, integrations, documentation, XML metadata, platform-version comparison)"
+description: "Per-task MCP tool playbooks (writing code, review, refactoring, error fixing, performance, forms, integrations, documentation, XML metadata, platform-version comparison). Триггеры: каким инструментом искать, с чего начать задачу, порядок вызовов MCP, поиск по коду проекта."
 alwaysApply: false
 kind: process
 ---

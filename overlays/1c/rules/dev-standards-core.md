@@ -1,5 +1,5 @@
 ---
-description: "Development standards — project parameters, code style, modification comments, naming, documentation headers"
+description: "Development standards — project parameters, code style, modification comments, naming, documentation headers. Триггеры: как оформлять код, комментарии модификации, правка типовой конфигурации, именование объектов, шапка процедуры."
 alwaysApply: false
 kind: invariant
 ---

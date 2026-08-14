@@ -1,5 +1,5 @@
 ---
-description: Entry point for managed-form work — pick the exact companion rules for `Form.xml`, `Form.Module.bsl`, events, async code, reserved names, and XML validation. Load first for any form task; load companions only via the routing table below.
+description: "Entry point for managed-form work — pick the exact companion rules for `Form.xml`, `Form.Module.bsl`, events, async code, reserved names, and XML validation. Load first for any form task; load companions only via the routing table below. Триггеры: работа с формой, с чего начать по форме, какое правило про формы."
 alwaysApply: false
 kind: router
 ---

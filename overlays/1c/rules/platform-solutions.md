@@ -1,5 +1,5 @@
 ---
-description: "Case book of common 1C platform pitfalls and proven fix templates"
+description: "Case book of common 1C platform pitfalls and proven fix templates. Триггеры: странное поведение платформы, ЗначениеЗаполнено, длительная операция, временное хранилище, поиск в коллекции тормозит."
 alwaysApply: false
 kind: case
 ---

@@ -1,5 +1,5 @@
 ---
-description: Common XML generation pitfalls for 1C metadata and managed forms (`TabularSection` `LineNumber`, `PagesGroupExtInfo` typo, `Page.enabled`, UID uniqueness, ScheduledJob method binding, post-edit validation). Load when authoring or fixing metadata XML or `Form.xml` by hand.
+description: "Common XML generation pitfalls for 1C metadata and managed forms (`TabularSection` `LineNumber`, `PagesGroupExtInfo` typo, `Page.enabled`, UID uniqueness, ScheduledJob method binding, post-edit validation). Load when authoring or fixing metadata XML or `Form.xml` by hand. Триггеры: конфигурация не загружается из файлов, ошибка загрузки XML, права роли, дублирующийся UUID, битая структура метаданных."
 alwaysApply: false
 kind: invariant
 ---

@@ -1,5 +1,5 @@
 ---
-description: 1C configuration extension (CFE) patterns — interceptor types (`&Перед` / `&После` / `&ИзменениеИКонтроль`), `ПродолжитьВызов` rules, change markers, adopted-object constraints. Load when writing or reviewing extension code.
+description: "1C configuration extension (CFE) patterns — interceptor types (`&Перед` / `&После` / `&ИзменениеИКонтроль`), `ПродолжитьВызов` rules, change markers, adopted-object constraints. Load when writing or reviewing extension code. Триггеры: расширение конфигурации, Перед и После, ИзменениеИКонтроль, ПродолжитьВызов, заимствованный объект, расширение не срабатывает."
 alwaysApply: false
 kind: invariant
 ---

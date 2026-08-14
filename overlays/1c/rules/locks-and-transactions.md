@@ -1,5 +1,5 @@
 ---
-description: Managed locks, transaction boundaries, lock ordering, deadlock prevention, shared / exclusive lock modes, monitoring via the technological log. Load when designing posting / multi-document operations, debugging lock conflicts, or extending an existing transactional path.
+description: "Managed locks, transaction boundaries, lock ordering, deadlock prevention, shared / exclusive lock modes, monitoring via the technological log. Load when designing posting / multi-document operations, debugging lock conflicts, or extending an existing transactional path. Триггеры: конфликт блокировок, взаимоблокировка, deadlock, транзакция не активна, блокировка при проведении."
 alwaysApply: false
 kind: invariant
 ---
