@@ -1,34 +1,62 @@
 {
-  "_comment": "Path -> rule reminder table for the rule-inject PreToolUse hook. Only kind: invariant rules belong here: a rule needed at the moment of writing a line, in a file identifiable by path. Recipes, cases and process rules stay on the lazy Rule Index. Keep masks narrow — a mask that fires where the rule does not apply teaches everyone to ignore the injection. Order matters: the most specific entries come first, because the budget truncates from the tail. Masks follow the standard 1C configuration dump layout (Documents/<X>/Ext/ObjectModule.bsl, .../Forms/<F>/Ext/Form/Module.bsl, CommonModules/<M>/Ext/Module.bsl).",
+  "_comment": "Path -> rule reminder table for the rule-inject PreToolUse hook. Only kind: invariant rules belong here: a rule needed at the moment of writing a line, in a file identifiable by path. Recipes, cases and process rules stay on the lazy Rule Index. Keep masks narrow — a mask that fires where the rule does not apply teaches everyone to ignore the injection. Order matters: the most specific entries come first, because the budget truncates from the tail. Masks cover two source layouts, because a project uses one or the other and a map written for only one is silently dead in the other: the standard configuration dump (Documents/<X>/Ext/ObjectModule.bsl, .../Forms/<F>/Ext/Form/Module.bsl, CommonModules/<M>/Ext/Module.bsl) and v8unpack (Document/<X>/Document.obj.bsl, .../DocumentForm/<F>/DocumentForm.obj.bsl, CommonModule/<M>/CommonModule.obj.bsl) — see rules/v8unpack-source-structure.md.",
   "budget_chars": 1400,
   "entries": [
     {
-      "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
+      "globs": [
+        "**/Forms/**/Module.bsl",
+        "**/Forms/**/Ext/Form/Module.bsl",
+        "**/*Form/**/*.obj.bsl"
+      ],
       "rule": "rules/form-reserved-names.md",
       "invariant": "Локальная переменная не может называться как свойство элемента формы (ПараметрыВыбора, СписокВыбора, ОтборСтрок) или как реквизит типовой формы (НастройкиОтчета) — платформа поймёт присваивание иначе."
     },
     {
-      "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
+      "globs": [
+        "**/Forms/**/Module.bsl",
+        "**/Forms/**/Ext/Form/Module.bsl",
+        "**/*Form/**/*.obj.bsl"
+      ],
       "rule": "rules/form-module.md",
       "invariant": "Директивы компиляции и клиент-серверные переходы: &НаСервереБезКонтекста по умолчанию, &НаСервере — только при работе с данными формы."
     },
     {
-      "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
+      "globs": [
+        "**/Forms/**/Module.bsl",
+        "**/Forms/**/Ext/Form/Module.bsl",
+        "**/*Form/**/*.obj.bsl"
+      ],
       "rule": "rules/dev-standards-forms.md",
       "invariant": "Типовые формы правятся программно в ПриСозданииНаСервере, а не визуально; добавленные элементы — на отдельную вкладку или группу, имена с префиксом проекта."
     },
     {
-      "globs": ["**/Forms/**/Form.xml", "**/Forms/**/Ext/Form.xml"],
+      "globs": [
+        "**/*.obj.bsl",
+        "**/*.mgr.bsl",
+        "**/*.elem.json"
+      ],
+      "rule": "rules/v8unpack-source-structure.md",
+      "invariant": "Раскладка v8unpack: header, raw, form и tree/data — сырые данные платформы, руками не править. Безопасны только код в *.obj.bsl и name/name2/comment в *.json."
+    },
+    {
+      "globs": [
+        "**/Forms/**/Form.xml",
+        "**/Forms/**/Ext/Form.xml"
+      ],
       "rule": "rules/metadata-xml-workarounds.md",
       "invariant": "Грабли XML: PagesGroupExtInfo с буквой s, <enabled>true</enabled> у Page, уникальные UUID, никакого LineNumber в табличных частях."
     },
     {
-      "globs": ["**/Roles/**/Rights.xml"],
+      "globs": [
+        "**/Roles/**/Rights.xml"
+      ],
       "rule": "rules/metadata-xml-workarounds.md",
       "invariant": "Права на Enum, FunctionalOption, DefinedType, CommonModule, CommonPicture, CommonTemplate в роли не бывают — блок убрать (см. §6)."
     },
     {
-      "globs": ["**/Configuration.xml"],
+      "globs": [
+        "**/Configuration.xml"
+      ],
       "rule": "rules/metadata-xml-workarounds.md",
       "invariant": "Порядок <childObjects> значим, UUID уникальны, новый объект регистрируется здесь же — после правки прогнать валидацию."
     },
@@ -46,7 +74,12 @@
         "**/AccountingRegisters/**",
         "**/InformationRegisters/**",
         "**/CalculationRegisters/**",
-        "**/Documents/**/Ext/ObjectModule.bsl"
+        "**/Documents/**/Ext/ObjectModule.bsl",
+        "**/AccumulationRegister/**",
+        "**/AccountingRegister/**",
+        "**/InformationRegister/**",
+        "**/CalculationRegister/**",
+        "**/Document/*/Document.obj.bsl"
       ],
       "rule": "rules/registers-design.md",
       "invariant": "Движения правятся только в ОбработкаПроведения/ОбработкаУдаленияПроведения; остатки и обороты берутся из виртуальных таблиц, а не своей агрегацией по физической."
@@ -55,7 +88,10 @@
       "globs": [
         "**/Ext/ObjectModule.bsl",
         "**/Ext/RecordSetModule.bsl",
-        "**/Ext/ValueManagerModule.bsl"
+        "**/Ext/ValueManagerModule.bsl",
+        "**/Document/*/Document.obj.bsl",
+        "**/Catalog/*/Catalog.obj.bsl",
+        "**/*Register/*/*Register.obj.bsl"
       ],
       "rule": "rules/locks-and-transactions.md",
       "invariant": "Внутри ПередЗаписью/ПриЗаписи/ОбработкаПроведения свою транзакцию не открывать — она уже открыта платформой; порядок всегда блокировка → чтение → запись."
@@ -65,7 +101,9 @@
         "**/HTTPServices/**",
         "**/WebServices/**",
         "**/IntegrationServices/**",
-        "**/ExchangePlans/**/Ext/*.bsl"
+        "**/ExchangePlans/**/Ext/*.bsl",
+        "**/HTTPService/**",
+        "**/WebService/**"
       ],
       "rule": "rules/integrations-add.md",
       "invariant": "Секреты — только в защищённых константах или хранилище паролей БСП, хардкод запрещён; мутирующий запрос идемпотентен по ключу операции, ретраи ограничены."
@@ -74,13 +112,20 @@
       "globs": [
         "**/CommonModules/**/Ext/Module.bsl",
         "**/HTTPServices/**/Ext/Module.bsl",
-        "**/WebServices/**/Ext/Module.bsl"
+        "**/WebServices/**/Ext/Module.bsl",
+        "**/CommonModule/*/CommonModule.obj.bsl",
+        "**/HTTPService/**/*.obj.bsl"
       ],
       "rule": "rules/clean-architecture-1c.md",
       "invariant": "Зависимости смотрят внутрь: серверный код не знает о формах, типы ДанныеФормы* не пересекают границу формы, доменный модуль не делает HTTP, файлы и COM."
     },
     {
-      "globs": ["**/CommonModules/**/Ext/Module.bsl", "**/Ext/ManagerModule.bsl"],
+      "globs": [
+        "**/CommonModules/**/Ext/Module.bsl",
+        "**/Ext/ManagerModule.bsl",
+        "**/CommonModule/*/CommonModule.obj.bsl",
+        "**/*.mgr.bsl"
+      ],
       "rule": "rules/dev-standards-architecture.md",
       "invariant": "Точка через ссылку грузит объект целиком — только ОбщегоНазначения.ЗначенияРеквизитовОбъекта(ов); внутренний слой и устаревшие разделы БСП не звать."
     },
@@ -89,13 +134,20 @@
         "**/CommonModules/**/Ext/Module.bsl",
         "**/Ext/ManagerModule.bsl",
         "**/Ext/ObjectModule.bsl",
-        "**/Ext/RecordSetModule.bsl"
+        "**/Ext/RecordSetModule.bsl",
+        "**/CommonModule/*/CommonModule.obj.bsl",
+        "**/*.mgr.bsl",
+        "**/Document/*/Document.obj.bsl",
+        "**/Catalog/*/Catalog.obj.bsl",
+        "**/*Register/*/*Register.obj.bsl"
       ],
       "rule": "rules/anti-patterns.md",
       "invariant": "Запрос в цикле, точка через ссылку, подзапрос в списке полей, условие по виртуальной таблице в ГДЕ, отсутствие ПЕРВЫЕ N — критичные, проверять до написания запроса."
     },
     {
-      "globs": ["**/*.bsl"],
+      "globs": [
+        "**/*.bsl"
+      ],
       "rule": "rules/dev-standards-core.md",
       "invariant": "Правку типового кода помечать комментарием модификации, маркер сверить с уже размеченными правками этой конфигурации; удаляемый типовой код комментировать, а не удалять."
     }

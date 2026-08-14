@@ -66,6 +66,33 @@
       "forbid": ["dev-standards-core"]
     },
     {
+      "id": "v8u-doc-object",
+      "path": "src/Document/ПоступлениеТоваров/Document.obj.bsl",
+      "expect": ["v8unpack-source-structure", "locks-and-transactions", "registers-design", "anti-patterns"],
+      "forbid": ["form-module"],
+      "_note": "Раскладка v8unpack: каталоги в единственном числе, модуль объекта — Document.obj.bsl. Без своих масок здесь не сработало бы ни одно правило, кроме dev-standards-core."
+    },
+    {
+      "id": "v8u-form-module",
+      "path": "src/Document/ПоступлениеТоваров/DocumentForm/ФормаДокумента/DocumentForm.obj.bsl",
+      "expect": ["v8unpack-source-structure", "form-reserved-names", "form-module", "dev-standards-forms"],
+      "forbid": ["locks-and-transactions", "registers-design"],
+      "_note": "Модуль формы отличается от модуля объекта только каталогом *Form/ — маски обязаны их различать."
+    },
+    {
+      "id": "v8u-common-module",
+      "path": "src/CommonModule/ОбщегоНазначения/CommonModule.obj.bsl",
+      "expect": ["v8unpack-source-structure", "clean-architecture-1c", "dev-standards-architecture", "anti-patterns"],
+      "forbid": ["form-module", "registers-design"]
+    },
+    {
+      "id": "v8u-form-elements",
+      "path": "src/Document/ПоступлениеТоваров/DocumentForm/ФормаДокумента/DocumentForm.elem.json",
+      "expect": ["v8unpack-source-structure"],
+      "forbid": ["dev-standards-core", "metadata-xml-workarounds"],
+      "_note": "elem.json — не XML-выгрузка: грабли metadata-xml-workarounds сюда не относятся, а dev-standards-core висит на *.bsl."
+    },
+    {
       "id": "any-bsl",
       "path": "DataProcessors/ЗагрузкаПрайса/Ext/ObjectModule.bsl",
       "expect": ["dev-standards-core"],

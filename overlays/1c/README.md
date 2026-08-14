@@ -40,3 +40,4 @@
 | layers, dependencies, bounded contexts, DDD / слои, зависимости, границы контекстов | `clean-architecture-1c` + `ddd-1c` | architect |
 | debugging, bug / отладка, баг — рядом с `debugging-loop` | `systematic-debugging` | error-fixer |
 | формы, метаданные, СКД, макеты / forms, metadata | `forms` + скилл `1c-metadata-manage` | metadata-manager |
+| распакованные исходники, `*.obj.bsl`, `*.elem.json`, сборка бинарника / v8unpack sources | `v8unpack-source-structure` | developer |

@@ -26,6 +26,8 @@ If a value is unknown — **ask the user**, do not guess. Project-stable values 
 
 **Step 2.** Run the export through Designer. Objects are exported **in full**, strictly into the specified directory — **do NOT create new subdirectories**.
 
+> This produces the **standard dump layout** (`Documents/<X>/Ext/ObjectModule.bsl`). If the project instead keeps sources unpacked by `v8unpack`, the layout is a different one — singular directory names, `*.obj.bsl` / `*.mgr.bsl` modules, forms as `*.elem.json` — and paths from this recipe will not be found. See `rules/v8unpack-source-structure.md`.
+
 ```powershell
 & '{PLATFORM_PATH}\bin\1cv8.exe' DESIGNER `
     /F '{INFOBASE_PATH}' `
