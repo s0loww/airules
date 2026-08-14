@@ -45,10 +45,10 @@
 
 Переведено 2026-07-11: `core/rules/*` (все 11), `core/agents/**` (13 ролей,
 ROLES.md, agent-template.md), `core/templates/AGENTS.md`, `core/commands/*`,
-`core/skills/powershell-windows`, новый `core/channels/model-profiles.md`.
+`core/skills/powershell-windows`, новый `core/install/model-profiles.md`.
 Остаток (переводить по мере правок):
 
-- `core/channels/adapters.md` — грабли раскладки, переводить с особой
+- `core/install/layout.md` — грабли раскладки, переводить с особой
   аккуратностью;
 - `ONBOARD.md` — исполняется агентом при установке;
 - `overlays/1c/agents/*.md` (13, русские тела) и

@@ -6,7 +6,7 @@ are the only two places in `core/` where concrete model names are allowed
 (enforced by `ci/check_layers.py`; see `docs/LAYERS.md`).
 
 Profiles are **render additions**: at install time, after resolving the
-model of an agent (see `core/channels/adapters.md`, common procedure 1), the
+model of an agent (see `core/install/layout.md`, common procedure 1), the
 installer appends the matching profile block(s) to the end of the agent
 definition, right after the "Execution discipline" block. Role bodies are
 never edited. On update, profiles are re-applied per the render-additions

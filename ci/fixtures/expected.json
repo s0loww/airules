@@ -4,7 +4,7 @@
     "core/rules/dirty_stack_terms.md": ["stack-in-core"],
     "core/rules/dirty_verification.md": ["stale-verification"],
     "core/agents/dirty_max.md": ["max-default"],
-    "core/channels/dirty_stack.txt": ["stack-in-core"],
+    "core/install/dirty_stack.txt": ["stack-in-core"],
     "overlays/dirty_paths_domain.md": ["machine-paths", "domain-names"],
     "overlays/dirty_paths_unc.md": ["machine-paths"],
     "overlays/dirty_domain_alt.md": ["domain-names"],

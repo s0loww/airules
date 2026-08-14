@@ -45,8 +45,8 @@ ALLOW_MARKER = "airules:allow"
 
 # The two files where model names are expected by design: the tier map and
 # the per-model behavioral profiles rendered by the installer.
-MODEL_MAP_REL = os.path.join("core", "channels", "model-map.yaml")
-MODEL_PROFILES_REL = os.path.join("core", "channels", "model-profiles.md")
+MODEL_MAP_REL = os.path.join("core", "install", "model-map.yaml")
+MODEL_PROFILES_REL = os.path.join("core", "install", "model-profiles.md")
 
 # Rule id for the file-level (not line-level) BOM check below.
 PS1_BOM_RULE_ID = "ps1-bom"
@@ -155,7 +155,7 @@ def _build_rules():
             ),
             "severity": "error",
             "layers": ("core",),
-            "description": "Hardcoded model in core (belongs in channels/model-map.yaml).",
+            "description": "Hardcoded model in core (belongs in install/model-map.yaml).",
         },
         # --- max effort default: core incl. model-map, unless marked as escalation ---
         # The guard sits on the channel's TOP effort step, not on xhigh: xhigh is
@@ -172,7 +172,7 @@ def _build_rules():
         # Rules and overlay content install FLAT into the target (rules/,
         # tools/, .claude/skills/ ...), so references like core/rules/... or
         # overlays/<stack>/... resolve only inside this repository and break
-        # after install. Install-time artifacts (core/channels, the role
+        # after install. Install-time artifacts (core/install, the role
         # registry, layer READMEs) are exempt via _is_installable_path.
         {
             "id": "install-path",
@@ -230,7 +230,7 @@ RULES = _build_rules()
 
 
 def _is_installable_path(rel_path):
-    """Files that are copied or rendered into target projects. core/channels,
+    """Files that are copied or rendered into target projects. core/install,
     the registry/template files consumed only at install time, and layer-level
     READMEs stay distribution-internal and may reference repository paths."""
     norm = rel_path.replace("\\", "/")
@@ -242,7 +242,7 @@ def _is_installable_path(rel_path):
         if len(parts) < 3:
             return False
         second = parts[1]
-        if second == "channels":
+        if second == "install":
             return False
         if second == "agents":
             return len(parts) >= 4 and parts[2] == "roles"

@@ -36,16 +36,16 @@ technical ban.
   changed files, open questions. The agent's output is working material for
   the orchestrator, not a final decision.
 - **Execution discipline** — standard block appended by the installer when
-  rendering every agent (text — `core/channels/adapters.md` §4): do the work
+  rendering every agent (text — `core/install/layout.md` §4): do the work
   yourself, do not wait for "background" processes, temporary files in
   `var/tmp/`, stop after the final report.
 - **Model profile** — appended by the installer after the discipline block,
-  per the family of the resolved model (`core/channels/model-profiles.md`).
+  per the family of the resolved model (`core/install/model-profiles.md`).
   Model-specific behavior lives only there, never in the role body.
 
 ## Note
 
 When laying the distribution out for a specific channel the installer
 replaces `tier` with that channel's model (via
-`core/channels/model-map.yaml`) and expands the pseudo-values
+`core/install/model-map.yaml`) and expands the pseudo-values
 `tools: ro|rw` into the channel's real tool names.

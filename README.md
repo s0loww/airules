@@ -57,11 +57,11 @@ rtk, тулчейн 1С), — в [`SOFTWARE.md`](SOFTWARE.md).
 
 ## Статус
 
-Готовые слои: роутинг ролей и моделей (`core/agents`, `core/channels`),
-модельные профили поведения (`core/channels/model-profiles.md`), контракты
+Готовые слои: роутинг ролей и моделей (`core/agents`, `core/install`),
+модельные профили поведения (`core/install/model-profiles.md`), контракты
 скриптов и COM (`core/rules/script-contract.md`, `overlays/1c/`), интеграция
 OpenSpec (`core/rules/sdd-integrations.md`, `project-template/openspec/`),
-раскладка (`core/channels/adapters.md`) и инсталлятор (`ONBOARD.md`
+раскладка (`core/install/layout.md`) и инсталлятор (`ONBOARD.md`
 + `core/templates/AGENTS.md`, синхронизация по манифесту — `docs/SYNC.md`).
 Тела правил и ролей ядра — на английском (языковая политика —
 `docs/CONTRIBUTING.md`).
