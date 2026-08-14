@@ -31,7 +31,7 @@ The platform opens its own transaction around:
 - `НаборЗаписей.Записать()` for register record sets.
 - Movement materialization at the end of `ОбработкаПроведения`.
 
-**Inside an object's `ПередЗаписью` / `ПриЗаписи` / `ОбработкаПроведения`, do NOT open your own `НачалоТранзакции` / `ЗафиксироватьТранзакцию`.** The transaction is already there; a nested call fakes a savepoint but disables proper rollback on the outer error. See `rules/platform-solutions.md §4 → "Transactions in event handlers"`.
+**Inside an object's `ПередЗаписью` / `ПриЗаписи` / `ОбработкаПроведения`, do NOT open your own `НачалоТранзакции` / `ЗафиксироватьТранзакцию`.** The transaction is already there; a nested call fakes a savepoint but disables proper rollback on the outer error. The symptom to recognise it by («Транзакция не активна» on rollback, partial saves) is indexed in `rules/platform-solutions.md §4`; the treatment is here.
 
 ### Explicit transactions in calling code
 

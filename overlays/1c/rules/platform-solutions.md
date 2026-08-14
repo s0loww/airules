@@ -95,20 +95,9 @@ For form attributes with reference or composite types — first copy the value t
 
 **Symptom.** "Транзакция не активна" on rollback, partially saved data on inner errors, cross-session locks.
 
-**Template.** In object-write event handlers **do not open your own transaction** — the platform has already opened one. If an outer transaction is required, open it in the calling code; inside the handler, use `ТранзакцияАктивна()` only for diagnostic checks if needed.
+**Fix.** In object-write event handlers **do not open your own transaction** — the platform has already opened one around `ПередЗаписью` → write → `ПриЗаписи` → posting. If an outer transaction is genuinely needed, it belongs in the calling code.
 
-```bsl
-// In the calling code that invokes Записать().
-НачалоТранзакции();
-
-Попытка
-    Документ.Записать(РежимЗаписиДокумента.Проведение);
-    ЗафиксироватьТранзакцию();
-Исключение
-    ОтменитьТранзакцию();
-    ВызватьИсключение;
-КонецПопытки;
-```
+**Owned by `locks-and-transactions.md` §2.** The full treatment lives there: which operations open an implicit transaction, the only correct shape for an explicit one in calling code (with logging and re-raise), and what must never run inside a transaction. This entry exists so the symptom leads there — it does not carry its own copy of the template.
 
 **Standard.** ITS: "Использование транзакций".
 
@@ -223,36 +212,9 @@ For form attributes with reference or composite types — first copy the value t
 
 **Symptom.** Sporadic «Конфликт блокировок при выполнении транзакции», deadlocks under load (especially in document posting), reading uncommitted data, balance inconsistencies after parallel posting.
 
-**Template — set a managed lock before reading register balances during posting:**
+**First move.** Lock the **register** you are about to read and modify, before reading it, and lock it in the same canonical order everywhere. Locking the document does not protect a register read, and two postings taking the same registers in different orders deadlock by construction.
 
-```bsl
-Процедура ОбработкаПроведения(Отказ, РежимПроведения)
-
-    Блокировка = Новый БлокировкаДанных;
-
-    ЭлементБлокировки = Блокировка.Добавить("РегистрНакопления.ТоварыНаСкладах");
-    ЭлементБлокировки.Режим = РежимБлокировкиДанных.Исключительный;
-    ЭлементБлокировки.ИсточникДанных = Товары;
-    ЭлементБлокировки.ИспользоватьИзИсточникаДанных("Номенклатура", "Номенклатура");
-    ЭлементБлокировки.ИспользоватьИзИсточникаДанных("Склад",       "Склад");
-
-    Блокировка.Заблокировать();
-
-    // ... read balances and write movements within the same transaction ...
-
-КонецПроцедуры
-```
-
-**Rules.**
-
-- Set the lock **before** reading the data you intend to modify; the lock lives until the end of the current transaction.
-- Use `РежимБлокировкиДанных.Исключительный` for write paths, `Разделяемый` only for reads that must stay consistent.
-- Always use `ИсточникДанных` (e.g. the document's tabular section) instead of iterating rows manually.
-- **Lock ordering.** Establish a **canonical order of locked tables** across all postings (e.g. always lock `ТоварыНаСкладах` before `ТоварыКПередаче`). Violating the order across two documents that touch the same registers causes deadlocks.
-- Lock the **register**, not the document — locking the document does not protect register reads.
-- Do not call user dialogs, long-running operations, or external services while holding a transaction.
-- Set the configuration property **«Режим управления блокировкой данных»** to `Управляемый` for the whole configuration; mixed mode hides bugs.
-- For diagnosing — `ТранзакцияАктивна()` and reading the technological log section `TLOCK` / `TDEADLOCK`.
+**Owned by `locks-and-transactions.md`.** That rule is the treatment in full: lock primitives and modes (§3), the ordering contract (§4), the posting pattern with `ИсточникДанных` (§5), and how to read `TLOCK` / `TDEADLOCK` when diagnosing (§6). This entry is the symptom-side index into it, not a second copy — a compressed copy of a lock contract is exactly the thing that drifts and then contradicts the original.
 
 **Standard.** ITS: "Управление блокировкой данных в транзакции", "Особенности проведения документов".
 
@@ -319,6 +281,11 @@ general case.
 When you discover a new typical pitfall:
 
 1. Add a new section using the "Problem → Symptom → Template → Standard" schema.
+   **If the topic already has an owning rule, the entry keeps Problem and
+   Symptom and points at it instead of carrying a template.** The case book is
+   the symptom-side index; a compressed second copy of someone else's rule
+   drifts, and the day it contradicts the original nobody can tell which one is
+   current.
 2. If the solution depends on the platform or БСП version — state the version explicitly.
 3. If a minimal reproducible example exists — include it.
 4. When possible, link to ITS, the platform documentation, or a specific БСП module.
