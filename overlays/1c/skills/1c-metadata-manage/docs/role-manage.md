@@ -299,6 +299,8 @@ Use `-Offset N` and `-Limit N` for paginated viewing.
 
 Checks correctness of a role's `Rights.xml`: XML format, namespace, global flags, object types, right names, RLS restrictions, templates. Optionally checks role metadata (UUID, name, synonym).
 
+Worth running as a pre-flight before loading an extension: rights blocks on types that never carry rights are redundant, and have been reported to hang `DESIGNER /LoadConfigFromFiles` with an empty log on some platform builds — a failure with no diagnostics of its own.
+
 ## Usage
 
 ```powershell
@@ -323,6 +325,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-role-validate
 3. Three global flags: `setForNewObjects`, `setForAttributesByDefault`, `independentRightsOfChildObjects`
 4. For each `<object>`:
    - `<name>` is not empty
+   - The type is one that carries rights at all — `Enum`, `FunctionalOption`, `DefinedType`, `CommonModule`, `CommonPicture`, `CommonTemplate` never do (see "Types WITHOUT Rights in Roles" above), so such a block is reported and its rights are not counted
    - Object type is recognized (Catalog, Document, InformationRegister, etc.)
    - Each `<right>` has `<name>` and `<value>` (`true`/`false`)
    - Right name is valid for the object type (with suggestion on typo)

@@ -14,6 +14,12 @@ $ErrorActionPreference = "Stop"
 
 # --- 1. Known rights per object type ---
 
+# Metadata types that never carry rights in a role: the platform treats them as
+# universally available, so a rights block for them is redundant at best.
+$script:rightlessTypes = @(
+	"Enum","FunctionalOption","DefinedType","CommonModule","CommonPicture","CommonTemplate"
+)
+
 $script:knownRights = @{
 	"Configuration" = @(
 		"Administration","DataAdministration","UpdateDataBaseConfiguration",
@@ -246,6 +252,7 @@ $objects = $root.GetElementsByTagName("object", $rightsNs)
 $objCount = $objects.Count
 $rightCount = 0
 $rlsCount = 0
+$rightlessFound = 0
 
 foreach ($obj in $objects) {
 	$objName = ""
@@ -263,6 +270,13 @@ foreach ($obj in $objects) {
 
 	$objectType = Get-ObjectType $objName
 	$isNested = Is-NestedObject $objName
+
+	# Rights on a rightless type: remove the block rather than fix it.
+	if (-not $isNested -and $objectType -in $script:rightlessTypes) {
+		$rightlessFound++
+		Out-WARN "${objName}: '$objectType' never carries rights in a role — remove this <object> block (access is unrestricted anyway)"
+		continue
+	}
 
 	# Check object type is known
 	if (-not $isNested -and -not $script:knownRights.ContainsKey($objectType)) {
@@ -335,6 +349,9 @@ foreach ($obj in $objects) {
 Out-OK "$objCount objects, $rightCount rights"
 if ($rlsCount -gt 0) {
 	Out-OK "$rlsCount RLS restrictions"
+}
+if ($rightlessFound -gt 0) {
+	$script:lines += "  NOTE $rightlessFound rightless-type block(s) — worth clearing before an extension load: such blocks have been reported to hang DESIGNER /LoadConfigFromFiles with an empty log"
 }
 
 # 3e. Templates
