@@ -6,8 +6,8 @@ content that violates the purity contract of its layer: leaked credentials,
 machine paths, domain names, stack terms in the generic core, hardcoded models,
 unmarked max-effort defaults, retired self-verification wording, missing UTF-8
 BOM in script files, credentials echoed into console output,
-distribution-only paths inside installable files, and rule files that do not
-declare their genre (``kind``).
+distribution-only paths inside installable files, rule files that do not
+declare their genre (``kind``), and rules nothing refers to.
 
 Pure standard library, cross-platform, Python 3.9+.
 
@@ -451,6 +451,59 @@ def check_rule_kind(path, rel_path):
     return None
 
 
+RULE_ORPHAN_RULE_ID = "rule-orphan"
+
+
+def _rule_stems(base_dir):
+    """{stem: rel_path} for every rule body under the scanned layers."""
+    found = {}
+    for layer in SCAN_LAYERS:
+        for base, _dirs, files in os.walk(os.path.join(base_dir, layer)):
+            rel_base = os.path.relpath(base, base_dir).replace("\\", "/")
+            if not rel_base.endswith("/rules"):
+                continue
+            for name in files:
+                if name.endswith(".md"):
+                    found[name[:-3]] = rel_base + "/" + name
+    return found
+
+
+def collect_rule_orphans(base_dir):
+    """Repository-level check: every rule is referenced from somewhere.
+
+    A rule nobody points at is loaded only if the reader already knows it
+    exists — which, for a lazily read rule set, means it is not loaded at all.
+    The failure is silent: the file is present, passes every other check, and
+    is never read. Two of these were found by hand before this check existed.
+
+    Not part of the per-file rules because the answer depends on the whole
+    tree, not on one file. Returns a list of (rel_path, lineno, id, message).
+    """
+    stems = _rule_stems(base_dir)
+    if not stems:
+        return []
+    patterns = {
+        stem: re.compile(r"(?<![\w-])" + re.escape(stem) + r"(?![\w-])")
+        for stem in stems
+    }
+    referenced = set()
+    for layer in SCAN_LAYERS:
+        for path in _iter_text_files(os.path.join(base_dir, layer)):
+            rel = os.path.relpath(path, base_dir).replace("\\", "/")
+            text = read_text(path)
+            if text is None:
+                continue
+            for stem, pattern in patterns.items():
+                if stem in referenced or rel == stems[stem]:
+                    continue  # a rule naming itself proves nothing
+                if pattern.search(text):
+                    referenced.add(stem)
+    return [
+        (stems[stem], 1, RULE_ORPHAN_RULE_ID, "no rule, agent or template refers to it")
+        for stem in sorted(set(stems) - referenced)
+    ]
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, _dirs, files in os.walk(base_dir):
@@ -572,6 +625,20 @@ def run_selftest():
         detail = "" if ok else " unexpected {0}".format(sorted(found))
         print("{0}  {1} clean{2}".format(status, rel_file, detail))
 
+    # 3) The repository-level orphan check, exercised against the fixture tree:
+    # no fixture references any other, so every fixture rule must come back.
+    expected_orphans = set(expected.get("orphans", []))
+    actual_orphans = {item[0] for item in collect_rule_orphans(fixtures_dir)}
+    ok = expected_orphans == actual_orphans
+    all_pass = all_pass and ok
+    detail = ""
+    if not ok:
+        detail = " missing {0} unexpected {1}".format(
+            sorted(expected_orphans - actual_orphans),
+            sorted(actual_orphans - expected_orphans),
+        )
+    print("{0}  rule-orphan over fixtures{1}".format("PASS" if ok else "FAIL", detail))
+
     print("SELFTEST {0}".format("PASS" if all_pass else "FAIL"))
     return 0 if all_pass else 1
 
@@ -592,6 +659,11 @@ def main(argv=None):
         paths = collect_tree_files()
 
     count = run_scan(paths)
+    # Repository-level, so it runs whole in both modes: whether a rule is
+    # referenced cannot be decided from the staged subset alone.
+    orphans = collect_rule_orphans(REPO_ROOT)
+    _report(orphans)
+    count += len(orphans)
     if count:
         print("airules: {0} layer-purity violation(s) found.".format(count), file=sys.stderr)
         return 1
