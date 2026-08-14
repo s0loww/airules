@@ -41,3 +41,4 @@
 | debugging, bug / отладка, баг — рядом с `debugging-loop` | `systematic-debugging` | error-fixer |
 | формы, метаданные, СКД, макеты / forms, metadata | `forms` + скилл `1c-metadata-manage` | metadata-manager |
 | распакованные исходники, `*.obj.bsl`, `*.elem.json`, сборка бинарника / v8unpack sources | `v8unpack-source-structure` | developer |
+| правила обмена, конвертация данных, ПКО/ПКС, объект не найден при загрузке / data conversion rules | `kd2-exchange-rules` (XML-правила) или `kd31-exchange-rules` (EnterpriseData) | developer |
