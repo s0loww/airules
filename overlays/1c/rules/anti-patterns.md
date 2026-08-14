@@ -1,9 +1,34 @@
 ---
-description: "1C anti-patterns, performance guidelines, and code review scoring"
+description: "Constructs that are wrong on sight in 1C code — query inside a loop, dot notation on a reference, subquery in the field list, virtual-table filter in WHERE, missing ПЕРВЫЕ N, needless server round trips — with the corrected form of each. Load before writing or reviewing queries and server-side code. Триггеры: анти-паттерн, медленный запрос, оптимизация кода, ревью запроса."
 alwaysApply: false
-kind: case
+kind: invariant
 ---
 # 1C Anti-Patterns and Performance Guidelines
+
+Shape-level smells judged over a module or subsystem (God Module, Tight
+Coupling, Premature Optimization) are a different thing and live in
+`dev-standards-architecture.md §6`. This file is about constructs that are
+wrong where they stand.
+
+## Checklist — read this first
+
+Everything below is one of these eleven, in detail. If you only need to know
+what to look for, this table is the rule; the sections after it are the
+evidence and the corrected form.
+
+| Anti-Pattern | Severity | Check For |
+|--------------|----------|-----------|
+| Query in loop | CRITICAL | `Для Каждого` followed by `Новый Запрос` |
+| Dot notation | CRITICAL | `.Реквизит` on references |
+| Subquery in SELECT | CRITICAL | Nested `ВЫБРАТЬ` in field list |
+| Ambiguous query alias in JOIN | HIGH | Table alias `КАК X` where field also `КАК X`; `КАК Документ` for Регистратор |
+| Virtual table WHERE | HIGH | Conditions on virtual table results |
+| Missing TOP N | HIGH | Large queries without `ПЕРВЫЕ` |
+| Multiple server calls | HIGH | Sequential `НаСервере` calls from client |
+| `&НаСервере` misuse | HIGH | Server call not needing form context |
+| Missing cache | MEDIUM | Repeated expensive calls with same params |
+| O(n²) loops | MEDIUM | Nested loops searching for matches |
+| Deep nesting | MEDIUM | >4 levels of conditionals/loops |
 
 ## Critical Anti-Patterns (Must Fix)
 
@@ -301,33 +326,6 @@ kind: case
 // Logic
 ```
 
-## Architectural Anti-Patterns
-
-### Big Ball of Mud
-- No clear structure
-- Everything depends on everything
-- **Impact**: Unmaintainable, high change risk
-
-### God Module
-- One module does everything
-- Hundreds of procedures in single module
-- **Impact**: Hard to understand, test, modify
-
-### Tight Coupling
-- Modules directly dependent on implementation details
-- Changes cascade across modules
-- **Impact**: High modification cost
-
-### Copy-Paste Architecture
-- Same code in multiple places
-- No shared modules
-- **Impact**: Inconsistency, maintenance burden
-
-### Premature Optimization
-- Complex caching before proving need
-- Over-engineered for current scale
-- **Impact**: Unnecessary complexity
-
 ## Optimized Patterns
 
 ### Batch Query with Temp Table
@@ -385,34 +383,11 @@ kind: case
 КонецЦикла;
 ```
 
-## Confidence Scoring (for Reviews)
+## Where the neighbours are
 
-Rate findings on a scale from 0 to 100:
-
-| Score | Description |
-|-------|-------------|
-| **0-25** | Low confidence — might be false positive |
-| **26-50** | Moderate — worth discussing |
-| **51-75** | High — likely real issue |
-| **76-100** | Very high — confirmed issue with evidence |
-
-**Report every finding with its score attached — including the low ones.** The
-score is a label for the reader, not a gate for the reviewer: a suppressed
-finding cannot be recovered downstream, while a labelled one is discarded in
-a second. Filtering by score is the orchestrator's separate pass.
-
-## Quick Reference Checklist
-
-| Anti-Pattern | Severity | Check For |
-|--------------|----------|-----------|
-| Ambiguous query alias in JOIN | HIGH | Table alias `КАК X` where field also `КАК X`; `КАК Документ` for Регистратор |
-| Query in loop | CRITICAL | `Для Каждого` followed by `Новый Запрос` |
-| Dot notation | CRITICAL | `.Реквизит` on references |
-| Subquery in SELECT | CRITICAL | Nested `ВЫБРАТЬ` in field list |
-| Virtual table WHERE | HIGH | Conditions on virtual table results |
-| Missing TOP N | HIGH | Large queries without `ПЕРВЫЕ` |
-| Multiple server calls | HIGH | Sequential `НаСервере` calls from client |
-| &НаСервере misuse | HIGH | Server call not needing form context |
-| Missing cache | MEDIUM | Repeated expensive calls with same params |
-| O(n²) loops | MEDIUM | Nested loops searching for matches |
-| Deep nesting | MEDIUM | >4 levels of conditionals/loops |
+| Concern | File |
+|---|---|
+| Shape-level smells over a module / subsystem | `dev-standards-architecture.md §6` |
+| Scoring findings when reporting a review | the `code-reviewer` / `arch-reviewer` roles |
+| Authoritative query rules | `dev-standards-architecture.md §3` |
+| Report-side query traps | `dcs-design.md`, `dcs-composition-recipes.md` |

@@ -89,7 +89,9 @@ and a bounded retry budget.
 - **C. Explicit user code review (only when the user asks)** — call the
   `code-reviewer` role; close critical/major before handover. Do **not**
   trigger the reviewer automatically — gates 2-3 already cover the routine
-  bar.
+  bar. Findings come back with **severity and confidence as separate axes**
+  and nothing dropped for uncertainty — the reviewer roles own that reporting
+  contract; do not restate or narrow it here.
 - **D. Automated tests (only when the project has a test suite)** — the
   tests affected by the change pass. A bug fix additionally carries a
   regression test at a correct seam, built from the minimised reproduction —

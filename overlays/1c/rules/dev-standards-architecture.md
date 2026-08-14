@@ -242,10 +242,19 @@ Mandatory baseline. Detailed anti-pattern catalog with severity — in `rules/an
 - **Collections.** Bulk fill — `ЗаполнитьЗначенияСвойств()`. Search: ≤ ~100 elements — `Найти()` / `НайтиПоЗначению()` is fine; ≥ ~1000 elements or inside a loop — index on `Соответствие` (O(1)) or `ТаблицаЗначений.Индексы.Добавить(...)` + `НайтиСтроки()`. See `rules/platform-solutions.md §7`.
 - **Transactions.** Keep them short, no user interaction inside. Account for implicit transactions (e.g. object write).
 
-## 6. Code Smells (see `anti-patterns` rule for the full catalog)
+## 6. Code Smells
+
+Smells are about **shape**, and are judged over a module or a subsystem.
+Concrete constructs that are wrong on sight — a query inside a loop, dot
+notation on a reference — are a different thing and live in `anti-patterns.md`.
 
 | Smell | Signs | Fix |
 |---|---|---|
+| **Big Ball of Mud** | No discernible structure; everything depends on everything | Introduce boundaries — `clean-architecture-1c.md`, `ddd-1c.md` |
+| **God Module** | One module does everything; hundreds of procedures | Split by responsibility; one reason to change per module |
+| **Tight Coupling** | Modules reach into each other's implementation details; a change cascades | Talk through the public region of the owning module (`ПрограммныйИнтерфейс`) |
+| **Copy-Paste Architecture** | The same logic in several places, no shared module | Extract into a common module — but only once the third copy appears |
+| **Premature Optimization** | Caching and complexity built before any measurement | Remove until a measurement asks for it back |
 | **Data Clumps** | Same 3+ parameters passed together in multiple methods | Combine into Structure via constructor function |
 | **Primitive Obsession** | Strings instead of enums, numeric codes instead of references | Use `Enum`, `CatalogRef`, `DefinedType` |
 | **Divergent Change** | One module constantly changed for different reasons | Split module: each handles one responsibility (SRP) |
