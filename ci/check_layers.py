@@ -240,7 +240,7 @@ def _is_installable_path(rel_path):
             return False
         if second == "agents":
             return len(parts) >= 4 and parts[2] == "roles"
-        return second in ("rules", "templates", "skills", "commands")
+        return second in ("rules", "templates", "skills", "commands", "hooks")
     if top == "overlays":
         return not (len(parts) == 3 and parts[2] == "README.md")
     return False

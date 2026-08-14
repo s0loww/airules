@@ -1,0 +1,36 @@
+{
+  "_comment": "Path -> rule reminder table for the rule-inject PreToolUse hook. Only kind: invariant rules belong here: a rule needed at the moment of writing a line, in a file identifiable by path. Recipes, cases and process rules stay on the lazy Rule Index. Keep masks narrow — a mask that fires where the rule does not apply teaches everyone to ignore the injection.",
+  "budget_chars": 1200,
+  "entries": [
+    {
+      "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
+      "rule": "rules/form-reserved-names.md",
+      "invariant": "Локальная переменная не может называться как свойство элемента формы (ПараметрыВыбора, СписокВыбора, ОтборСтрок) или как реквизит типовой формы (НастройкиОтчета) — платформа поймёт присваивание иначе."
+    },
+    {
+      "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
+      "rule": "rules/form-module.md",
+      "invariant": "Директивы компиляции и клиент-серверные переходы: &НаСервереБезКонтекста по умолчанию, &НаСервере — только при работе с данными формы."
+    },
+    {
+      "globs": ["**/Forms/**/Form.xml", "**/Forms/**/Ext/Form.xml"],
+      "rule": "rules/forms-add.md",
+      "invariant": "Структурная правка Form.xml: порядок элементов, обязательные блоки, регистрация в родительском XML."
+    },
+    {
+      "globs": ["**/Forms/**/Form.xml", "**/Forms/**/Ext/Form.xml"],
+      "rule": "rules/metadata-xml-workarounds.md",
+      "invariant": "Грабли XML: PagesGroupExtInfo с буквой s, <enabled>true</enabled> у Page, уникальные UUID, никакого LineNumber в табличных частях."
+    },
+    {
+      "globs": ["**/Roles/**/Rights.xml"],
+      "rule": "rules/metadata-xml-workarounds.md",
+      "invariant": "Права на Enum, FunctionalOption, DefinedType, CommonModule, CommonPicture, CommonTemplate в роли не бывают — блок убрать (см. §6)."
+    },
+    {
+      "globs": ["**/Configuration.xml"],
+      "rule": "rules/metadata-xml-workarounds.md",
+      "invariant": "Порядок <childObjects> значим, UUID уникальны, новый объект регистрируется здесь же — после правки прогнать валидацию."
+    }
+  ]
+}
