@@ -154,6 +154,11 @@ destructive actions, production/live mutations, deploys, force-push, paid
 external calls, or writes outside the assigned zone.
 
 Output:
+- If another implementing subagent continues this change after you: open the
+  report with the Handoff inventory block (exact format in
+  `subagent-pipeline.md`) — artifacts, public surface, open stubs, locked
+  decisions. The parent passes it on verbatim, so it is the next subagent's
+  only inventory; anything you leave out, it will rediscover by reading files.
 - Summary; files changed; verification evidence.
 - Success criteria status, point by point.
 - Risks, blockers, residual gaps.

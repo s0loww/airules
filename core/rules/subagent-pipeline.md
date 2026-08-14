@@ -203,6 +203,15 @@ implementing subagent places at the top of its final report, that the parent
 passes on verbatim, and that the downstream subagent treats as the
 authoritative inventory.
 
+> **Not the same thing as the `## Handoff` section of a role definition.** That
+> one is the subagent's report *to the parent* — decisions, changed files,
+> recommendations, in prose. This block is a machine-readable *inventory for
+> the next subagent*, and it sits **on top of** that report. A chain continues
+> only when the block is there; the prose report cannot substitute for it.
+> The prompt that asks for it is `worker-full-contract` in
+> `subagent-task-templates.md` — if a stream is launched without that ask, the
+> block will not appear and the chain silently degrades to re-reading.
+
 **Mandatory Handoff format (produced by the upstream subagent at the very top
 of its final report):**
 
