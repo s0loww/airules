@@ -395,6 +395,133 @@ def verify(target):
     return out
 
 
+# --------------------------------------------------------------- инвентарь
+# Блоки `docs/INVENTORY.md`, которые протухают молча: числа и перечни. Проза
+# живёт в самом файле и не трогается — генератор переписывает только то, что
+# размечено маркерами. Источник чисел тот же, что и у сборки выше: второй
+# подсчёт разошёлся бы с первым, и расхождение никто бы не заметил.
+INVENTORY_REL = os.path.join("docs", "INVENTORY.md")
+
+KIND_WHAT = {
+    "invariant": "что всегда верно про код такого вида; привязано к файлу",
+    "process": "как вести работу: делегирование, память, верификация",
+    "recipe": "задача → процедура",
+    "case": "симптом → фикс",
+    "router": "навигация к соседним правилам",
+}
+
+
+def _count_files(path):
+    return sum(len(files) for _, _, files in os.walk(path))
+
+
+def _mapped_rules():
+    """Имена правил, заведённых в карту хука оверлея."""
+    map_path = dist("overlays", STACK, "hooks", "rules-map.json")
+    if not os.path.isfile(map_path):
+        return set()
+    names = set()
+    for entry in json.loads(read(map_path)).get("entries", []):
+        hit = re.search(r"rules/([A-Za-z0-9_-]+)\.md", entry.get("rule") or "")
+        if hit:
+            names.add(hit.group(1))
+    return names
+
+
+def collect_inventory(target, summary):
+    """{имя блока: markdown} — всё считается по фактически собранной цели."""
+    core_names = {n[:-3] for n in os.listdir(dist("core", "rules")) if n.endswith(".md")}
+    by_kind, by_layer = {}, {"core": [], "1c": []}
+    for name in sorted(os.listdir(os.path.join(target, "rules"))):
+        if not name.endswith(".md"):
+            continue
+        kind = re.search(r"^kind:\s*(\S+)",
+                         read(os.path.join(target, "rules", name)), re.M)
+        stem = name[:-3]
+        by_kind.setdefault(kind.group(1).strip("\"'") if kind else "?", []).append(stem)
+        by_layer["core" if stem in core_names else "1c"].append(stem)
+
+    genres = ["| Жанр | Всего | Что это |", "|---|---|---|"]
+    for kind in KIND_ORDER:
+        if by_kind.get(kind):
+            genres.append("| `{0}` | {1} | {2} |".format(
+                kind, len(by_kind[kind]), KIND_WHAT.get(kind, "")))
+
+    overlay_inv = [n for n in by_kind.get("invariant", []) if n not in core_names]
+    outside = sorted(n for n in overlay_inv if n not in _mapped_rules())
+
+    skills = []
+    for layer, base in (("core", dist("core", "skills")),
+                        ("1c", dist("overlays", STACK, "skills"))):
+        for name in sorted(os.listdir(base)):
+            skill_md = os.path.join(base, name, "SKILL.md")
+            if not os.path.isfile(skill_md):
+                continue
+            desc = re.search(r"^description:\s*>?\s*(.+)$", read(skill_md), re.M)
+            first = (desc.group(1).strip().strip('"') if desc else "")
+            first = re.split(r"(?<=[a-zа-я0-9)])\.\s", first)[0]
+            skills.append((name, layer, first[:96]))
+
+    claude = os.path.join(target, ".claude")
+    joined = lambda names: ", ".join("`{0}`".format(n) for n in sorted(names))
+
+    return {
+        "stats": "\n".join([
+            "| | |", "|---|---|",
+            "| правил | {0} |".format(summary["rules"]),
+            "| скиллов | {0} |".format(len(skills)),
+            "| ролей субагентов | {0} |".format(summary["roles"]),
+            "| команд | {0} |".format(_count_files(os.path.join(claude, "commands"))),
+            "| гейтов | 4 |",
+            "| файлов в цели | {0} |".format(summary["files"]),
+        ]),
+        "genres": "\n".join(genres),
+        "rules-core": "**Ядро** ({0}): {1}.".format(
+            len(by_layer["core"]), joined(by_layer["core"])),
+        "rules-overlay": "**Оверлей 1c** ({0}): {1}.".format(
+            len(by_layer["1c"]), joined(by_layer["1c"])),
+        "hook-coverage": (
+            "Из {0} инвариантов оверлея **{1} заведены в карту хука** и приезжают "
+            "по пути файла. Остальные {2} по пути не опознаются: {3}."
+        ).format(len(overlay_inv), len(overlay_inv) - len(outside),
+                 len(outside), joined(outside)),
+        "skills": "\n".join(
+            ["| Скилл | Слой | Что делает |", "|---|---|---|"]
+            + ["| `{0}` | {1} | {2} |".format(n, l, d) for n, l, d in skills]),
+        "tree-counts": "\n".join([
+            "| Каталог | Файлов |", "|---|---|",
+            "| `rules/` | {0} |".format(_count_files(os.path.join(target, "rules"))),
+            "| `openspec/` | {0} |".format(_count_files(os.path.join(target, "openspec"))),
+            "| `tools/` | {0} |".format(_count_files(os.path.join(target, "tools"))),
+            "| `.claude/agents/` | {0} |".format(_count_files(os.path.join(claude, "agents"))),
+            "| `.claude/skills/` | {0} |".format(_count_files(os.path.join(claude, "skills"))),
+            "| `.claude/commands/` | {0} |".format(_count_files(os.path.join(claude, "commands"))),
+        ]),
+    }
+
+
+def apply_inventory(blocks, write):
+    """Переписать размеченные блоки. -> (изменилось ли, отсутствующие маркеры)."""
+    path = os.path.join(DIST, INVENTORY_REL)
+    if not os.path.isfile(path):
+        return False, ["файл не найден"]
+    text = original = read(path)
+    missing = []
+    for name, body in sorted(blocks.items()):
+        open_mark = "<!-- generated:{0} -->".format(name)
+        close_mark = "<!-- /generated:{0} -->".format(name)
+        pattern = re.compile(re.escape(open_mark) + r".*?" + re.escape(close_mark), re.S)
+        if not pattern.search(text):
+            missing.append(name)
+            continue
+        replacement = open_mark + "\n" + body + "\n" + close_mark
+        text = pattern.sub(lambda _match, value=replacement: value, text, count=1)
+    changed = text != original
+    if write and changed:
+        io.open(path, "w", encoding="utf-8", newline="\n").write(text)
+    return changed, missing
+
+
 def main(argv=None):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -403,6 +530,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="airules install simulator")
     parser.add_argument("--keep", metavar="DIR",
                         help="собрать в DIR и не удалять (по умолчанию — временный каталог)")
+    parser.add_argument("--emit-inventory", action="store_true",
+                        help="перезаписать генерируемые блоки docs/INVENTORY.md")
     args = parser.parse_args(argv)
 
     target = os.path.abspath(args.keep) if args.keep else tempfile.mkdtemp(prefix="airules-sim-")
@@ -410,6 +539,17 @@ def main(argv=None):
     try:
         summary = build(target, problems)
         results = verify(target)
+        stale, missing = apply_inventory(collect_inventory(target, summary),
+                                         write=args.emit_inventory)
+        if missing:
+            results.append((False, "блоки инвентаря размечены",
+                            "нет маркеров: " + ", ".join(missing)))
+        elif args.emit_inventory:
+            results.append((True, "инвентарь перезаписан" if stale
+                            else "инвентарь уже был актуален", ""))
+        else:
+            results.append((not stale, "docs/INVENTORY.md актуален",
+                            "числа разошлись со сборкой — прогнать --emit-inventory"))
     finally:
         if not args.keep:
             shutil.rmtree(target, ignore_errors=True)

@@ -595,6 +595,47 @@ def collect_injection_failures(base_dir):
     return failures
 
 
+INSTALL_RULE_ID = "install-sim"
+
+
+def collect_install_failures(base_dir):
+    """Repository-level check: does a working install still assemble from this tree?
+
+    The purity rules read sources; this one reads the result. It also carries the
+    freshness check for ``docs/INVENTORY.md`` — the counts there are produced by
+    the same build, so a stale inventory is a failed check rather than a document
+    nobody notices has drifted.
+
+    Returns a list of (rel_path, lineno, id, message).
+    """
+    script = os.path.join(base_dir, "ci", "simulate_install.py")
+    if not os.path.isfile(script):
+        return []
+    try:
+        proc = subprocess.run(
+            [sys.executable, script],
+            cwd=base_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except OSError as error:
+        return [("ci/simulate_install.py", 1, INSTALL_RULE_ID,
+                 "cannot run: {0}".format(error))]
+    if proc.returncode == 0:
+        return []
+    failures = []
+    for line in (proc.stdout or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("FAIL", "BLOCK", "HIGH")) or "  FAIL  " in line:
+            failures.append(("ci/simulate_install.py", 1, INSTALL_RULE_ID,
+                             stripped.replace("FAIL", "", 1).strip()))
+    if not failures:
+        failures.append(("ci/simulate_install.py", 1, INSTALL_RULE_ID,
+                         "install simulation failed without a named check"))
+    return failures
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, _dirs, files in os.walk(base_dir):
@@ -770,6 +811,9 @@ def main(argv=None):
     injection = collect_injection_failures(REPO_ROOT)
     _report(injection)
     count += len(injection)
+    install = collect_install_failures(REPO_ROOT)
+    _report(install)
+    count += len(install)
     if count:
         print("airules: {0} layer-purity violation(s) found.".format(count), file=sys.stderr)
         return 1

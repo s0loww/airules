@@ -4,8 +4,17 @@
 прогоном `ci/simulate_install.py` со стеком `1c` — это фактический результат
 установки, а не пересказ инструкции.
 
-Срез: **0.6.0**. Обновлять этот файл при изменении состава — он не генерируется.
+Срез: **0.6.0**. Числа и перечни в блоках `<!-- generated:… -->` собираются
+скриптом — править их руками бессмысленно, они перезапишутся:
 
+```sh
+python ci/simulate_install.py --emit-inventory
+```
+
+Проза между блоками пишется руками и генератором не трогается. Расхождение
+блоков со сборкой роняет `check_layers`, поэтому протухнуть молча файл не может.
+
+<!-- generated:stats -->
 | | |
 |---|---|
 | правил | 48 |
@@ -13,25 +22,37 @@
 | ролей субагентов | 13 |
 | команд | 3 |
 | гейтов | 4 |
-| файлов в цели | 184 |
+| файлов в цели | 185 |
+<!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
 
 ```
 AGENTS.md                корневой контракт: роли, MCP-профиль, Rule Index, роутинг
 CLAUDE.md                ровно одна строка: See @AGENTS.md
-rules/                   48 файлов — тела правил, читаются по требованию
+rules/                   тела правил, читаются по требованию
 openspec/                паспорт проекта и воркспейс спецификаций
 tools/                   библиотеки оверлея (agent-1c, com-tools)
 .mcp.json                серверы MCP; remote — обязательно с "type": "http"
 .claude/
-  agents/                13 определений субагентов
-  skills/                8 скиллов со своими ресурсами
-  commands/              3 команды
+  agents/                определения субагентов
+  skills/                скиллы со своими ресурсами
+  commands/              команды
   hooks/                 rule-inject.py + карта путей
   settings.json          регистрация хука: PreToolUse и SessionStart
 .airules-manifest.json   sha256 каждого файла — на нём стоит безопасное обновление
 ```
+
+<!-- generated:tree-counts -->
+| Каталог | Файлов |
+|---|---|
+| `rules/` | 48 |
+| `openspec/` | 5 |
+| `tools/` | 22 |
+| `.claude/agents/` | 13 |
+| `.claude/skills/` | 88 |
+| `.claude/commands/` | 3 |
+<!-- /generated:tree-counts -->
 
 Каталога `.claude/rules/` в раскладке **нет намеренно**: Claude Code грузит его
 целиком в каждый промпт, что убило бы ленивую загрузку, ради которой построена
@@ -43,35 +64,27 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 и опознаются по пути файла, поэтому их можно привязать к маскам хука. Остальные
 жанры живут на ленивом индексе и подтягиваются по описанию.
 
+<!-- generated:genres -->
 | Жанр | Всего | Что это |
 |---|---|---|
 | `invariant` | 21 | что всегда верно про код такого вида; привязано к файлу |
-| `process` | 17 | как вести работу: делегирование, память, верификация |
-| `recipe` | 8 | задача → процедура |
 | `case` | 1 | симптом → фикс |
+| `recipe` | 8 | задача → процедура |
+| `process` | 17 | как вести работу: делегирование, память, верификация |
 | `router` | 1 | навигация к соседним правилам |
+<!-- /generated:genres -->
 
-**Ядро** (16): `case-book`, `collaboration-modes`, `context-packs`,
-`debugging-loop`, `decision-interview`, `decisions-log`, `orchestrator-economy`,
-`preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`,
-`subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`,
-`test-discipline`, `tool-output-economy`, `verification-matrix`.
+<!-- generated:rules-core -->
+**Ядро** (17): `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `orchestrator-economy`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `tool-output-economy`, `verification-matrix`.
+<!-- /generated:rules-core -->
 
-**Оверлей 1c** (32): `access-rights-bsp`, `anti-patterns`, `async-methods`,
-`clean-architecture-1c`, `com-powershell-1c`, `dcs-composition-recipes`,
-`dcs-design`, `ddd-1c`, `dev-standards-architecture`, `dev-standards-core`,
-`dev-standards-forms`, `extension-patterns`, `form-module`,
-`form-reserved-names`, `forms`, `forms-add`, `forms-events-add`,
-`getconfigfiles`, `integrations-add`, `kd2-exchange-rules`,
-`kd31-exchange-rules`, `locks-and-transactions`, `logging-strategy`,
-`metadata-xml-workarounds`, `platform-solutions`, `refactor-add`,
-`registers-design`, `systematic-debugging`, `tooling-playbooks`,
-`unit-tests-1c`, `v8unpack-source-structure`.
+<!-- generated:rules-overlay -->
+**Оверлей 1c** (31): `access-rights-bsp`, `anti-patterns`, `async-methods`, `clean-architecture-1c`, `com-powershell-1c`, `dcs-composition-recipes`, `dcs-design`, `ddd-1c`, `dev-standards-architecture`, `dev-standards-core`, `dev-standards-forms`, `extension-patterns`, `form-module`, `form-reserved-names`, `forms`, `forms-add`, `forms-events-add`, `getconfigfiles`, `integrations-add`, `kd2-exchange-rules`, `kd31-exchange-rules`, `locks-and-transactions`, `logging-strategy`, `metadata-xml-workarounds`, `platform-solutions`, `refactor-add`, `registers-design`, `systematic-debugging`, `tooling-playbooks`, `unit-tests-1c`, `v8unpack-source-structure`.
+<!-- /generated:rules-overlay -->
 
-Из 19 инвариантов оверлея **13 заведены в карту хука** и приезжают по пути
-файла. Остальные шесть по пути не опознаются: `async-methods`, `ddd-1c`,
-`extension-patterns`, `kd2-exchange-rules`, `kd31-exchange-rules`,
-`logging-strategy`.
+<!-- generated:hook-coverage -->
+Из 19 инвариантов оверлея **13 заведены в карту хука** и приезжают по пути файла. Остальные 6 по пути не опознаются: `async-methods`, `ddd-1c`, `extension-patterns`, `kd2-exchange-rules`, `kd31-exchange-rules`, `logging-strategy`.
+<!-- /generated:hook-coverage -->
 
 ## Хуки
 
@@ -122,16 +135,18 @@ Read, живёт в истории и первым уходит при сжат�
 
 ## Скиллы и команды
 
+<!-- generated:skills -->
 | Скилл | Слой | Что делает |
 |---|---|---|
-| `openspec-propose` | core | завести изменение со всеми артефактами за один шаг |
-| `openspec-apply-change` | core | исполнять задачи готового изменения |
-| `openspec-archive-change` | core | закрыть и заархивировать выполненное |
-| `openspec-explore` | core | режим размышления: разобрать идею до постановки |
-| `mermaid-diagrams` | core | диаграммы, читаемые и человеком, и агентом |
-| `powershell-windows` | core | PowerShell 5.1 и 7+: различия и грабли |
-| `1c-metadata-manage` | 1c | метаданные: объекты, формы, СКД, макеты, роли, расширения |
-| `img-grid-analysis` | 1c | сетка поверх изображения для раскладки макетов |
+| `mermaid-diagrams` | core | Practical guide for creating human-readable and agent-parseable diagrams using Mermaid |
+| `openspec-apply-change` | core | Implement tasks from an OpenSpec change |
+| `openspec-archive-change` | core | Archive a completed change in the experimental workflow |
+| `openspec-explore` | core | Enter explore mode - a thinking partner for exploring ideas, investigating problems, and clarify |
+| `openspec-propose` | core | Propose a new change with all artifacts generated in one step |
+| `powershell-windows` | core | Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7 |
+| `1c-metadata-manage` | 1c | 1C metadata management — create, edit, validate, and remove configuration objects (catalogs, doc |
+| `img-grid-analysis` | 1c | Overlay a numbered grid on an image to determine column proportions for layout generation |
+<!-- /generated:skills -->
 
 Команды: `techdebt-capture`, `todolist` (ядро), `deploy-and-test` (оверлей).
 Библиотеки оверлея: `tools/agent-1c/` (тулчейн), `tools/com-tools/` (COM-обёртки).
