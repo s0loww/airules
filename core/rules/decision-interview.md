@@ -1,6 +1,7 @@
 ---
 description: "Batch interview mode for extracting requirements and decisions: walk the decision tree, ask the whole settled frontier in one numbered round with a recommended answer per question, research facts instead of asking. Opt-in — entered on the user's request or agreement. Триггеры: интервью, уточнение требований, гриллинг, вопросы по плану, элицитация."
 alwaysApply: false
+kind: process
 ---
 
 # Decision interview

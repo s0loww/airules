@@ -1,6 +1,7 @@
 ---
 description: 1C asynchronous methods (`Асинх` / `Ждать` / `Обещание`) — patterns and pitfalls for platform 8.3.18+. Load when writing or reviewing client-side async code.
 alwaysApply: false
+kind: invariant
 ---
 
 # Asynchronous Methods in 1C (Асинх / Ждать / Обещание)

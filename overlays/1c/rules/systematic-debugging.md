@@ -1,6 +1,7 @@
 ---
 description: Systematic 4-phase debugging methodology adapted for 1C (reproduce → hypothesize → experiment → fix)
 alwaysApply: false
+kind: process
 ---
 
 # Systematic Debugging — 1C Adaptation

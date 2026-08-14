@@ -1,6 +1,7 @@
 ---
 description: Reserved property names in 1C form modules — ban on using standard form-element property names as local variables. Load from `forms.md` whenever editing server-side form-module code.
 alwaysApply: false
+kind: invariant
 ---
 
 # Reserved Names in 1C Form Modules

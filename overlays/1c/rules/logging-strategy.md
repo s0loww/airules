@@ -1,6 +1,7 @@
 ---
 description: Positive logging strategy for 1C — when to write to the event log, which severity levels and category names to use, structured payload via `ДанныеЖурналаРегистрации`, secrets / PII bans. Complements the bans in `rules/dev-standards-core.md §2 → "Forbidden Calls and Constructs"` and `rules/dev-standards-architecture.md §3 → "Error Handling"`.
 alwaysApply: false
+kind: invariant
 ---
 
 # Logging Strategy

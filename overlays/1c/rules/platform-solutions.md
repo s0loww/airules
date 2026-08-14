@@ -1,6 +1,7 @@
 ---
 description: "Case book of common 1C platform pitfalls and proven fix templates"
 alwaysApply: false
+kind: case
 ---
 
 # Platform Cases & Fix Templates

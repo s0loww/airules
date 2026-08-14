@@ -1,6 +1,7 @@
 ---
 description: Wiring a form event handler into the form XML. Load when adding, renaming, or removing an event hook (`OnOpen`, `BeforeWrite`, …) on a 1C managed form.
 alwaysApply: false
+kind: recipe
 ---
 
 # **IMPORTANT!** — don't forget to add the event hook to the form XML file.

@@ -1,6 +1,7 @@
 ---
 description: "Per-task MCP tool playbooks (writing code, review, refactoring, error fixing, performance, forms, integrations, documentation, XML metadata, platform-version comparison)"
 alwaysApply: false
+kind: process
 ---
 
 # Tool Usage by Task — Playbooks

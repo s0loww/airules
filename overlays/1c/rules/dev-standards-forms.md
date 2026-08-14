@@ -1,6 +1,7 @@
 ---
 description: "Development standards — module structure templates and form modification rules"
 alwaysApply: false
+kind: invariant
 ---
 
 # Development Standards — Module Structure & Forms

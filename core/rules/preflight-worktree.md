@@ -1,6 +1,7 @@
 ---
 description: "Pre-flight checklist before non-trivial edits in a potentially dirty working copy. Load before full-cycle work, metadata/form/rules edits, refactoring, generators, or risky automation. Триггеры: предполётная проверка, рабочая копия, бэкап, грязные файлы, область записи"
 alwaysApply: false
+kind: process
 ---
 
 # Working copy pre-flight check

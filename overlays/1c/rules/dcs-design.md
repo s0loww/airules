@@ -1,6 +1,7 @@
 ---
 description: 1C Data Composition System (СКД / DCS) design rules — data sets, computed fields vs resources, parameters, settings, variants, programmatic override patterns. Load when designing or reviewing a DCS-based report.
 alwaysApply: false
+kind: invariant
 ---
 
 # DCS / СКД — Report Design Rules

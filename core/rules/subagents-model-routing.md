@@ -1,6 +1,7 @@
 ---
 description: "How to pick the role, tier and model for a subagent. Load when delegating work to subagents or configuring agent definitions. Триггеры: выбор модели, тир, делегирование, роль субагента."
 alwaysApply: false
+kind: process
 ---
 
 # Role and model routing for subagents

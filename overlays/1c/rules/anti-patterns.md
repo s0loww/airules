@@ -1,6 +1,7 @@
 ---
 description: "1C anti-patterns, performance guidelines, and code review scoring"
 alwaysApply: false
+kind: case
 ---
 # 1C Anti-Patterns and Performance Guidelines
 

@@ -1,6 +1,7 @@
 ---
 description: "Handing work over between agent sessions: when to fork a fresh session vs compact the current one, what goes into the handoff document and where it lives. Load when a task outgrows one context window or the user asks to continue elsewhere. Триггеры: передача сессии, хэндофф, новая сессия, контекст переполняется, компакт."
 alwaysApply: false
+kind: process
 ---
 
 # Session handoff

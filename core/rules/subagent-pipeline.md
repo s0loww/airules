@@ -1,6 +1,7 @@
 ---
 description: "Formalized stage discipline for a non-trivial change: plan → implement → spec-conformance review → optional code review → verification gate, with a mandatory Handoff format. Stages fix the order and gates; whether a stage is delegated follows the delegation rules. Load for any full-cycle task. Триггеры: конвейер, субагент, полный цикл, передача между этапами."
 alwaysApply: false
+kind: process
 ---
 
 # Subagent pipeline — full-cycle flow

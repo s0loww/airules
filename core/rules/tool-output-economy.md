@@ -1,6 +1,7 @@
 ---
 description: "Optional compression of command output before it enters the model context via an rtk-style CLI proxy: what to wrap, what never to wrap, and how to recover full output. Load when a compression proxy is available (rtk --version succeeds) or the user asks about saving tokens on command output. Триггеры: rtk, сжатие вывода, экономия токенов на командах, длинный вывод."
 alwaysApply: false
+kind: process
 ---
 
 # Tool-output economy (pluggable, requires an installed proxy)

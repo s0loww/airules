@@ -1,6 +1,7 @@
 ---
 description: "Verification matrix by change type and the closing full-cycle gate. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить."
 alwaysApply: false
+kind: process
 ---
 
 # Verification matrix

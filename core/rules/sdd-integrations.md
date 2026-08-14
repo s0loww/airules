@@ -1,6 +1,7 @@
 ---
 description: "OpenSpec integration. Load when working with the openspec/ workspace (specs and change proposals). Триггеры: спецификации, предложение изменений, артефакты, воркспейс openspec"
 alwaysApply: false
+kind: process
 ---
 
 # SDD integration — OpenSpec

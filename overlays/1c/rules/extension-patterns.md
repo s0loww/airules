@@ -1,6 +1,7 @@
 ---
 description: 1C configuration extension (CFE) patterns — interceptor types (`&Перед` / `&После` / `&ИзменениеИКонтроль`), `ПродолжитьВызов` rules, change markers, adopted-object constraints. Load when writing or reviewing extension code.
 alwaysApply: false
+kind: invariant
 ---
 
 # 1C Extension Patterns (CFE)

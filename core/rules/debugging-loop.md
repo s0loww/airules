@@ -1,6 +1,7 @@
 ---
 description: "Feedback-loop debugging method: build a red-capable reproduction command before any hypothesis, instrument one variable at a time, close with a regression test. Load for any bug, runtime error, regression or performance regression. Триггеры: отладка, баг, ошибка, воспроизведение, регрессия."
 alwaysApply: false
+kind: process
 ---
 
 # Debugging loop

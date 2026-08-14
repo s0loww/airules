@@ -1,6 +1,7 @@
 ---
 description: Managed locks, transaction boundaries, lock ordering, deadlock prevention, shared / exclusive lock modes, monitoring via the technological log. Load when designing posting / multi-document operations, debugging lock conflicts, or extending an existing transactional path.
 alwaysApply: false
+kind: invariant
 ---
 
 # Locks and Transactions — Design Rules

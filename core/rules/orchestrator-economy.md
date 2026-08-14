@@ -1,6 +1,7 @@
 ---
 description: "Orchestrator economy mode: the lead agent on a model class above the channel tiers delegates execution to subagents as much as possible, keeping decisions and verification for itself. Load when the session runs on a lead model strictly more expensive than the channel tiers, or the user enables economy mode. Триггеры: режим экономии, оркестратор, делегирование, дорогая модель"
 alwaysApply: false
+kind: process
 ---
 
 # Orchestrator economy (pluggable mode)

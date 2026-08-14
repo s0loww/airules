@@ -1,6 +1,7 @@
 ---
 description: "What makes an automated test worth keeping: pre-agreed seams, vertical red-green slices, mocking only at system boundaries, anti-patterns with their tells. Load when writing or reviewing tests, adding a regression test, or deciding where to test. Триггеры: тесты, тестирование, регрессионный тест, TDD, моки."
 alwaysApply: false
+kind: invariant
 ---
 
 # Test discipline

@@ -1,6 +1,7 @@
 ---
 description: Generating or structurally modifying a managed form (`Form.xml`). Load when you need to create a new form or add / rearrange elements, data bindings, or commands on an existing one.
 alwaysApply: false
+kind: recipe
 ---
 
 # Use following instructions only if you need to generate or modify 1C form

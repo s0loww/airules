@@ -1,6 +1,7 @@
 ---
 description: "Context packs: per task type a pack is loaded = rule + skill + tool category + source of truth. Load when starting a recurring class of task and picking what to read up front. Триггеры: контекст-пак, класс задач, источник истины, что читать"
 alwaysApply: false
+kind: process
 ---
 
 # Context packs

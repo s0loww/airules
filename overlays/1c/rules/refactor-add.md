@@ -1,6 +1,7 @@
 ---
 description: "Approach for refactoring 1C code — top-down analysis first, then bottom-up rewrite, with the impact / call-graph / verification tool sequence. Load when planning or executing a 1C refactor."
 alwaysApply: false
+kind: recipe
 ---
 
 # Refactoring Approach

@@ -1,6 +1,7 @@
 ---
 description: "Automation script contract: DryRun/Apply, exit codes, reports, artifact integrity, credentials, idempotency. Load when writing or reviewing automation scripts, or when an artifact's integrity is fixed by a checksum. Триггеры: скрипт, автоматизация, мутации данных, отчёт скрипта, идемпотентность, манифест, контрольная сумма, целостность артефакта"
 alwaysApply: false
+kind: invariant
 ---
 
 # Automation script contract

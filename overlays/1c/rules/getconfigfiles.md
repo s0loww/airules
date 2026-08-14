@@ -1,6 +1,7 @@
 ---
 description: "use when you need to get some objects from infobase to repository"
 alwaysApply: false
+kind: recipe
 ---
 
 # Exporting Objects from an Infobase to the Repository

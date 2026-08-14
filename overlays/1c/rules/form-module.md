@@ -1,6 +1,7 @@
 ---
 description: Form-module guidelines — compilation directives, client-server round trips, async, form-data conversion. Load when working on a form module (`ФормаМодуль`, `Form.Module.bsl`).
 alwaysApply: false
+kind: invariant
 ---
 
 # Form Module Guidelines

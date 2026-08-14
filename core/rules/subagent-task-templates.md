@@ -1,6 +1,7 @@
 ---
 description: "Ready-made bounded prompts for delegated subagents; the concrete model of a role resolves per channel. Load when delegating a bounded task to a subagent. Триггеры: промпт субагенту, шаблон задачи, делегирование, ограниченный воркер."
 alwaysApply: false
+kind: process
 ---
 
 # Subagent task templates

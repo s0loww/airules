@@ -1,6 +1,7 @@
 ---
 description: "COM-автоматизация 1С из PowerShell: V83.COMConnector, обёртки, запросы, безопасность записи. Load before writing or running 1C COM scripts."
 alwaysApply: false
+kind: recipe
 ---
 
 # 1C COM + PowerShell

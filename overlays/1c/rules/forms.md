@@ -1,6 +1,7 @@
 ---
 description: Entry point for managed-form work — pick the exact companion rules for `Form.xml`, `Form.Module.bsl`, events, async code, reserved names, and XML validation. Load first for any form task; load companions only via the routing table below.
 alwaysApply: false
+kind: router
 ---
 
 # Managed Forms — Entry Point

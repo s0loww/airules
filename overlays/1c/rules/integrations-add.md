@@ -1,6 +1,7 @@
 ---
 description: "when writing code that integrates 1C with another system (HTTP services, REST, message queues, webhooks)"
 alwaysApply: false
+kind: invariant
 ---
 
 # 1C Integrations with External Systems

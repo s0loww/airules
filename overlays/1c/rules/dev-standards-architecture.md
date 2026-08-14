@@ -1,6 +1,7 @@
 ---
 description: "Development standards — architecture patterns, extensions, platform standards, code smells"
 alwaysApply: false
+kind: invariant
 ---
 
 # Development Standards — Architecture & Platform

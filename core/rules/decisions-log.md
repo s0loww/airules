@@ -1,6 +1,7 @@
 ---
 description: "How to record stable project decisions without bloating the working context. Load when a stable non-obvious decision needs to be recorded for future agents. Триггеры: журнал решений, зафиксировать решение, договорённость, компромисс"
 alwaysApply: false
+kind: process
 ---
 
 # Decisions log

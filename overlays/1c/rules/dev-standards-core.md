@@ -1,6 +1,7 @@
 ---
 description: "Development standards — project parameters, code style, modification comments, naming, documentation headers"
 alwaysApply: false
+kind: invariant
 ---
 
 # Development Standards — Core
