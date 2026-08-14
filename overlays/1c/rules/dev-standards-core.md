@@ -143,6 +143,17 @@ Comment is placed **inside** the procedure, after the header:
 ### Entirely New (Non-Typical) Objects
 In modules of new objects (with `{PREFIX}`) — markers per method are **NOT NEEDED**. Instead — **a single block at the module header** describing the object.
 
+### Editing someone else's query
+
+When adding a condition to an existing query, keep the shape the original
+author chose. If the query is one string literal, the new lines go **inside**
+that literal — do not introduce `+ "..."` concatenation that was not there.
+Keep the `|` indentation and keyword positions as they are.
+
+The reason is the diff: a change of literal structure rewrites lines that carry
+no change in meaning, and the reviewer can no longer see what actually happened.
+If the original already concatenates — continue in that style.
+
 ### General Rules
 - `TODO` / `FIXME` must contain a task reference: `// TODO No.14752: description`
 - **Pseudo-regions via comments are PROHIBITED** — use only `#Область` / `#КонецОбласти`
