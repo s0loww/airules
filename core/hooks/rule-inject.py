@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Path-matched rule reminder for the PreToolUse hook.
+"""Rule reminders that survive context compaction: two hook modes.
+
+* Default (PreToolUse, stdin payload): the file about to be edited is matched
+  against a table, and the rules bound to that path are named.
+* `--session-start` (SessionStart, source "compact"): after a compaction, state
+  plainly that rule bodies are gone and must be re-read. Needs no table.
+
 
 Why this exists. Rule bodies are read lazily and live in the conversation as a
 tool result — the first thing dropped when context is compacted. What survives
@@ -47,6 +53,18 @@ import sys
 
 MAP_NAME = "rules-map.json"
 DEFAULT_BUDGET = 1200
+
+# Emitted after a compaction (SessionStart, source "compact"), where stdout
+# becomes context. This is the counterpart to the path-matched reminder: the
+# hook above fires when a *file* is touched, this one when the context that
+# held the rule bodies was just rewritten.
+COMPACT_NOTICE = (
+    "Context was just compacted. Rule bodies read earlier in this session are "
+    "no longer present, even where the summary records that a rule was read — "
+    "a summary line is not the rule. Treat every previously read rule as "
+    "unloaded: before acting on its topic again, re-read it from the Rule "
+    "Index. Do not answer from a remembered impression of a rule."
+)
 
 # Tools whose input names a file we can match on. The settings.json matcher
 # should already narrow to these; this is a second, cheap guard.
@@ -148,6 +166,20 @@ def main(argv):
         entries, budget = load_map(script_dir)
         text = build_context(entries, candidates(argv[1].replace("\\", "/"), None), budget)
         print(text if text else "(no rule matches this path)")
+        return 0
+
+    # `--session-start`: post-compaction notice. Registered on SessionStart,
+    # where plain stdout is what reaches the model. Needs no map — it says
+    # nothing about any particular rule, only that the bodies are gone.
+    if argv and argv[0] == "--session-start":
+        try:
+            source = (json.load(sys.stdin) or {}).get("source")
+        except Exception:
+            source = None
+        # The matcher in settings.json already narrows to "compact"; this is a
+        # second guard for the case where it does not.
+        if source in (None, "compact"):
+            print(COMPACT_NOTICE)
         return 0
 
     payload = json.load(sys.stdin)
