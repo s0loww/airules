@@ -322,6 +322,10 @@ general case.
 
 ## Extending the case book
 
+This file is the stack case book; the generic contract — entry threshold,
+schema, destinations, and the boundary with the decisions log — is
+`rules/case-book.md`. Below is what this book adds on top of it.
+
 When you discover a new typical pitfall:
 
 1. Add a new section using the "Problem → Symptom → Template → Standard" schema.

@@ -149,3 +149,5 @@ change.
 - `test-discipline.md` — what a regression test worth keeping looks like.
 - `subagent-pipeline.md` — `error-fixer` runs this loop inside stage 3;
   escalation rules for architectural rework.
+- `case-book.md` — where the diagnosis goes when the same failure will hit
+  someone else; the phase-6 checklist is the point where that is decided.

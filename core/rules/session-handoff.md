@@ -62,3 +62,5 @@ different scope.
 - `decisions-log.md` — where locked decisions get recorded durably.
 - `preflight-worktree.md` — the receiving session still runs its own
   preflight; a handoff does not exempt it.
+- `case-book.md` — an **undiagnosed** failure is handed over here; once the
+  cause is known and it will recur, it becomes a case entry instead.

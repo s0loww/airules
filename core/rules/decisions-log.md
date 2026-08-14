@@ -72,3 +72,10 @@ Do **not** append entries to this file: the installed copy is
 manifest-managed and gets replaced on update — an in-file journal would be
 lost or block the sync forever. Entries live in the locations listed under
 "Where to record".
+
+## Not a decision
+
+A diagnosed failure that will recur is a **case**, not a decision: it is
+recorded symptom-first so the next person finds it from what they see. The
+threshold, the schema and the destinations are in `case-book.md`. Writing the
+same content into both logs leaves two half-current copies.
