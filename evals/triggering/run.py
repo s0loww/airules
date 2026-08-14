@@ -85,6 +85,51 @@ def warn_stale_cases(index, cases):
     return len(stale)
 
 
+WORD_RE = re.compile(r"[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё-]{4,}")
+# Слова, общие для домена и потому не свидетельствующие о списывании.
+BIAS_STOP = {
+    "правил", "правило", "правила", "нужно", "надо", "когда", "который",
+    "которые", "которое", "загрузить", "чтобы", "после", "перед", "через",
+}
+
+
+def cmd_bias():
+    """Проверка на списывание кейса с описания.
+
+    Запрос должен быть написан словами человека с проблемой. Если он собран из
+    отличительных слов целевого описания, кейс проверяет описание само против
+    себя и всегда зелёный — самый лёгкий способ получить бессмысленные сто
+    процентов. Меряем пересечение словаря запроса со словарём описания цели,
+    вычтя слова, общие для всего индекса (они домена, а не списывания)."""
+    index = load_index()
+    cases = load_cases()
+
+    def words(text):
+        return {w.lower() for w in WORD_RE.findall(text or "")} - BIAS_STOP
+
+    # Слово, встречающееся в описаниях многих правил, ничего не выдаёт.
+    freq = {}
+    for desc in index.values():
+        for word in words(desc):
+            freq[word] = freq.get(word, 0) + 1
+    common = {w for w, n in freq.items() if n >= 4}
+
+    print("кейс                     общих отличительных слов с описанием цели")
+    flagged = 0
+    for case in cases:
+        query_words = words(case["query"])
+        for target in case.get("expect", []):
+            shared = sorted((query_words & words(index.get(target, ""))) - common)
+            mark = ""
+            if len(shared) >= 3:
+                mark = "  <== проверить формулировку"
+                flagged += 1
+            print("{0:24} {1:2}  {2}{3}".format(
+                case["id"], len(shared), ", ".join(shared) or "—", mark))
+    print("\nпод подозрением: {0}".format(flagged))
+    return 0
+
+
 def cmd_prompt():
     index = load_index()
     cases = load_cases()
@@ -174,9 +219,11 @@ def main(argv):
     # написано в docstring, без PYTHONIOENCODING снаружи.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    if not argv or argv[0] not in ("prompt", "score"):
+    if not argv or argv[0] not in ("prompt", "score", "bias"):
         print(__doc__)
         return 2
+    if argv[0] == "bias":
+        return cmd_bias()
     if argv[0] == "prompt":
         return cmd_prompt()
     if len(argv) < 2:
