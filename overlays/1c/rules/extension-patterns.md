@@ -93,6 +93,75 @@ Markers preserve diff/merge semantics when the base configuration is updated and
 
 ---
 
+## Identifiers of adopted objects
+
+Two different uuids live in one file and are easy to swap:
+
+- `ExtendedConfigurationObject` — the uuid of the object **in the base
+  configuration**. It is a controlled property, checked on apply. Copy it from
+  the base-configuration dump for the root element **and for every adopted
+  child** (dimension, resource, attribute).
+- the element's own `uuid` — a **new** GUID belonging to the extension side.
+
+Swap them and the load still succeeds; the failure appears later, on apply, as
+«Конфликт внутренних идентификаторов у объекта» or «Значение контролируемого
+свойства ОбъектРасширяемойКонфигурации не совпадает». An adopted dimension or
+attribute of a reference type additionally requires the target object to be
+adopted too.
+
+After fixing borrowing identifiers, recreate the objects cleanly: load once
+**without** them (cleared from storage), then load **with** them. Editing the
+files in place can leave a conflicting saved copy behind.
+
+## Adopted managed form — two element trees in one file
+
+`Form.xml` of an adopted form contains **two** copies of the element tree: the
+extension's own merged tree at the top, and a snapshot of the donor form in a
+`BaseForm` block at the end, used only for conflict detection against the base
+configuration.
+
+Add new elements, buttons and commands **only to the top tree**. Anything
+placed inside `BaseForm` is ignored at best; a button that references an
+extension command from there fails the load with «Неверное имя команды
+элемента формы» — the donor form does not know the extension's commands. The
+`BaseForm` snapshot is not edited at all: it must stay byte-for-byte as the
+donor's. New commands go into the extension's `Commands` block, before
+`BaseForm`.
+
+## Getting a real error list out of a silent apply
+
+`/UpdateDBCfg -Extension` can exit with code 101, an **empty** `/Out` log and
+nothing in the event log: it fails silently on apply errors.
+
+To see the actual problems, dump the extension to `.cfe` via
+`/DumpCfg -Extension` and call
+`РасширениеКонфигурации.ПроверитьВозможностьПрименения(ДвоичныеДанные, Истина)`
+from a COM session — it returns **all** problems, not just the first.
+
+A neighbouring cause of a broken update: leftover `1Cv8tmp.*.cfl` files in the
+infobase directory from an interrupted restructuring. In the technological log
+this shows up as a missing database file named `1Cv8tmp`.
+
+## An external data processor cannot be typed over extension objects
+
+Building an `.epf` via `/LoadExternalDataProcessorOrReportFromFiles` resolves
+types **against the base configuration only**. A form attribute (or a table
+column) typed with an object that the **extension** adds breaks the build —
+even though the same type works inside the extension. The error names the form
+markup file while the real problem is in the `Attributes` block, so chasing
+element order there is a dead end.
+
+Diagnose in two runs: build a known-good processor to clear the toolchain,
+then cut the form down to a single attribute.
+
+Workaround: keep a presentation or a name in the form attribute as
+`xs:string` and resolve the reference in the object module by name. Types from
+the **base** configuration work normally. The consequence is structural: an
+`.epf` cannot declare a typed attribute over extension-owned objects at all —
+either strings and UUIDs, or the processor lives inside the extension.
+
+---
+
 ## Anti-patterns
 
 ### Direct edit of an adopted module

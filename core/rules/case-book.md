@@ -105,6 +105,34 @@ Do not retry unless: <what would have to change for it to be worth another look>
 The last line is what keeps the entry from becoming a permanent ban: a dead
 end is a result under conditions, and conditions change.
 
+## Constructs that look like defects
+
+A third kind of entry, and the one most often missing: code that **looks
+wrong and is not**. Nobody hits a symptom here — someone "fixes" it and breaks
+something, then the next person fixes it back. Without a record the loop
+repeats indefinitely, and each pass looks like an improvement.
+
+```text
+Fact:       <what the code does — checkable against the source>
+Why:        <why it is built this way>
+Do not:     <what breaks if you "correct" it>
+Source:     <author's word | reconstructed from code>
+```
+
+`Source` is not bookkeeping. **Author's word** comes from someone who knows
+the intent and outranks a reading of the code. **Reconstructed from code** is
+an inference: it may be incomplete, and it is overturned by new evidence far
+more cheaply. Entries without this marker get treated as equally certain, and
+the weaker one wins an argument it should have lost.
+
+An entry is worth writing when a construct looks like a defect but is not, or
+looks trivial but carries non-obvious meaning. The rule of use is a grep by
+module or function name **before** editing in that area and before calling
+anything a defect.
+
+The same marker is worth carrying on case entries and dead ends: "verified on
+a live run" and "concluded from the logs" are different strengths of claim.
+
 ## Boundary with the neighbours
 
 Three rules record things after the fact, and picking the wrong one buries the
@@ -114,6 +142,7 @@ entry where nobody looks for it.
 | --- | --- | --- |
 | a failure that will hit someone else the same way | case entry | this rule |
 | an approach that was tried and abandoned | dead end | this rule |
+| a construct that looks like a defect and is not | fact entry | this rule |
 | a choice between real alternatives, hard to reverse | decision | `decisions-log.md` |
 | the closing of one investigation — hypothesis confirmed, prevention question | post-mortem | `debugging-loop.md`, phase 6 |
 

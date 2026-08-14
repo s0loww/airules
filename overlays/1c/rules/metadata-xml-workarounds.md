@@ -170,7 +170,26 @@ every `NumberQualifiers` block carrying its fractional-digits element.
 
 ---
 
-## 8. Validation hook
+## 8. `ConfigDumpInfo.xml` — the index that silently skips new objects
+
+`/LoadConfigFromFiles` treats `ConfigDumpInfo.xml` as an **index** and loads
+incrementally by it. Files of new objects that the index does not list are
+ignored **silently**, while the updated `Configuration.xml` loads anyway — the
+result is a configuration that references objects it does not contain.
+
+Symptom: the load reports success, the new objects are simply absent from the
+storage.
+
+Either regenerate the index, or delete it so the load is full.
+
+## 9. `RegisterRecordsDeletion` — one valid value, one plausible wrong one
+
+The document property that clears movements on unposting is written as
+`RegisterRecordsDeletion` with the value `AutoDeleteOnUnpost`. The shorter
+`AutoDeleteOn` looks like a valid enum member and is not — the load fails on
+it.
+
+## 10. Validation hook
 
 Whenever editing metadata XML by hand, after the change run:
 

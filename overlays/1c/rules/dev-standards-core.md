@@ -280,7 +280,22 @@ Decorative `///` banners and module headers with authorship / change history are
 
 Before keeping a comment, answer: **"What does this comment tell the reader that the code itself does not?"** If the answer is "nothing" — delete the comment.
 
-## 8. Checking your own work
+## 8. Platform names are verified, not recalled
+
+Property names, enum members and manager methods of the platform are checked
+against the syntax reference **before** a deploy cycle, not after. The
+compiler does not catch an invented name: it fails at run time, on the
+contour, and each round trip costs a full deploy.
+
+This is not a style preference — it is the observed cost. A single session
+burned three deploy cycles on plausible-looking names; the real ones differed
+in ways no amount of recall would have produced.
+
+The same applies to metadata of a system being integrated with: names of
+objects, attributes and types are confirmed against the actual structure of
+**both** sides, never assumed from the other one.
+
+## 9. Checking your own work
 
 No separate self-checking pass sits on top of the gates. What a change must
 pass, and in what order, is `rules/verification-matrix.md`: syntax, then
