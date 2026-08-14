@@ -35,6 +35,7 @@ evidence and the corrected form.
 | Virtual table joined directly | HIGH | `СОЕДИНЕНИЕ Регистр….Остатки(…)` without materialising first |
 | `ИЛИ` in `ГДЕ` | HIGH | `ГДЕ A = &X ИЛИ B = &Y` instead of `ОБЪЕДИНИТЬ ВСЕ` |
 | `ОБЪЕДИНИТЬ` where parts cannot overlap | MEDIUM | missing `ВСЕ` |
+| Index added, nothing got faster | HIGH | the condition does not line up with the index — rule and worked example in `dev-standards-architecture.md §3` |
 
 ## Critical Anti-Patterns (Must Fix)
 

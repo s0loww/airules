@@ -1,5 +1,5 @@
 ---
-description: "Development standards — architecture patterns, extensions, platform standards, code smells"
+description: "Development standards — architecture patterns, extensions, platform standards, code smells, authoritative query rules. Also answers: can this standard-library method be called at all (region taxonomy, methods that only look like they exist), and why an added index changed nothing (a condition that does not line up with it). Триггеры: где разместить код, стандарты платформы, правила запросов, индекс не используется, метод БСП существует ли, можно ли звать метод библиотеки."
 alwaysApply: false
 kind: invariant
 ---

@@ -168,6 +168,12 @@ def cmd_score(answers_path):
 
 
 def main(argv):
+    # Под Windows перенаправленный stdout берёт кодировку системы (cp1251), и
+    # печать промпта падает на первом же символе вне неё. Вывод у нас всегда
+    # utf-8 — задаём его явно, чтобы `run.py prompt > prompt.md` работал как
+    # написано в docstring, без PYTHONIOENCODING снаружи.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     if not argv or argv[0] not in ("prompt", "score"):
         print(__doc__)
         return 2

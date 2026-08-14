@@ -1,0 +1,22 @@
+{
+  "mem-report": ["dcs-composition-recipes"],
+  "zero-crosstab": ["dcs-composition-recipes"],
+  "profile-roles-lost": ["access-rights-bsp"],
+  "ext-roles-missing": ["access-rights-bsp"],
+  "no-sources": ["getconfigfiles"],
+  "slow-query": ["anti-patterns"],
+  "index-not-used": ["anti-patterns", "platform-solutions"],
+  "unit-test": ["unit-tests-1c"],
+  "load-hangs": ["platform-solutions"],
+  "sdbl-length": ["platform-solutions"],
+  "form-var-name": ["form-reserved-names"],
+  "lock-conflict": ["locks-and-transactions"],
+  "async-lost-error": ["async-methods"],
+  "background-external": ["platform-solutions"],
+  "coverage": ["verification-matrix"],
+  "script-mutation": ["script-contract"],
+  "handoff-chain": ["session-handoff", "subagent-pipeline"],
+  "context-full": ["session-handoff"],
+  "ssl-method-unknown": [],
+  "typical-edit-diff": ["dev-standards-core"]
+}
