@@ -12,6 +12,11 @@ changing depth, tooling, or delegation. Modes are aligned with the
 edit are the main full-cycle states, emergency fix is an accelerated
 quick-fix.
 
+The mode says *how deep to go*; what to load once you know is
+`context-packs.md` — per task type, the pack of rule + skill + tool category
++ source of truth, so the loading decision is made once rather than re-derived
+per task.
+
 ## Modes
 
 ### Exploration

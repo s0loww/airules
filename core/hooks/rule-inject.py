@@ -37,7 +37,7 @@ Map format (`rules-map.json`, next to this script):
       "entries": [
         {
           "globs": ["**/migrations/*.sql"],
-          "rule": "rules/schema-changes.md",
+          "rule": "rules/<rule-name>.md",
           "invariant": "One line: the thing that must not be got wrong."
         }
       ]

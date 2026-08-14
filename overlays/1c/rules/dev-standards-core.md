@@ -35,6 +35,9 @@ user which source is current instead of picking one silently.
 
 ## 2. Code Style (single source of truth — referenced from `AGENTS.md`)
 
+Applies to every module. Region layout and the rules specific to form modules —
+`rules/dev-standards-forms.md`.
+
 ### Formatting
 - **Indentation:** TAB only (not spaces).
 - **Line length:** ≤ 120 characters when the line can be wrapped correctly. Don't introduce a line break that leaves a single variable on a new line.

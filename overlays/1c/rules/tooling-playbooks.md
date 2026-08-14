@@ -65,6 +65,9 @@ For any 1C **project-source** search (code, metadata, usages, call chains, struc
 
 ## Writing New Code
 
+0. **No source for the object in the working copy?** Export it from the
+   infobase first — `getconfigfiles.md`. Editing against a stale or absent
+   source is how a change silently lands on top of someone else's.
 1. **code templates** — find similar implementations.
 2. **metadata structure** — full passport of the target metadata object (structure, forms, dependencies, code, roles).
 3. **code search** — review existing patterns in the configuration.

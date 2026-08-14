@@ -115,6 +115,11 @@ doc, lists them with the full rights vocabulary).
 > `Rights.xml` for `Enum.*` blocks is worth doing regardless: the block is
 > redundant either way.
 >
+Rights in a role file are the static half of access control. The runtime half —
+access-group profiles, assigning them to users, checking a right or a role from
+code — is `access-rights-bsp.md`, and it has its own silent-failure mode
+(a profile that saves with its roles quietly dropped).
+
 > The same source reports the same hang shape when a **new metadata object and
 > a role granting rights on it** arrive in one export, with a two-pass load
 > (object first, rights second) as the workaround. Equally unverified here —

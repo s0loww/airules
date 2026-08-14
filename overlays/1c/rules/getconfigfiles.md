@@ -1,5 +1,5 @@
 ---
-description: "use when you need to get some objects from infobase to repository"
+description: "The object you need to edit has no source in the working copy — export it from the infobase through Designer (`/DumpConfigToFiles` with an object list, main configuration or an extension). Load before editing an object whose sources are missing, or when the local sources are suspected stale. Триггеры: нет исходников объекта, выгрузить объект из базы, DumpConfigToFiles, получить конфигурацию в файлы."
 alwaysApply: false
 kind: recipe
 ---
