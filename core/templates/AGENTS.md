@@ -56,6 +56,13 @@ list at session start. Context starts minimal; a rule is loaded only when it
 is relevant to the current task. The same goes for skills (read at
 invocation) and agent definitions (read only when delegating).
 
+Rows are grouped by genre, which says *when* a rule is needed (the
+description says what it is about): **invariant** — holds for every edit of
+that kind of file, read it before writing the first line; **case** — symptom
+→ fix, read when the symptom appears; **recipe** — task → procedure, read
+when starting that task; **process** — how to run the work itself;
+**router** — points at its neighbours.
+
 {{RULE_INDEX}}
 
 ## Routing mini-table

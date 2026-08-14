@@ -12,12 +12,15 @@
     "project-template/dirty_pass_mixed.txt": ["creds-password"],
     "overlays/dirty_nobom.ps1": ["ps1-bom"],
     "overlays/dirty_echo.ps1": ["creds-echo"],
-    "overlays/dirty_install_path.md": ["install-path"]
+    "overlays/dirty_install_path.md": ["install-path"],
+    "core/rules/dirty_kind_missing.md": ["rule-kind"],
+    "core/rules/dirty_kind_value.md": ["rule-kind"]
   },
   "clean": [
     "clean/clean_sample.md",
     "clean/clean_script.ps1",
     "core/clean_escalation.md",
+    "core/rules/clean_kind.md",
     "overlays/clean_allow.md"
   ]
 }

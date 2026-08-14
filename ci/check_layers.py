@@ -5,8 +5,9 @@ Scans the layered distribution (core/, overlays/, project-template/) and reports
 content that violates the purity contract of its layer: leaked credentials,
 machine paths, domain names, stack terms in the generic core, hardcoded models,
 unmarked max-effort defaults, retired self-verification wording, missing UTF-8
-BOM in script files, credentials echoed into console output, and
-distribution-only paths inside installable files.
+BOM in script files, credentials echoed into console output,
+distribution-only paths inside installable files, and rule files that do not
+declare their genre (``kind``).
 
 Pure standard library, cross-platform, Python 3.9+.
 
@@ -50,6 +51,11 @@ MODEL_PROFILES_REL = os.path.join("core", "channels", "model-profiles.md")
 # Rule id for the file-level (not line-level) BOM check below.
 PS1_BOM_RULE_ID = "ps1-bom"
 UTF8_BOM = b"\xef\xbb\xbf"
+
+# Rule id and vocabulary for the frontmatter genre check below.
+RULE_KIND_RULE_ID = "rule-kind"
+VALID_KINDS = ("invariant", "case", "recipe", "process", "router")
+KIND_LINE_RE = re.compile(r"^\s*kind\s*:\s*(\S+)\s*$")
 
 # Rule ids whose lines are cleared by a manual-escalation marker.
 ESCALATION_RULE_ID = "max-default"
@@ -377,6 +383,68 @@ def check_ps1_bom(path, rel_path):
     return (rel_path, 1, PS1_BOM_RULE_ID, "missing UTF-8 BOM")
 
 
+def _is_rule_file(rel_path):
+    """True for installable rule bodies: core/rules/<name>.md and
+    overlays/<stack>/rules/<name>.md. Layer READMEs and everything outside a
+    rules/ directory are not rules."""
+    parts = rel_path.replace("\\", "/").split("/")
+    if not parts[-1].endswith(".md"):
+        return False
+    if parts[0] == "core":
+        return len(parts) == 3 and parts[1] == "rules"
+    if parts[0] == "overlays":
+        return len(parts) == 4 and parts[2] == "rules"
+    return False
+
+
+def check_rule_kind(path, rel_path):
+    """Whole-file check: every rule declares its genre in the frontmatter.
+
+    ``kind`` decides the delivery channel — only ``invariant`` files are wired
+    into the path-matching hook, the rest stay on the lazy Rule Index — so a
+    missing or unknown value silently drops a rule out of the routing it was
+    written for. Returns a single (rel_path, lineno, rule_id, message) tuple or
+    None. Not part of the line-oriented RULES list because the answer depends on
+    the whole frontmatter block, not on one line."""
+    if not _is_rule_file(rel_path):
+        return None
+    text = read_text(path)
+    if text is None:
+        return None
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return (rel_path, 1, RULE_KIND_RULE_ID, "missing frontmatter")
+
+    kind = None
+    kind_lineno = 1
+    close = None
+    for index in range(1, len(lines)):
+        line = lines[index]
+        if line.strip() == "---":
+            close = index
+            break
+        if _line_suppresses(line, RULE_KIND_RULE_ID):
+            return None
+        match = KIND_LINE_RE.match(line)
+        if match is not None:
+            kind = match.group(1).strip("\"'")
+            kind_lineno = index + 1
+    if close is None:
+        return (rel_path, 1, RULE_KIND_RULE_ID, "unterminated frontmatter")
+    if kind is None:
+        return (rel_path, 1, RULE_KIND_RULE_ID, "missing kind")
+    if kind not in VALID_KINDS:
+        return (
+            rel_path,
+            kind_lineno,
+            RULE_KIND_RULE_ID,
+            "unknown kind '{0}' (expected one of: {1})".format(
+                kind, ", ".join(VALID_KINDS)
+            ),
+        )
+    return None
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, _dirs, files in os.walk(base_dir):
@@ -436,6 +504,9 @@ def run_scan(paths):
         bom_hit = check_ps1_bom(abs_path, rel_path)
         if bom_hit is not None:
             violations.append(bom_hit)
+        kind_hit = check_rule_kind(abs_path, rel_path)
+        if kind_hit is not None:
+            violations.append(kind_hit)
     # Two flavours of the same rule id (creds-echo, model-hardcode) may match
     # one line; report each (path, line, rule) once.
     seen = set()
@@ -470,6 +541,9 @@ def run_selftest():
         bom_hit = check_ps1_bom(abs_path, rel_for_rules)
         if bom_hit is not None:
             hits.add(bom_hit[2])
+        kind_hit = check_rule_kind(abs_path, rel_for_rules)
+        if kind_hit is not None:
+            hits.add(kind_hit[2])
         actual[rel_from_fixtures] = hits
 
     all_pass = True

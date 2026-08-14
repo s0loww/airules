@@ -1,3 +1,8 @@
+---
+description: "Fixture body — the genre check is exercised by the dedicated kind fixtures."
+kind: process
+---
+
 # Dirty fixture: model hardcode in core markdown
 
 The default is model: sonnet for this role, which is a leak.

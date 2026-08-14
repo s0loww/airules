@@ -1,3 +1,8 @@
+---
+description: "Fixture body — the genre check is exercised by the dedicated kind fixtures."
+kind: process
+---
+
 # Dirty fixture: soft 1C vocabulary leaked into generic core
 
 Открой форму в конфигураторе и проверь проведение документа.
