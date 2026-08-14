@@ -29,6 +29,12 @@ evidence and the corrected form.
 | Missing cache | MEDIUM | Repeated expensive calls with same params |
 | O(n²) loops | MEDIUM | Nested loops searching for matches |
 | Deep nesting | MEDIUM | >4 levels of conditionals/loops |
+| Dot access on a composite field | HIGH | `Регистратор.<поле>` without `ВЫРАЗИТЬ` |
+| `.Наименование` for display only | MEDIUM | `.Наименование` where `ПРЕДСТАВЛЕНИЕ()` would do |
+| Subquery inside a join | HIGH | `СОЕДИНЕНИЕ (ВЫБРАТЬ …)` instead of an indexed temp table |
+| Virtual table joined directly | HIGH | `СОЕДИНЕНИЕ Регистр….Остатки(…)` without materialising first |
+| `ИЛИ` in `ГДЕ` | HIGH | `ГДЕ A = &X ИЛИ B = &Y` instead of `ОБЪЕДИНИТЬ ВСЕ` |
+| `ОБЪЕДИНИТЬ` where parts cannot overlap | MEDIUM | missing `ВСЕ` |
 
 ## Critical Anti-Patterns (Must Fix)
 
@@ -325,6 +331,57 @@ evidence and the corrected form.
 
 // Logic
 ```
+
+## Query constructs that cost a plan
+
+Six constructs that compile and return correct data, and cost an index or a
+join while doing it. Sourced from the ITS optimization standards — the
+mechanism is stated so the rule can be applied to a case that does not look
+exactly like the example; the numbers are not ours and no measurement here
+claims otherwise.
+
+### 12. Dot access on a composite-type field
+
+`Регистратор.Дата` on a register makes the optimizer join **every** document
+type the field can hold. Name the type with `ВЫРАЗИТЬ`; for several types, a
+`ВЫБОР … КОГДА … ССЫЛКА …` over the two or three that actually occur.
+
+```bsl
+// Bad — joins all registrator types
+ТоварыНаСкладах.Регистратор.Дата
+// Good
+ВЫРАЗИТЬ(ТоварыНаСкладах.Регистратор КАК Документ.ПоступлениеТоваровУслуг).Дата
+```
+
+### 13. `.Наименование` where a presentation is enough
+
+`Склад.Наименование` adds a join to the catalog. If the value is only shown,
+`ПРЕДСТАВЛЕНИЕ(Склад)` returns the presentation without it.
+
+### 14. Subquery inside a join
+
+A subquery in `СОЕДИНЕНИЕ (…)` has no index. Materialise it into a temporary
+table **with `ИНДЕКСИРОВАТЬ ПО` on the join key** — the temp table without the
+index buys much less than it looks.
+
+### 15. Joining a virtual table directly
+
+`ЛЕВОЕ СОЕДИНЕНИЕ РегистрНакопления.X.Остатки(&Дата,)` joins against a
+computed result. Put the virtual table into a temp table first, index it by
+the join key, then join. (Filtering *inside* the virtual table's parameters
+rather than in `ГДЕ` is a separate rule — §5 above.)
+
+### 16. `ИЛИ` in `ГДЕ`
+
+`ИЛИ` across different fields blocks index use. Split into separate queries
+joined by `ОБЪЕДИНИТЬ ВСЕ`, each with its own indexable condition.
+
+### 17. `ОБЪЕДИНИТЬ` where duplicates cannot occur
+
+`ОБЪЕДИНИТЬ` adds a grouping pass to remove duplicates. When the parts cannot
+overlap — different documents, disjoint periods — `ОБЪЕДИНИТЬ ВСЕ` skips it.
+This is the single cheapest edit on the list; it is also the one most often
+left as-is out of habit.
 
 ## Optimized Patterns
 

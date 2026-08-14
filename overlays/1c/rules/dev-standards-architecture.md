@@ -204,6 +204,7 @@ while you are there.
 - Do not modify register movements directly — only via the posting mechanism.
 - When a limited result set is needed — use `ПЕРВЫЕ N`.
 - Index all fields that participate in filters/joins via metadata.
+- **An index is used only when the condition lines up with it.** All the fields of the condition must be in the index, starting from its first field, with no gaps. Given an index `(Организация, Контрагент, Дата)`: a condition on `Организация И Контрагент` uses it; one on `Контрагент И Дата` does not use it at all (the leading field is missing); one on `Организация И Дата` uses only the leading part. This is why "add an index on the field" often changes nothing — the index exists and the condition does not align with it. For temp tables the equivalent is `ИНДЕКСИРОВАТЬ ПО` on the join key.
 
 ### Cross-Platform Compatibility
 - **COM objects** (`Новый COMОбъект(...)`) are **PROHIBITED** unless explicitly specified in the task.

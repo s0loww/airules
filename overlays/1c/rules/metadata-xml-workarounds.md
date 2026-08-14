@@ -127,7 +127,50 @@ code — is `access-rights-bsp.md`, and it has its own silent-failure mode
 
 ---
 
-## 7. Validation hook
+## 7. Type qualifiers that break restructuring
+
+Both traps below surface the same way — «Ошибка SDBL: Слишком большое значение
+описателя длины» when the platform restructures the table — and both are
+invisible in the XML until then.
+
+**String: 1024 is the inline ceiling.** A fixed-length string attribute holds at
+most 1024 characters. For longer text set the length to `0` (unlimited, stored
+as a LOB) rather than raising the number.
+
+```xml
+<v8:StringQualifiers>
+  <v8:Length>250</v8:Length>      <!-- fixed -->
+</v8:StringQualifiers>
+<v8:StringQualifiers>
+  <v8:Length>0</v8:Length>        <!-- unlimited, LOB -->
+</v8:StringQualifiers>
+```
+
+**Number: state the fractional part explicitly**, even when it is zero. An
+absent fractional-digits qualifier is not read as "zero" during restructuring —
+it is read as the maximum the precision allows.
+
+```xml
+<v8:NumberQualifiers>
+  <v8:Digits>10</v8:Digits>
+  <v8:FractionDigits>0</v8:FractionDigits>   <!-- never omit -->
+  <v8:AllowedSign>Any</v8:AllowedSign>
+</v8:NumberQualifiers>
+```
+
+> **Element names differ by source format.** The above is the Configurator dump
+> (`<v8:Digits>` / `<v8:FractionDigits>`). In EDT `.mdo` sources the same two
+> are `<precision>` / `<scale>`, and the EDT normalizer is reported to strip
+> `<scale>0</scale>` as a default — on an EDT project, check for it after the
+> linter runs. Do not carry the EDT spelling into Configurator XML: the
+> qualifier will simply be ignored.
+
+A check worth running after bulk generation: no string length above 1024, and
+every `NumberQualifiers` block carrying its fractional-digits element.
+
+---
+
+## 8. Validation hook
 
 Whenever editing metadata XML by hand, after the change run:
 
