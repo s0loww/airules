@@ -1,0 +1,82 @@
+{
+  "_comment": "Что получит агент, правя файл по этому пути. Пути взяты из раскладки типовой выгрузки конфигурации. `expect` — правила, которые обязаны подняться; `forbid` — правдоподобный сосед, которого быть не должно: именно он ловит маску, расползшуюся на чужую территорию. `clean` — пути, на которых хук обязан молчать целиком.",
+  "cases": [
+    {
+      "id": "doc-object",
+      "path": "Documents/ПоступлениеТоваров/Ext/ObjectModule.bsl",
+      "expect": ["locks-and-transactions", "registers-design", "anti-patterns"],
+      "forbid": ["form-module", "dev-standards-forms"],
+      "_note": "Проведение: транзакция уже открыта платформой, движения только здесь. Тот самый путь, на котором хук молчал из-за кодировки (d7e79d8)."
+    },
+    {
+      "id": "form-module",
+      "path": "Documents/ПоступлениеТоваров/Forms/ФормаДокумента/Ext/Form/Module.bsl",
+      "expect": ["form-reserved-names", "form-module", "dev-standards-forms"],
+      "forbid": ["anti-patterns", "locks-and-transactions"],
+      "_note": "anti-patterns под запретом сознательно: тяжёлые запросы в модуле формы — уже нарушение слоёв, и напоминать о них здесь значит легитимизировать."
+    },
+    {
+      "id": "common-module",
+      "path": "CommonModules/РаботаСКонтрагентами/Ext/Module.bsl",
+      "expect": ["clean-architecture-1c", "dev-standards-architecture", "anti-patterns"],
+      "forbid": ["form-module", "registers-design"]
+    },
+    {
+      "id": "manager-module",
+      "path": "Catalogs/Контрагенты/Ext/ManagerModule.bsl",
+      "expect": ["dev-standards-architecture", "anti-patterns"],
+      "forbid": ["locks-and-transactions"],
+      "_note": "Модуль менеджера вне транзакции записи — правило о вложенных транзакциях сюда не относится."
+    },
+    {
+      "id": "register-recordset",
+      "path": "AccumulationRegisters/ТоварыНаСкладах/Ext/RecordSetModule.bsl",
+      "expect": ["registers-design", "locks-and-transactions"],
+      "forbid": ["dcs-design"]
+    },
+    {
+      "id": "http-service",
+      "path": "HTTPServices/ОбменССайтом/Ext/Module.bsl",
+      "expect": ["integrations-add", "clean-architecture-1c"],
+      "forbid": ["registers-design"]
+    },
+    {
+      "id": "dcs-template",
+      "path": "Reports/ВаловаяПрибыль/Templates/ОсновнаяСхемаКомпоновкиДанных/Ext/Template.xml",
+      "expect": ["dcs-design"],
+      "forbid": ["dev-standards-core"],
+      "_note": "dev-standards-core висит на **/*.bsl — на XML он подниматься не должен."
+    },
+    {
+      "id": "form-xml",
+      "path": "Documents/ПоступлениеТоваров/Forms/ФормаДокумента/Ext/Form.xml",
+      "expect": ["metadata-xml-workarounds"],
+      "forbid": ["form-module", "dev-standards-core"]
+    },
+    {
+      "id": "role-rights",
+      "path": "Roles/Бухгалтер/Ext/Rights.xml",
+      "expect": ["metadata-xml-workarounds"],
+      "forbid": ["dev-standards-core"]
+    },
+    {
+      "id": "configuration-xml",
+      "path": "Configuration.xml",
+      "expect": ["metadata-xml-workarounds"],
+      "forbid": ["dev-standards-core"]
+    },
+    {
+      "id": "any-bsl",
+      "path": "DataProcessors/ЗагрузкаПрайса/Ext/ObjectModule.bsl",
+      "expect": ["dev-standards-core"],
+      "forbid": ["registers-design"],
+      "_note": "Комментарии модификации нужны на любом .bsl; движений у обработки нет."
+    }
+  ],
+  "clean": [
+    "README.md",
+    "package.json",
+    "src/index.ts",
+    ".claude/settings.json"
+  ]
+}
