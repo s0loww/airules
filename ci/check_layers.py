@@ -553,6 +553,48 @@ def collect_map_defects(base_dir):
     return defects
 
 
+INJECTION_RULE_ID = "hook-injection"
+
+
+def collect_injection_failures(base_dir):
+    """Repository-level check: what the hook injects for a given path.
+
+    ``--check-map`` proves the map is consistent with the rules; it says nothing
+    about whether a mask actually catches the path it was written for. A mask
+    that catches nothing passes every other gate — valid map, rule present, no
+    reminder delivered. Delegated to its own script because the answer requires
+    running the hook as a real process (see that file for why).
+
+    Returns a list of (rel_path, lineno, id, message).
+    """
+    script = os.path.join(base_dir, "ci", "check_hook_injection.py")
+    if not os.path.isfile(script):
+        return []
+    rel = "ci/hook_cases.json"
+    try:
+        proc = subprocess.run(
+            [sys.executable, script, "check"],
+            cwd=base_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except OSError as error:
+        return [(rel, 1, INJECTION_RULE_ID, "cannot run: {0}".format(error))]
+    if proc.returncode == 0:
+        return []
+    failures = []
+    for line in (proc.stdout or "").splitlines():
+        line = line.rstrip()
+        # The summary line and the section header carry no defect of their own.
+        if not line.strip() or line.startswith(("путей:", "== ")):
+            continue
+        failures.append((rel, 1, INJECTION_RULE_ID, line.strip()))
+    if not failures:
+        failures.append((rel, 1, INJECTION_RULE_ID, "check failed without output"))
+    return failures
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, _dirs, files in os.walk(base_dir):
@@ -725,6 +767,9 @@ def main(argv=None):
     map_defects = collect_map_defects(REPO_ROOT)
     _report(map_defects)
     count += len(map_defects)
+    injection = collect_injection_failures(REPO_ROOT)
+    _report(injection)
+    count += len(injection)
     if count:
         print("airules: {0} layer-purity violation(s) found.".format(count), file=sys.stderr)
         return 1
