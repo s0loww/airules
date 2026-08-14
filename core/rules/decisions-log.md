@@ -41,8 +41,8 @@ are cheap to derive from the current files.
   decision belongs to an active change.
 - Rules source package: update the rule sources in the distribution
   repository (relative path within the repo tree) when the decision should
-  guide future agents across all channels. Do not hand-edit installed
-  channel copies, except for an explicit local unmanaged override.
+  guide future agents. Do not hand-edit the installed copies, except for an
+  explicit local unmanaged override.
 - Project knowledge store: global, critical, stable, non-derivable facts
   for humans and future handover.
 - Documentation: `docs/decisions/*`, if the repository keeps ADR-like

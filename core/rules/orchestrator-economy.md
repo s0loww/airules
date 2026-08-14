@@ -1,5 +1,5 @@
 ---
-description: "Orchestrator economy mode: the lead agent on a model class above the channel tiers delegates execution to subagents as much as possible, keeping decisions and verification for itself. Load when the session runs on a lead model strictly more expensive than the channel tiers, or the user enables economy mode. Триггеры: режим экономии, оркестратор, делегирование, дорогая модель"
+description: "Orchestrator economy mode: the lead agent on a model class above the regular tiers delegates execution to subagents as much as possible, keeping decisions and verification for itself. Load when the session runs on a lead model strictly more expensive than the regular tiers, or the user enables economy mode. Триггеры: режим экономии, оркестратор, делегирование, дорогая модель"
 alwaysApply: false
 kind: process
 ---
@@ -9,11 +9,12 @@ kind: process
 ## When the mode is on
 
 - **Automatically** — the lead agent's model belongs to the `orchestrator`
-  tier of the current channel's model map (an install-time artifact) **and that
-  tier is genuinely a class above `high`**: its tokens are several times more
-  expensive than the channel tiers.
-- **Not automatically** where a channel maps `orchestrator` onto the same
-  model as `high`. There the lead agent is also the heavy implementer, there
+  tier of the model map (an install-time artifact) **and that tier is
+  genuinely a class above `high`**: its tokens are several times more
+  expensive than the regular tiers.
+- **Not automatically** where the map puts `orchestrator` on the same model
+  as `high` — which is what the shipped map does. There the lead agent is
+  also the heavy implementer, there
   is no cheaper class to fall back to, and delegating on reflex burns the
   session window instead of saving it. The mode is then available manually
   only; the default is the delegation damper of
@@ -29,7 +30,7 @@ kind: process
 
 Orchestrator tokens are the most expensive resource of the session. In
 economy mode the lead agent **does not do anything itself that a
-channel-tier role is capable of doing**: it thinks, decides, and verifies;
+subagent role is capable of doing**: it thinks, decides, and verifies;
 subagents do the reading and writing.
 
 ## Division of labor
@@ -84,7 +85,7 @@ yourself what gets delegated.**
   delegated: the overhead of launching a subagent exceeds the savings.
 - Payback rule of thumb: launching a subagent costs a fixed overhead of
   roughly tens of thousands of tokens (root contract + lazily loaded rules +
-  agent definition + tool schemas; calibrate against your channel's real
+  agent definition + tool schemas; calibrate against your own real
   numbers). Delegate a bounded stream only when its expected work volume is
   at least ~3x that overhead; below that, direct execution wins. Measured on
   production streams: ~43k startup vs 200-300k of work per stream — a 5-7x

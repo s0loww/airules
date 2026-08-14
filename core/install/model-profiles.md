@@ -82,7 +82,7 @@ case-insensitive, first hit wins:
 ## Model profile: Claude Opus
 - Effort is set per role by the routing map; do not simulate extra
   deliberation in prose. For shallow results on a genuinely hard task,
-  escalate effort by an explicit decision — but never to the channel's top
+  escalate effort by an explicit decision — but never to the top
   step as a habit: above xhigh the result degrades while the price rises.
 - Trigger tools explicitly when file contents, repo state, current docs, CLI
   behavior, or runtime configuration matter. Reasoning alone is not enough
@@ -114,7 +114,7 @@ case-insensitive, first hit wins:
   the answer. Response and document length is set by the contract
   (`core/templates/AGENTS.md`, "Output discipline") and by the profile
   blocks above.
-- **Do not disable thinking to save cost.** Where a channel allows it at all,
+- **Do not disable thinking to save cost.** Where it can be disabled at all,
   disabling it introduces artifacts — tool calls leaking into visible text
   (which then poisons later turns of an agentic loop) and internal markup in
   the output. Cut cost with the effort step instead. A subagent inherits the

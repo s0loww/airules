@@ -1,5 +1,5 @@
 ---
-description: "Ready-made bounded prompts for delegated subagents; the concrete model of a role resolves per channel. Load when delegating a bounded task to a subagent. Триггеры: промпт субагенту, шаблон задачи, делегирование, ограниченный воркер."
+description: "Ready-made bounded prompts for delegated subagents; the concrete model of a role is resolved at install time from its tier. Load when delegating a bounded task to a subagent. Триггеры: промпт субагенту, шаблон задачи, делегирование, ограниченный воркер."
 alwaysApply: false
 kind: process
 ---
@@ -9,7 +9,7 @@ kind: process
 Use together with `subagents-model-routing.md`. Keep delegated work bounded,
 self-contained and useful while the main agent continues non-overlapping
 work. The tier of each role comes from the role registry (rendered into the
-root contract's Subagents table); the concrete channel model is substituted
+root contract's Subagents table); the concrete model is substituted
 by the installer.
 
 **Mandatory first line of every subagent prompt:** "Do the work yourself with
@@ -74,7 +74,7 @@ write zone.
 ## worker-bounded-edit
 
 Role: `developer` / `metadata-manager` / `error-fixer` (tier per ROLES.md;
-`error-fixer` uses the `fast` override when the channel defines it).
+`error-fixer` uses the `fast` override where the map defines it).
 
 Scope: write only the explicitly assigned files.
 

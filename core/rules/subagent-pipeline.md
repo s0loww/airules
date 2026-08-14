@@ -25,7 +25,7 @@ the stage.
 (closing gate).
 
 The pipeline is adapted from subagent-driven development practice and joined
-with the distribution's role registry (rendered into the channel agent
+with the distribution's role registry (rendered into the agent
 definitions and the root contract's Subagents table at install time).
 
 ## Why a fixed pipeline

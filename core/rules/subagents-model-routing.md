@@ -7,30 +7,29 @@ kind: process
 # Role and model routing for subagents
 
 The single source of truth for roles, tiers and access rights is the
-distribution's role registry, rendered at install time into the channel
-agent definitions and the root contract's Subagents table. This rule
+distribution's role registry, rendered at install time into the agent
+definitions and the root contract's Subagents table. This rule
 describes how to use it; on any discrepancy the rendered registry (agent
 definition + Subagents table) wins.
 
 ## Model resolution
 
-Role → tier → the channel model map (an install-time artifact of the
-distribution) → channel model. The model is not hardcoded in the role: the
-role carries `tier`, not a model name. The concrete channel model is
-substituted by the installer when the distribution is laid out into the
-target project. The installer also appends the model-family profile block —
+Role → tier → the model map (an install-time artifact of the distribution) →
+model. The model is not hardcoded in the role: the role carries `tier`, not a
+model name. The concrete model is substituted by the installer when the
+distribution is laid out into the target project. The installer also appends the model-family profile block —
 model-specific behavior lives there, not in role bodies.
 
 ## Effort
 
 Effort is a **property of the role**, resolved the same way as the model:
-role `effort` → `channels.<channel>.effort` → channel value (`ROLES.md`,
-"Effort semantics"). It is a separate axis from the tier — same model, more
+role `effort` → `claude.effort` in the model map → concrete value
+(`ROLES.md`, "Effort semantics"). It is a separate axis from the tier — same model, more
 or less deliberation — so two roles on one tier legitimately differ.
 
 Two things stay outside the registry:
 
-- **The channel's top step** (above `xhigh`, where a channel has one) is a
+- **The top step** (above `xhigh`, where one exists) is a
   manual escalation by an explicit user decision for one hard task. It is
   never a role default: on that step the result is *worse* than on `xhigh`
   at a higher price, so it buys nothing by itself.
@@ -76,14 +75,14 @@ owns the run-read-fix loop in its own context.
 
 ## Orchestrator economy mode
 
-If the main agent's model belongs to the channel's `orchestrator` tier **and
-that tier is a class above `high`**, or the user enables the mode explicitly
-— `orchestrator-economy.md` applies: execution goes to subagents on channel
+If the main agent's model belongs to the `orchestrator` tier **and that tier
+is a class above `high`**, or the user enables the mode explicitly —
+`orchestrator-economy.md` applies: execution goes to subagents on the regular
 tiers as much as possible, the orchestrator keeps decisions, specs and
 verification.
 
-Where a channel maps `orchestrator` onto the same model as `high` (the lead
-agent *is* the heavy implementer), the automatic trigger does not fire and
+In the shipped map `orchestrator` and `high` are the same model (the lead
+agent *is* the heavy implementer), so the automatic trigger does not fire and
 the mode stays manual — the delegation rules below are the operating default
 instead.
 

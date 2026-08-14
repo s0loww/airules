@@ -74,13 +74,12 @@ instead of requesting everything at once.
   recovery stores it on failures; `rtk config` shows the tee mode and path).
 - Exit codes pass through the proxy; a failing command stays failing.
 
-## Channel and environment notes
+## Environment notes
 
 - Deeper integration (automatic rewriting of every shell call via the
-  harness hook) exists for some channels — an install-time decision noted in
-  the distribution's layout. Installing such hooks is a user decision;
-  this rule only covers explicit `rtk`-prefixed calls, which work in any
-  channel with no configuration.
+  harness hook) is available — an install-time decision noted in the
+  distribution's layout. Installing such hooks is a user decision; this rule
+  only covers explicit `rtk`-prefixed calls, which need no configuration.
 - Telemetry of the reference proxy is opt-in; for fully offline work set
   `RTK_TELEMETRY_DISABLED=1`.
 

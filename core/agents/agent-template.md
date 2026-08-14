@@ -1,6 +1,6 @@
 # Agent definition template
 
-Channel-neutral template for describing a subagent. Roles, tiers, efforts and
+Template for describing a subagent. Roles, tiers, efforts and
 rights come from `core/agents/ROLES.md`; model selection and delegation rules
 — from `core/rules/subagents-model-routing.md`.
 
@@ -11,7 +11,7 @@ rights come from `core/agents/ROLES.md`; model selection and delegation rules
 name: <role>
 description: "<when to call this agent — triggers for the orchestrator>"
 tier: <high|medium|low>     # no model here: resolved via model-map at install
-effort: <low|medium|high|xhigh>   # channel-neutral; resolved the same way
+effort: <low|medium|high|xhigh>   # resolved the same way
 tools: <ro|rw>
 allowParallel: true         # optional; see semantics below
 ---
@@ -45,7 +45,7 @@ technical ban.
 
 ## Note
 
-When laying the distribution out for a specific channel the installer
-replaces `tier` with that channel's model (via
+When laying the distribution out the installer replaces `tier` with the
+resolved model (via
 `core/install/model-map.yaml`) and expands the pseudo-values
-`tools: ro|rw` into the channel's real tool names.
+`tools: ro|rw` into the real tool names.
