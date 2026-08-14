@@ -6,6 +6,12 @@
 * `--session-start` (SessionStart, source "compact"): after a compaction, state
   plainly that rule bodies are gone and must be re-read. Needs no table.
 
+Two offline modes support installation, where the repository's CI is absent:
+`--dry-run <path>` renders what an edit of that path would inject, and
+`--check-map [root [map_dir]]` verifies the table against the rules actually
+installed — a reminder pointing at an absent rule looks healthy and leads
+nowhere.
+
 
 Why this exists. Rule bodies are read lazily and live in the conversation as a
 tool result — the first thing dropped when context is compacted. What survives
@@ -157,8 +163,117 @@ def emit(text):
     sys.stdout.write("\n")
 
 
+def rule_kind(path):
+    """`kind` из frontmatter правила, или None если его нет."""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as handle:
+            lines = [handle.readline() for _ in range(20)]
+    except OSError:
+        return None
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if line.startswith("kind:"):
+            return line[5:].strip().strip("\"'")
+    return None
+
+
+def check_map(map_dir, root):
+    """Проверка карты в целевом проекте: у него нет нашего CI.
+
+    Карта живёт отдельно от правил, на которые ссылается, и расходится с ними
+    молча: запись, указывающая на неустановленное правило, выглядит рабочей и
+    печатает путь в никуда. Проверять это глазами при установке — то же
+    самое, что полагаться на память вместо перечитывания правила.
+    """
+    problems = []
+    try:
+        entries, budget = load_map(map_dir)
+    except OSError:
+        print("rules-map.json не найден в {0} — режим по путям не работает".format(map_dir))
+        return 1
+    except ValueError as error:
+        print("rules-map.json не разбирается: {0}".format(error))
+        return 1
+
+    if not entries:
+        problems.append("карта пуста: ни одной записи")
+
+    for index, entry in enumerate(entries, 1):
+        where = "запись {0}".format(index)
+        rule = entry.get("rule")
+        globs = entry.get("globs")
+        invariant = (entry.get("invariant") or "").strip()
+
+        if not isinstance(globs, list) or not globs:
+            problems.append("{0}: нет масок".format(where))
+        if not rule:
+            problems.append("{0}: нет поля rule".format(where))
+            continue
+        where = "{0} ({1})".format(where, rule)
+        if not invariant:
+            problems.append("{0}: пустой invariant — впрыснется голый путь".format(where))
+
+        rule_path = os.path.join(root, rule.replace("/", os.sep))
+        if not os.path.isfile(rule_path):
+            problems.append("{0}: правило не установлено по этому пути".format(where))
+            continue
+        kind = rule_kind(rule_path)
+        if kind is None:
+            problems.append("{0}: у правила нет kind во frontmatter".format(where))
+        elif kind != "invariant":
+            problems.append(
+                "{0}: kind '{1}', а в карту идут только invariant".format(where, kind)
+            )
+
+        line = "- `{0}` — {1}".format(rule, invariant)
+        if len(line) > budget:
+            problems.append(
+                "{0}: строка длиннее всего бюджета ({1} > {2})".format(
+                    where, len(line), budget
+                )
+            )
+
+    if problems:
+        for problem in problems:
+            print(problem)
+        print("карта: {0} дефект(ов)".format(len(problems)))
+        return 1
+    print("карта: {0} запись(ей), все правила на месте".format(len(entries)))
+    return 0
+
+
+def force_utf8_stdout():
+    """Без этого хук молча теряет напоминание на Windows.
+
+    stdout по умолчанию берёт кодировку консоли (cp1251/cp866), а читатель
+    ждёт UTF-8. Кириллица приезжает мусором, а символ вроде «→» вообще не
+    кодируется — `print` бросает UnicodeEncodeError, его глотает fail-open
+    обёртка, и напоминание исчезает без следа. Ровно тот отказ, который хук
+    и должен предотвращать.
+    """
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+
 def main(argv):
+    force_utf8_stdout()
     script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # `--check-map [root [map_dir]]`: does the map agree with the rules
+    # actually installed? Run at install time, where the repository's CI is not
+    # available. Defaults describe the installed layout — map next to the
+    # script in `.claude/hooks/`, rules under the project root two levels up.
+    # Both are arguments so the distribution's own CI can point the same check
+    # at an overlay, where the map does not sit next to the script.
+    if argv and argv[0] == "--check-map":
+        root = argv[1] if len(argv) >= 2 else os.path.dirname(os.path.dirname(script_dir))
+        map_dir = argv[2] if len(argv) >= 3 else script_dir
+        return check_map(map_dir, root)
 
     # `--dry-run <path>` renders what an edit of <path> would inject. Used by
     # the map's own tests and when adding an entry by hand.

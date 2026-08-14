@@ -1,6 +1,6 @@
 {
-  "_comment": "Path -> rule reminder table for the rule-inject PreToolUse hook. Only kind: invariant rules belong here: a rule needed at the moment of writing a line, in a file identifiable by path. Recipes, cases and process rules stay on the lazy Rule Index. Keep masks narrow — a mask that fires where the rule does not apply teaches everyone to ignore the injection.",
-  "budget_chars": 1200,
+  "_comment": "Path -> rule reminder table for the rule-inject PreToolUse hook. Only kind: invariant rules belong here: a rule needed at the moment of writing a line, in a file identifiable by path. Recipes, cases and process rules stay on the lazy Rule Index. Keep masks narrow — a mask that fires where the rule does not apply teaches everyone to ignore the injection. Order matters: the most specific entries come first, because the budget truncates from the tail. Masks follow the standard 1C configuration dump layout (Documents/<X>/Ext/ObjectModule.bsl, .../Forms/<F>/Ext/Form/Module.bsl, CommonModules/<M>/Ext/Module.bsl).",
+  "budget_chars": 1400,
   "entries": [
     {
       "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
@@ -13,9 +13,9 @@
       "invariant": "Директивы компиляции и клиент-серверные переходы: &НаСервереБезКонтекста по умолчанию, &НаСервере — только при работе с данными формы."
     },
     {
-      "globs": ["**/Forms/**/Form.xml", "**/Forms/**/Ext/Form.xml"],
-      "rule": "rules/forms-add.md",
-      "invariant": "Структурная правка Form.xml: порядок элементов, обязательные блоки, регистрация в родительском XML."
+      "globs": ["**/Forms/**/Module.bsl", "**/Forms/**/Ext/Form/Module.bsl"],
+      "rule": "rules/dev-standards-forms.md",
+      "invariant": "Типовые формы правятся программно в ПриСозданииНаСервере, а не визуально; добавленные элементы — на отдельную вкладку или группу, имена с префиксом проекта."
     },
     {
       "globs": ["**/Forms/**/Form.xml", "**/Forms/**/Ext/Form.xml"],
@@ -31,6 +31,73 @@
       "globs": ["**/Configuration.xml"],
       "rule": "rules/metadata-xml-workarounds.md",
       "invariant": "Порядок <childObjects> значим, UUID уникальны, новый объект регистрируется здесь же — после правки прогнать валидацию."
+    },
+    {
+      "globs": [
+        "**/Reports/**/Templates/**/Ext/Template.xml",
+        "**/DataProcessors/**/Templates/**/Ext/Template.xml"
+      ],
+      "rule": "rules/dcs-design.md",
+      "invariant": "Порядок предпочтения: поле запроса → ресурс → вычисляемое поле. Агрегат через Вычислить() в вычисляемом поле — анти-паттерн; периоды виртуальных таблиц задаются только параметрами."
+    },
+    {
+      "globs": [
+        "**/AccumulationRegisters/**",
+        "**/AccountingRegisters/**",
+        "**/InformationRegisters/**",
+        "**/CalculationRegisters/**",
+        "**/Documents/**/Ext/ObjectModule.bsl"
+      ],
+      "rule": "rules/registers-design.md",
+      "invariant": "Движения правятся только в ОбработкаПроведения/ОбработкаУдаленияПроведения; остатки и обороты берутся из виртуальных таблиц, а не своей агрегацией по физической."
+    },
+    {
+      "globs": [
+        "**/Ext/ObjectModule.bsl",
+        "**/Ext/RecordSetModule.bsl",
+        "**/Ext/ValueManagerModule.bsl"
+      ],
+      "rule": "rules/locks-and-transactions.md",
+      "invariant": "Внутри ПередЗаписью/ПриЗаписи/ОбработкаПроведения свою транзакцию не открывать — она уже открыта платформой; порядок всегда блокировка → чтение → запись."
+    },
+    {
+      "globs": [
+        "**/HTTPServices/**",
+        "**/WebServices/**",
+        "**/IntegrationServices/**",
+        "**/ExchangePlans/**/Ext/*.bsl"
+      ],
+      "rule": "rules/integrations-add.md",
+      "invariant": "Секреты — только в защищённых константах или хранилище паролей БСП, хардкод запрещён; мутирующий запрос идемпотентен по ключу операции, ретраи ограничены."
+    },
+    {
+      "globs": [
+        "**/CommonModules/**/Ext/Module.bsl",
+        "**/HTTPServices/**/Ext/Module.bsl",
+        "**/WebServices/**/Ext/Module.bsl"
+      ],
+      "rule": "rules/clean-architecture-1c.md",
+      "invariant": "Зависимости смотрят внутрь: серверный код не знает о формах, типы ДанныеФормы* не пересекают границу формы, доменный модуль не делает HTTP, файлы и COM."
+    },
+    {
+      "globs": ["**/CommonModules/**/Ext/Module.bsl", "**/Ext/ManagerModule.bsl"],
+      "rule": "rules/dev-standards-architecture.md",
+      "invariant": "Точка через ссылку грузит объект целиком — только ОбщегоНазначения.ЗначенияРеквизитовОбъекта(ов); внутренний слой и устаревшие разделы БСП не звать."
+    },
+    {
+      "globs": [
+        "**/CommonModules/**/Ext/Module.bsl",
+        "**/Ext/ManagerModule.bsl",
+        "**/Ext/ObjectModule.bsl",
+        "**/Ext/RecordSetModule.bsl"
+      ],
+      "rule": "rules/anti-patterns.md",
+      "invariant": "Запрос в цикле, точка через ссылку, подзапрос в списке полей, условие по виртуальной таблице в ГДЕ, отсутствие ПЕРВЫЕ N — критичные, проверять до написания запроса."
+    },
+    {
+      "globs": ["**/*.bsl"],
+      "rule": "rules/dev-standards-core.md",
+      "invariant": "Правку типового кода помечать комментарием модификации, маркер сверить с уже размеченными правками этой конфигурации; удаляемый типовой код комментировать, а не удалять."
     }
   ]
 }

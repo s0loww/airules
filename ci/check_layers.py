@@ -504,6 +504,55 @@ def collect_rule_orphans(base_dir):
     ]
 
 
+RULES_MAP_RULE_ID = "rules-map"
+
+
+def collect_map_defects(base_dir):
+    """Repository-level check: every overlay's hook map agrees with its rules.
+
+    Delegated to the shipped hook's own ``--check-map`` rather than reimplemented
+    here, so the distribution's CI and the installer run the same code. A second
+    implementation would be free to drift, and the whole point of the check is
+    that a map and the rules it points at drift silently.
+
+    Returns a list of (rel_path, lineno, id, message).
+    """
+    script = os.path.join(base_dir, "core", "hooks", "rule-inject.py")
+    if not os.path.isfile(script):
+        return []
+    overlays_dir = os.path.join(base_dir, "overlays")
+    if not os.path.isdir(overlays_dir):
+        return []
+
+    defects = []
+    for stack in sorted(os.listdir(overlays_dir)):
+        root = os.path.join(overlays_dir, stack)
+        map_dir = os.path.join(root, "hooks")
+        if not os.path.isfile(os.path.join(map_dir, "rules-map.json")):
+            continue  # an overlay without a map simply installs without the hook
+        rel = "overlays/{0}/hooks/rules-map.json".format(stack)
+        try:
+            proc = subprocess.run(
+                [sys.executable, script, "--check-map", root, map_dir],
+                cwd=base_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+        except OSError as error:
+            defects.append((rel, 1, RULES_MAP_RULE_ID, "cannot run --check-map: {0}".format(error)))
+            continue
+        if proc.returncode == 0:
+            continue
+        for line in (proc.stdout or "").splitlines():
+            line = line.strip()
+            if line and not line.startswith("карта:"):
+                defects.append((rel, 1, RULES_MAP_RULE_ID, line))
+        if not defects:
+            defects.append((rel, 1, RULES_MAP_RULE_ID, "--check-map failed without output"))
+    return defects
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, _dirs, files in os.walk(base_dir):
@@ -644,6 +693,13 @@ def run_selftest():
 
 
 def main(argv=None):
+    # Violations are printed, and on Windows stdout defaults to the console
+    # codepage — which turns any non-Latin message into unreadable bytes and can
+    # abort the run outright on a character it cannot encode.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     parser = argparse.ArgumentParser(description="airules layer-purity checker")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--staged", action="store_true", help="check only staged files")
@@ -664,6 +720,11 @@ def main(argv=None):
     orphans = collect_rule_orphans(REPO_ROOT)
     _report(orphans)
     count += len(orphans)
+    # Same reasoning: the map is checked against the whole rule set, not a
+    # staged subset of it.
+    map_defects = collect_map_defects(REPO_ROOT)
+    _report(map_defects)
+    count += len(map_defects)
     if count:
         print("airules: {0} layer-purity violation(s) found.".format(count), file=sys.stderr)
         return 1
