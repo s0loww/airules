@@ -22,6 +22,13 @@ In 1C form modules, local variables **must not** be named after standard form-el
 - `ПараметрыОтбора` (Filter)
 - `ОтборСтрок` (RowFilter)
 
+The same trap exists one level up — on **form attributes of standard forms**, not
+only on element properties. On the standard report form, `НастройкиОтчета` is an
+attribute of the form itself: a server method that assigns a local variable of
+that name breaks `СвойстваРезультата`, and a click on the resulting document
+fails. Before naming a local variable in a module of a *standard* form, check
+that the name is not already an attribute of that form.
+
 > The list is based on practical experience and may be incomplete. When a name conflict is suspected — verify in Designer.
 
 ## Why

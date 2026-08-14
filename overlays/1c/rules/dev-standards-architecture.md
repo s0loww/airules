@@ -112,6 +112,33 @@ Visual form editing in extensions — **minimize**. Changes — programmatically
 
 ## 3. Platform Standards
 
+### Standard-library API — what is callable
+
+Reusing БСП instead of writing your own is the default (the `1c-metadata-manage`
+skill, `ssl-patterns` doc). But not everything exported from a standard module
+is public API: **the region a method is declared in is its stability contract**,
+and one module holds both the public surface and the internals.
+
+| Region / module shape | Status | In application code |
+|---|---|---|
+| `#Область ПрограммныйИнтерфейс` | Public API, compatibility maintained across library versions | Call it — this is the intended surface |
+| `#Область СлужебныйПрограммныйИнтерфейс`, modules named `*Служебный*` | Internal API between library subsystems, no compatibility guarantee | Do not call — look for a public equivalent |
+| `#Область СлужебныеПроцедурыИФункции` | Module-internal | Do not call |
+| `#Область УстаревшиеПроцедурыИФункции` | Deprecated, kept for compatibility | Do not use in new code — find the current replacement |
+| Modules `*Переопределяемый` / `*КлиентПереопределяемый` | Extension points | **Implement** them, never call them |
+
+`*Переопределяемый` is the trap: its methods do sit in `ПрограммныйИнтерфейс`,
+but the library calls them, not you. Calling one from application code compiles
+and runs, and is still wrong — you are invoking an extension point instead of
+filling it in.
+
+**A plausible method name is not evidence that the method exists.** Names are
+easy to derive by analogy and easy to get wrong; a wrong one fails at compile
+time, and the failure is trivially avoidable. Before calling an unfamiliar
+standard-library method, confirm it in the source — module-structure inspection
+or a text search over the common modules — and check which region it sits in
+while you are there.
+
 ### Async and Modality
 - Modal calls are **PROHIBITED**: `Вопрос()`, `Предупреждение()`, `ВвестиЧисло()`, `ВвестиСтроку()`, `ВвестиДату()`, `ВвестиЗначение()`, `ОткрытьЗначение()` and any other synchronous-blocking dialogs.
 - Approach depends on `{PLATFORM_VERSION}` from `.dev.env`:

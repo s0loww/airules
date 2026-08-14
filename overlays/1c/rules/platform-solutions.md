@@ -258,6 +258,62 @@ For form attributes with reference or composite types — first copy the value t
 
 ---
 
+## 10. Background job from an external data processor
+
+**Problem.** The "Long-running operations" subsystem runs the job on the
+server, and the server has to be able to find the processor by name. A
+processor opened through "file → open" (rather than registered in the
+additional-reports-and-processors catalog) does not exist on the server, so the
+job cannot be started at all.
+
+**Symptom.** The background start fails for a processor that works fine when
+run interactively; the same code works once the processor is registered in the
+catalog.
+
+**Template.** Put a copy of the processor on the server through temporary
+storage at open time, and start the job by that copy's file name:
+
+```bsl
+// Client, ПриОткрытии: push the processor file into temporary storage,
+// then in the callback ask the server for a copy.
+&НаСервере
+Функция КопияОбработкиНаСервере(Хранение)
+    ИмяФайла = ПолучитьИмяВременногоФайла();
+    ПолучитьИзВременногоХранилища(Хранение).Записать(ИмяФайла);
+    Возврат ИмяФайла;                    // keep it in a form attribute
+КонецФункции
+
+// Server: name = the temp file for an external processor, the full metadata
+// name for a built-in one.
+ПараметрыЗадания = Новый Структура;
+ПараметрыЗадания.Вставить("ИмяОбработки", ИмяОбработкиИлиФайла);
+ПараметрыЗадания.Вставить("ИмяМетода", "<процедура модуля объекта>");
+ПараметрыЗадания.Вставить("ПараметрыВыполнения", ПараметрыОбработки);
+ПараметрыЗадания.Вставить("ЭтоВнешняяОбработка", ЭтоВнешняяОбработка);
+
+Возврат ДлительныеОперации.ВыполнитьВФоне(
+    "ДлительныеОперации.ВыполнитьПроцедуруМодуляОбъектаОбработки",
+    ПараметрыЗадания, ПараметрыВыполнения);
+```
+
+Constraints that follow from the job running elsewhere: **the processor's own
+attributes and tabular sections are not available inside the job** — pass
+everything through parameters (same reason as §2: nothing bound to the form
+session survives the hop).
+
+**Do not reach for the unsafe-mode escape by default.** Re-creating the
+processor without safe mode inside the job (`ВнешниеОбработки.Создать` with the
+protection description that suppresses warnings) removes a platform protection
+for the whole run. It is justified only when the job genuinely needs privileged
+operations that safe mode blocks, and then it belongs in the design discussion,
+with the reason written down next to the call — not slipped in to make an error
+go away.
+
+**Standard.** БСП: "Long-running operations" subsystem; see also §2 for the
+general case.
+
+---
+
 ## Extending the case book
 
 When you discover a new typical pitfall:

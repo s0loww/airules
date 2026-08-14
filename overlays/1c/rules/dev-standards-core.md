@@ -106,6 +106,13 @@ Modification markers are used **only when modifying typical (standard) code** in
 - Opening comment: value of `{COMMENT_OPEN}` from `.dev.env`
 - Closing comment: value of `{COMMENT_CLOSE}` from `.dev.env`
 - A space is mandatory after `//`
+- **Verify the actual marker against already-marked edits in this very
+  configuration** before writing the first one. The prefix is a team
+  convention, not a platform rule, and it differs between projects. If what
+  you find on the spot disagrees with `.dev.env` — ask, do not impose either.
+  Markers are merge metadata, not a journal: no task numbers, dates or authors
+  inside them, that is what version control is for (the `TODO` reference below
+  is a different thing).
 
 ### Typical Code Modification
 Removed typical code — **comment out, DO NOT delete**:
@@ -153,6 +160,13 @@ In modules of new objects (with `{PREFIX}`) — markers per method are **NOT NEE
 
 - Place all new objects into subsystems
 - Composite types used repeatedly — via `DefinedType`
+
+**The `Удалить` prefix means "already dead".** Objects and attributes named
+`УдалитьКонтрагент`, `УдалитьАдрес` and the like are retired stubs kept for
+backward compatibility. Treat them as non-existent: do not read, write,
+reference or extend them in new code, and never pick one as the target of a
+new field. Look for the current object without the prefix; if only the
+prefixed one exists, that is a question for the analyst, not a naming choice.
 
 ### Object Type Selection
 

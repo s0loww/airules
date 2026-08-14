@@ -89,7 +89,40 @@ The handler must be an exported procedure of a non-global **server** common modu
 
 ---
 
-## 6. Validation hook
+## 6. Role `Rights.xml` — no rights on enums
+
+Enums are readable by everyone without restriction, so an explicit rights block
+for `Enum.<Name>` in a role is redundant. Types that never appear in
+`Rights.xml` at all: `Enum`, `FunctionalOption`, `DefinedType`, `CommonModule`,
+`CommonPicture`, `CommonTemplate` (the `1c-metadata-manage` skill, `role-manage`
+doc, lists them with the full rights vocabulary).
+
+```xml
+<!-- WRONG — belongs in no role, neither in an extension nor in the base config -->
+<object>
+    <name>Enum.СтатусыОбработки</name>
+    <right><name>Read</name><value>true</value></right>
+    <right><name>View</name><value>true</value></right>
+</object>
+```
+
+> **Suspect first when an extension load hangs.** External practice reports
+> `DESIGNER /LoadConfigFromFiles -Extension` on platform 8.3.27 hanging for
+> 60+ seconds with an empty `/Out` and no error when a role's `Rights.xml`
+> contains a rights block on a **new** enum; EDT is reported to generate such a
+> block on export. **Not reproduced on our contour** — treat it as the first
+> hypothesis for a silent load hang, not as an established fact. Reviewing
+> `Rights.xml` for `Enum.*` blocks is worth doing regardless: the block is
+> redundant either way.
+>
+> The same source reports the same hang shape when a **new metadata object and
+> a role granting rights on it** arrive in one export, with a two-pass load
+> (object first, rights second) as the workaround. Equally unverified here —
+> worth trying when a load hangs, not worth splitting every export in two.
+
+---
+
+## 7. Validation hook
 
 Whenever editing metadata XML by hand, after the change run:
 
