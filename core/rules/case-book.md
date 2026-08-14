@@ -69,6 +69,15 @@ or blocks the sync forever.
 | generic for the stack — anyone on this technology hits it | the case book of that stack's overlay, **in the distribution repository**, so it reaches every project |
 | generic for any stack | a rule in the distribution core, not a case |
 
+**When a memory server is connected**, it is the natural home for the first
+row: incidents are exactly the operational layer it exists for, they are
+searched by meaning rather than by path, and they are needed from every
+machine. The other two rows stay in git — a case that reaches other projects
+is reviewed, diffed and shipped, and a blob cannot be reviewed. Route each
+entry once and note in the root contract which destination this project uses;
+an entry written to both places becomes two half-current copies, which is the
+failure this rule exists to prevent.
+
 A project case book is a file the project owns: `docs/cases.md`, or
 `cases.md` at the root when the project keeps no `docs/`. Pick it once and
 write it into the root contract next to the rule index — an unnamed location
@@ -79,6 +88,23 @@ on demand like any rule, and entries are appended newest-last with the symptom
 in the heading. Nothing else is required — a case book that needs tooling to
 maintain stops being maintained.
 
+## Dead ends are entries too
+
+An approach that was tried and did not work is worth the same record, and it
+is not a decision: nothing was chosen between real alternatives, a path was
+spent. Without the entry the next agent spends it again — that is the most
+expensive kind of forgetting, because the work looks new.
+
+```text
+Dead end:  <what was tried>
+Why:       <how it failed — the observable, not the theory>
+Instead:   <what is used now>
+Do not retry unless: <what would have to change for it to be worth another look>
+```
+
+The last line is what keeps the entry from becoming a permanent ban: a dead
+end is a result under conditions, and conditions change.
+
 ## Boundary with the neighbours
 
 Three rules record things after the fact, and picking the wrong one buries the
@@ -87,6 +113,7 @@ entry where nobody looks for it.
 | You have | Record as | Where it is defined |
 | --- | --- | --- |
 | a failure that will hit someone else the same way | case entry | this rule |
+| an approach that was tried and abandoned | dead end | this rule |
 | a choice between real alternatives, hard to reverse | decision | `decisions-log.md` |
 | the closing of one investigation — hypothesis confirmed, prevention question | post-mortem | `debugging-loop.md`, phase 6 |
 
