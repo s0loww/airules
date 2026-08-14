@@ -266,8 +266,14 @@ Decorative `///` banners and module headers with authorship / change history are
 
 Before keeping a comment, answer: **"What does this comment tell the reader that the code itself does not?"** If the answer is "nothing" — delete the comment.
 
-## 8. Internal Code Review After Each Edit
+## 8. Checking your own work
 
-After any code change, perform a brief internal review covering: style, readability, correctness, edge cases, security, concurrency / locks / transactions, BSL-LS compliance. If issues are found — fix them and re-run the cycle until the code is clean.
+No separate self-checking pass sits on top of the gates. What a change must
+pass, and in what order, is `rules/verification-matrix.md`: syntax, then
+logic and performance, then style and standards — each with its own pass
+criterion and a bounded retry budget. Instructing a re-read of your own output
+on top of that buys nothing and costs a pass; the instrumental gates are the bar.
 
-Always consider whether an external transaction already exists (e.g. an object-write transaction) before opening a new one. See `rules/platform-solutions.md` for the canonical templates.
+The one thing worth carrying at the moment of writing rather than at the gate:
+before opening a transaction, consider whether an outer one is already open
+(an object write, for instance). Templates — `rules/platform-solutions.md`.

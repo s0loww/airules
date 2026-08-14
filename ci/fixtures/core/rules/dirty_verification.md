@@ -7,3 +7,4 @@ kind: process
 
 Before answering, double-check the result and re-verify the conclusion.
 For any non-trivial task launch a verification subagent over your own output.
+An internal review pass after every edit is the same retired instruction.

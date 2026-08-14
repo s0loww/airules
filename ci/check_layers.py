@@ -182,11 +182,15 @@ def _build_rules():
             "description": "Distribution-only path in an installable file (breaks after flat install).",
             "install_only": True,
         },
-        # --- retired self-verification wording: core only ---
+        # --- retired self-verification wording: core and overlays ---
         # Removed in 0.4.0: the model verifies its own work without being told,
         # and these phrasings stack with that behavior at pure extra cost.
         # Instrumental gates (syntax, static analysis, validators) are NOT this
         # rule's target — they never phrase themselves this way.
+        # Scope widened 2026-08-14: the reason is stack-independent, and the
+        # overlay had kept a self-review cycle that the core had already
+        # retired. The "internal review" phrasings are part of the same family
+        # and were missing from the pattern, which is why nothing caught it.
         {
             "id": "stale-verification",
             "regex": (
@@ -194,10 +198,12 @@ def _build_rules():
                 r"|\bproofread (?:your|the) own\b"
                 r"|\b(?:verification|verifying|re-check(?:ing)?) subagent\b"
                 r"|\bsubagent (?:for|to) (?:verify|verification|double)"
+                r"|\binternal (?:code )?review\b"
+                r"|внутренн\w+ ревью"
                 r"|двойная проверка|перепроверь\b)"
             ),
             "severity": "error",
-            "layers": ("core",),
+            "layers": ("core", "overlays"),
             "description": "Retired self-verification wording (see docs/LAYERS.md).",
         },
     ]
