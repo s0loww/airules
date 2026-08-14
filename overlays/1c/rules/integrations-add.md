@@ -19,7 +19,7 @@ For the full MCP playbook see `tooling-playbooks.md → Integrations`.
 ## 2. Long-running and blocking operations
 
 - Network calls are potentially long-running. Run all integration operations in the background through the БСП **"Long-running operations"** subsystem (`ДлительныеОперации.ВыполнитьФункцию`), not through a direct `ФоновыеЗадания` call. See `platform-solutions.md §2`.
-- On the client — no synchronous HTTP calls; use `НачатьВыполнение*` or an async wrapper (template — `platform-solutions.md §8`).
+- On the client — no synchronous HTTP calls. On `{PLATFORM_VERSION}` ≥ 8.3.21 the platform exposes `Асинх` analogs of the HTTP methods (`ВызватьHTTPМетодАсинх` and friends) — shapes and return values in `async-methods.md`; the `НачатьВыполнение*` callback form (`platform-solutions.md §8`) is the floor for older targets.
 
 ## 3. HTTP client
 

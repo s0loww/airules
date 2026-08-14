@@ -150,6 +150,7 @@ while you are there.
 
 - Inside `Асинх` procedures use ONLY async analogs. Mixing `Асинх` / `Ждать` with non-async methods is **PROHIBITED**.
 - Any dialog calls on the server are **PROHIBITED**.
+- **Treatment: `rules/async-methods.md`** — old-to-new method correspondence, what `Ждать` actually returns, ready shapes for a question on form open / close, file workflows and HTTP (8.3.21+). The trap that costs most: **without `Ждать` an exception inside an async call is silently lost**, so a failing operation looks like a successful one.
 
 ### Client-Server Interaction
 - **`&НаСервереБезКонтекста` is MANDATORY** for all server methods that do not access form data. `&НаСервере` is allowed only when the method directly reads/writes form attributes or elements.
