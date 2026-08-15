@@ -468,6 +468,7 @@ def collect_inventory(target, summary):
     return {
         "stats": "\n".join([
             "| | |", "|---|---|",
+            "| версия | {0} |".format(read(dist("VERSION")).strip()),
             "| правил | {0} |".format(summary["rules"]),
             "| скиллов | {0} |".format(len(skills)),
             "| ролей субагентов | {0} |".format(summary["roles"]),
