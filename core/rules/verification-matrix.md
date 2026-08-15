@@ -1,5 +1,5 @@
 ---
-description: "Verification matrix by change type and the closing full-cycle gate, including coverage reconciliation when many inputs must be covered by a set of rules. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить, сверка покрытия, все ли входы покрыты."
+description: "Verification matrix by change type and the closing full-cycle gate, including coverage reconciliation when many inputs must be covered by a set of rules, and the operational-memory bracket around the gates. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить, сверка покрытия, все ли входы покрыты, что уже известно, записать находку в память."
 alwaysApply: false
 kind: process
 ---
@@ -120,6 +120,35 @@ and a bounded retry budget.
   round almost always finds discrepancies; they converge over a few rounds.
   This gate prepares acceptance, it does not replace it — final acceptance on
   real data stays with the user.
+
+- **F. Operational memory (only when the project wires a memory server)** —
+  verification is worthless if it re-derives what a previous session already
+  established, and worse if it re-walks a dead end already documented. This
+  gate brackets the others.
+
+  *Before the first gate*, on any recurring class of task, query the memory
+  server for what is already known about it: prior findings, dead ends,
+  decisions that constrain the change, checks previously found useless here.
+  What comes back is prior observation, not proof — it can be stale. Treat it
+  as a lead to confirm against the source of truth, never as a substitute for
+  a gate. A documented dead end is the one exception: it is a reason not to
+  repeat an attempt, and repeating it anyway needs a stated reason.
+
+  *After the gates pass*, write back only what this session **established**
+  and what is **not derivable** from the code or git history: a fact, why it
+  is true, and how to apply it next time. A degraded gate (4) and its residual
+  risk belong here too — that is exactly the knowledge the next session cannot
+  reconstruct. Do not write the diff, the changed-file list, or a narrative of
+  the session: the repository already carries those, and duplicating them
+  turns the memory into a second, staler log.
+
+  Respect the layer boundary (`AGENTS.md`): rules, agreements, topology and
+  paths stay in markdown under git; sessions, incidents and findings go to the
+  memory server. A rule written into the memory server is invisible to review
+  and to diff.
+
+  No memory server in the project — the gate does not apply, and its absence
+  is not a defect.
 
 ### Handover summary — what the user sees
 
