@@ -20,9 +20,9 @@ python ci/simulate_install.py --emit-inventory
 | правил | 48 |
 | скиллов | 8 |
 | ролей субагентов | 13 |
-| команд | 3 |
+| команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 185 |
+| файлов в цели | 186 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -51,7 +51,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `tools/` | 22 |
 | `.claude/agents/` | 13 |
 | `.claude/skills/` | 88 |
-| `.claude/commands/` | 3 |
+| `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
 Каталога `.claude/rules/` в раскладке **нет намеренно**: Claude Code грузит его
