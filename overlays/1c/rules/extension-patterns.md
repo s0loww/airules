@@ -1,5 +1,5 @@
 ---
-description: "1C configuration extension (CFE) patterns — interceptor types (`&Перед` / `&После` / `&ИзменениеИКонтроль`), `ПродолжитьВызов` rules, change markers, adopted-object constraints. Load when writing or reviewing extension code. Триггеры: расширение конфигурации, Перед и После, ИзменениеИКонтроль, ПродолжитьВызов, заимствованный объект, расширение не срабатывает."
+description: "1C configuration extension (CFE) patterns — interceptor types (`&Перед` / `&После` / `&Вместо`), `ПродолжитьВызов` rules, change markers, adopted-object constraints. Load when writing or reviewing extension code. Триггеры: расширение конфигурации, Перед и После, Вместо, ИзменениеИКонтроль, ПродолжитьВызов, заимствованный объект, расширение не срабатывает."
 alwaysApply: false
 kind: invariant
 ---
@@ -24,7 +24,16 @@ Background reference: `rules/dev-standards-architecture.md §2` (Extensions) —
 |-----------|------|-------------|
 | `&Перед("ИмяМетода")` | Before | Code before the original method |
 | `&После("ИмяМетода")` | After | Code after the original method |
-| `&ИзменениеИКонтроль("ИмяМетода")` | ModificationAndControl | Full replacement of the method body |
+| `&Вместо("ИмяМетода")` | Instead | Full replacement / wrap of the method; the only directive where `ПродолжитьВызов()` is allowed |
+| `&ИзменениеИКонтроль("ИмяМетода")` | ModificationAndControl | Designer-side workflow over a copied method body with `#Вставка` / `#Удаление` markers — not a hand-written interceptor |
+
+> **Verified on 8.3.27 (bsl-analyzer 0.2.28, file infobase runtime).**
+> `ПродолжитьВызов()` compiles **only** inside `&Вместо` — anywhere else it is
+> `Blocker: WrongUseFunctionProceedWithCall`. Write every full-override /
+> wrap-around interceptor as `&Вместо`. `&ИзменениеИКонтроль` is a separate
+> designer workflow (a modified copy of the vendor's method body, where the
+> designer tracks the diff against the vendor's code) — do **not** mix its
+> markers into hand-written methods (see "Change markers" below).
 
 ### Before / After — simple interceptors
 
@@ -42,44 +51,54 @@ Background reference: `rules/dev-standards-architecture.md §2` (Extensions) —
 КонецПроцедуры
 ```
 
-### ИзменениеИКонтроль — full replacement
+### Вместо — full replacement / wrap
 
 ```bsl
 &НаСервере
-&ИзменениеИКонтроль("ОбработкаЗаполнения")
+&Вместо("ОбработкаЗаполнения")
 Процедура Расш1_ОбработкаЗаполнения(ДанныеЗаполнения, СтандартнаяОбработка)
-    #Удаление
-    // Original code (deleted)
-    #КонецУдаления
+    Если НеНашСлучай() Тогда
+        ПродолжитьВызов(ДанныеЗаполнения, СтандартнаяОбработка); // bit-for-bit original
+        Возврат;
+    КонецЕсли;
 
-    #Вставка
-    // New code (inserted)
-    #КонецВставки
-
-    ПродолжитьВызов();
+    // own code before / instead / after the original
+    ПродолжитьВызов(ДанныеЗаполнения, СтандартнаяОбработка);
+    // own code operating on the original's result
 КонецПроцедуры
 ```
+
+For a *function*, return the wrapped value: `Возврат ПродолжитьВызов(...)`.
+The `&Вместо` body is plain extension code — **no** `#Вставка` / `#Удаление`
+markers inside it (see below).
 
 ---
 
 ## ПродолжитьВызов() rules
 
-- `&Перед` — `ПродолжитьВызов()` is invoked automatically afterwards. **Do not call manually.**
+- `&Перед` — the original runs automatically afterwards. **Do not call manually.**
 - `&После` — the original has already executed; `ПродолжитьВызов()` is not used.
-- `&ИзменениеИКонтроль` — `ПродолжитьВызов()` is **mandatory** for the original to run. Without it, the original method does **not** execute.
+- `&Вместо` — `ПродолжитьВызов()` is **mandatory** for the original to run (call it
+  with the same parameters; for functions — return its value). Without it, the
+  original method does **not** execute. It is also the **only** directive where
+  the call compiles.
 
 ---
 
 ## Change markers
 
-Markers are **required** inside `&ИзменениеИКонтроль` to track changes:
+`#Вставка` / `#КонецВставки` and `#Удаление` / `#КонецУдаления` belong **only**
+to the designer's `ИзменениеИКонтроль` workflow (a modified copy of a vendor
+method body, where the designer tracks the diff against the vendor's code).
+They preserve diff/merge semantics when the base configuration is updated.
 
-| Marker | Purpose |
-|--------|---------|
-| `#Вставка` / `#КонецВставки` | New code added by the extension |
-| `#Удаление` / `#КонецУдаления` | Original code that was replaced |
-
-Markers preserve diff/merge semantics when the base configuration is updated and the extension needs to be re-borrowed.
+**Never put these markers into hand-written `&Вместо` / `&Перед` / `&После`
+methods.** Verified on 8.3.27 (file infobase runtime): markers inside a plain
+`&Вместо` method make the platform **silently skip applying the module** — the
+deploy succeeds (`LoadConfigFromFiles` / `UpdateDBCfg` exit 0), the syntax
+checker emits only odd secondary diagnostics, but the interceptor never runs.
+This failure mode costs hours because nothing reports an error; if an
+interceptor "does nothing" after a clean deploy, check for stray markers first.
 
 ---
 
@@ -88,7 +107,7 @@ Markers preserve diff/merge semantics when the base configuration is updated and
 - An adopted object (`ObjectBelonging=Adopted`) is **not a copy** — it is a reference to a base-configuration object brought into the extension's scope so that the extension can attach interceptors and add its own attributes / tabular sections / form elements. The original definition still lives in the base configuration; on a base-configuration update the adopted object is automatically re-read, and the extension is re-applied on top of it.
 - You **cannot** delete existing attributes / tabular sections of an adopted object — they belong to the base configuration.
 - You **can** add your own attributes / tabular sections (with `{PREFIX}` from `.dev.env`).
-- Modules of adopted objects — interceptors only (`&Перед` / `&После` / `&ИзменениеИКонтроль`), no direct edits to the original procedure body.
+- Modules of adopted objects — interceptors only (`&Перед` / `&После` / `&Вместо`), no direct edits to the original procedure body.
 - Forms of adopted objects — you can add elements, you cannot delete existing ones.
 
 ---
@@ -183,10 +202,10 @@ either strings and UUIDs, or the processor lives inside the extension.
 
 ```bsl
 // DANGEROUS: original method will not execute!
-&ИзменениеИКонтроль("ОбработкаПроведения")
-Процедура Расш1_ОбработкаПроведения(Отказ)
+&Вместо("ОбработкаПроведения")
+Процедура Расш1_ОбработкаПроведения(Отказ, РежимПроведения)
     // own code...
-    // FORGOT: ПродолжитьВызов();
+    // FORGOT: ПродолжитьВызов(Отказ, РежимПроведения);
 КонецПроцедуры
 ```
 
