@@ -70,19 +70,26 @@ Use `Структура` as the `Данные` argument of `ЗаписьЖурн
 	"Интеграция.ОбменСCRM.Ответ",
 	УровеньЖурналаРегистрации.Информация,
 	Метаданные.Документы.РеализацияТоваровУслуг,
-	СсылкаДокумента,
-	"",
-	ДанныеСобытия);
+	ДанныеСобытия,
+	"");
 ```
 
-Fields:
+Platform signature (positional — a wrong slot is a runtime type error, see the
+pitfall note below):
+`ЗаписьЖурналаРегистрации(ИмяСобытия, Уровень, Метаданные, Данные, Комментарий, РежимТранзакции)`
 
-- **`ИмяСобытия`** — the dotted category from §3.
-- **`Уровень`** — from §2.
-- **`Метаданные`** — the metadata object whose lifecycle the event belongs to. Pass it for posting / write events; omit (`Неопределено`) for cross-cutting events like scheduled-job lifecycle.
-- **`ДанныеИсточник`** — the specific reference (document, catalog item). Lets `ОтборЖурналаРегистрации` filter to one entity in one click.
-- **`Комментарий`** — short free-text. Use an empty string when `ДанныеСобытия` already carries everything.
-- **`Данные`** — the `Структура`. Engine serializes via XDTO and lets downstream parsers read individual fields.
+- **`ИмяСобытия`** (1) — the dotted category from §3.
+- **`Уровень`** (2) — from §2.
+- **`Метаданные`** (3) — the metadata object whose lifecycle the event belongs to. Pass it for posting / write events; omit (`Неопределено`) for cross-cutting events like scheduled-job lifecycle.
+- **`Данные`** (4) — the `Структура` (or a specific reference when there is exactly one and no context fields). Engine serializes via XDTO and lets downstream parsers read individual fields; a reference here lets `ОтборЖурналаРегистрации` filter to one entity.
+- **`Комментарий`** (5) — short free-text. Use an empty string when `Данные` already carries everything.
+- **`РежимТранзакции`** (6) — `РежимТранзакцииЗаписиЖурналаРегистрации.Независимая` when the entry must survive a rollback of the surrounding transaction (error diagnostics); omit for ordinary entries.
+
+> **Pitfall (bit twice in the CUL project):** passing the `Структура` as the 6th
+> argument. The 6th slot is `РежимТранзакции`; a structure there raises
+> "Несоответствие типов (параметр номер 6)" **at the log-write call site** —
+> which, inside an `Исключение` handler, replaces the original error and kills
+> the whole run. The structure goes 4th, always.
 
 ## 5. Error / exception logging
 
@@ -101,9 +108,9 @@ Inside a justified `Попытка / Исключение` block (e.g. transacti
 		"Интеграция.ОбменСCRM.Ошибка",
 		УровеньЖурналаРегистрации.Ошибка,
 		,
-		,
+		ДанныеОшибки,
 		"Не удалось выполнить запрос к CRM.",
-		ДанныеОшибки);
+		РежимТранзакцииЗаписиЖурналаРегистрации.Независимая);
 
 	ВызватьИсключение;
 
