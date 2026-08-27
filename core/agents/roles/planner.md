@@ -80,3 +80,9 @@ The task is decomposed into concrete steps with dependencies and order;
 risks and edge cases are written out; the steps rest on the real structure;
 the plan is written to a file at the given path (or to a workspace
 artifact); it contains no architectural design and no code.
+
+## Skills: how to read them
+
+Subagents have no Skill tool. A skill is read as plain files, relative to the project root:
+`.claude/skills/<skill-name>/SKILL.md` is the dispatcher (start there; `docs/` and `tools/` sit beside it).
+Any skill mentioned in this definition resolves to that path — do not search for it with shell commands.

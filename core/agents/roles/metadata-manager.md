@@ -51,3 +51,9 @@ The operation was performed through the skill dispatcher and the domain
 instruction; the structure is valid per the project's validation tool;
 conventions are respected; business logic outside the task is untouched;
 the report lists the affected objects.
+
+## Skills: how to read them
+
+Subagents have no Skill tool. A skill is read as plain files, relative to the project root:
+`.claude/skills/<skill-name>/SKILL.md` is the dispatcher (start there; `docs/` and `tools/` sit beside it).
+Any skill mentioned in this definition resolves to that path — do not search for it with shell commands.

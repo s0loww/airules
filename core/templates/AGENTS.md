@@ -65,6 +65,11 @@ when starting that task; **process** — how to run the work itself;
 
 {{RULE_INDEX}}
 
+Skills resolve to files: `.claude/skills/<skill-name>/SKILL.md` is the
+dispatcher (with `docs/` and `tools/` beside it). Subagents have no Skill
+tool — when a prompt or agent definition names a skill, read it at that
+path; never search for it with shell commands.
+
 ## Routing mini-table
 
 A hint for "what to use for which task"; the rule is still loaded via the
