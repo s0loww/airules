@@ -17,6 +17,7 @@ import io
 import os
 import re
 import sqlite3
+import threading
 
 # Export directory -> the qualifier 1C itself uses. Only containers that can
 # own code or be referenced by type are listed.
@@ -184,18 +185,27 @@ class Resolver(object):
 
     def __init__(self, source, db_path=":memory:"):
         self.source = source
-        self.db = sqlite3.connect(db_path)
-        self.db.executescript(SCHEMA)
+        # A resolver outlives a single request and is shared by whatever serves
+        # them -- a threading HTTP server hands each call to a fresh thread, and
+        # sqlite3 refuses a connection used outside its creating thread. The
+        # lock below is what makes lifting that restriction safe, so the two
+        # belong together.
+        self.db = sqlite3.connect(db_path, check_same_thread=False)
+        self._lock = threading.Lock()
+        with self._lock:
+            self.db.executescript(SCHEMA)
 
     def close(self):
-        self.db.close()
+        with self._lock:
+            self.db.close()
 
     # -- building ---------------------------------------------------------
 
     def build(self, force=False):
         """Index the export. Incremental by content hash; returns a count map."""
         counts = {"new": 0, "modified": 0, "unchanged": 0, "deleted": 0}
-        known = dict(self.db.execute("SELECT path, hash FROM files"))
+        with self._lock:
+            known = dict(self.db.execute("SELECT path, hash FROM files"))
         seen = set()
         for full, rel in _walk(self.source):
             seen.add(rel)
@@ -204,16 +214,19 @@ class Resolver(object):
                 counts["unchanged"] += 1
                 continue
             counts["modified" if rel in known else "new"] += 1
-            self.db.execute("DELETE FROM symbols WHERE path = ?", (rel,))
-            self._index_file(full, rel)
-            self.db.execute(
-                "INSERT INTO files(path, hash) VALUES(?, ?) "
-                "ON CONFLICT(path) DO UPDATE SET hash = excluded.hash", (rel, digest))
-        for gone in set(known) - seen:
-            counts["deleted"] += 1
-            self.db.execute("DELETE FROM symbols WHERE path = ?", (gone,))
-            self.db.execute("DELETE FROM files WHERE path = ?", (gone,))
-        self.db.commit()
+            with self._lock:
+                self.db.execute("DELETE FROM symbols WHERE path = ?", (rel,))
+                self._index_file(full, rel)
+                self.db.execute(
+                    "INSERT INTO files(path, hash) VALUES(?, ?) "
+                    "ON CONFLICT(path) DO UPDATE SET hash = excluded.hash",
+                    (rel, digest))
+        with self._lock:
+            for gone in set(known) - seen:
+                counts["deleted"] += 1
+                self.db.execute("DELETE FROM symbols WHERE path = ?", (gone,))
+                self.db.execute("DELETE FROM files WHERE path = ?", (gone,))
+            self.db.commit()
         return counts
 
     def _index_file(self, full, rel):
@@ -249,8 +262,10 @@ class Resolver(object):
         if not name:
             return Resolution(name)
 
-        rows = self.db.execute(
-            "SELECT qual, owner, export FROM symbols WHERE qual = ?", (name,)).fetchall()
+        with self._lock:
+            rows = self.db.execute(
+                "SELECT qual, owner, export FROM symbols WHERE qual = ?",
+                (name,)).fetchall()
         if rows:
             return Resolution(name, id=rows[0][0], kind="routine", confidence="exact")
 
@@ -260,7 +275,8 @@ class Resolver(object):
         if owner_hint:
             sql += " AND owner = ?"
             params.append(owner_hint)
-        rows = self.db.execute(sql, params).fetchall()
+        with self._lock:
+            rows = self.db.execute(sql, params).fetchall()
         if not rows:
             return Resolution(name)
         if len(rows) == 1:
@@ -275,9 +291,11 @@ class Resolver(object):
                           confidence="ambiguous")
 
     def stats(self):
-        files = self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0]
-        symbols = self.db.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
-        owners = self.db.execute("SELECT COUNT(DISTINCT owner) FROM symbols").fetchone()[0]
+        with self._lock:
+            files = self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+            symbols = self.db.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
+            owners = self.db.execute(
+                "SELECT COUNT(DISTINCT owner) FROM symbols").fetchone()[0]
         return {"files": files, "symbols": symbols, "owners": owners}
 
 

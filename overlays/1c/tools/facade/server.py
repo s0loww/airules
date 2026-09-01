@@ -1,0 +1,263 @@
+"""MCP server publishing the six verbs.
+
+Deliberately written against `http.server` and `json` rather than a framework:
+the distribution installs into environments we do not control, and a tool whose
+first requirement is a dependency tree is a tool that does not get switched on.
+The protocol surface actually needed is small -- initialize, tools/list,
+tools/call, ping.
+
+The point of the whole component is on display in TOOLS below: six schemas,
+roughly 5 KB, replacing some 72 KB across eight servers. What disappears is not
+just tokens but the choice itself -- which backend answers which question is
+decided here, in code, from measurements.
+
+    FACADE_REGISTRY=... python server.py --port 8770
+"""
+import argparse
+import json
+import os
+import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "norm"))
+
+import registry as registry_mod                    # noqa: E402
+from health import Health                          # noqa: E402
+from mcp_client import Client                      # noqa: E402
+from verbs import Facade                           # noqa: E402
+
+PROTOCOL = "2025-03-26"
+NAME = "1c-facade"
+VERSION = "0.1.0"
+
+_PROJECT = {"type": "string",
+            "description": "Проект из реестра; опущен — проект по умолчанию."}
+
+TOOLS = [
+    {
+        "name": "find",
+        "description": (
+            "Найти в конфигурации: процедуру по имени (kind=routine), объект "
+            "метаданных (kind=metadata) или код по описанию (kind=text). "
+            "По описанию опрашиваются оба индекса и выдачи объединяются — "
+            "поодиночке каждый неполон."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "project": _PROJECT,
+                "kind": {"type": "string",
+                         "enum": ["any", "routine", "metadata", "form", "text"],
+                         "default": "any"},
+                "exact": {"type": "boolean", "default": False},
+                "limit": {"type": "integer", "default": 20},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "describe",
+        "description": (
+            "Досье объекта метаданных: структура, реквизиты с типами, формы, "
+            "зависимости в обе стороны, состав модулей."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string",
+                       "description": "Квалификатор, например Справочники.Контрагенты."},
+                "project": _PROJECT,
+                "sections": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["id"],
+        },
+    },
+    {
+        "name": "calls",
+        "description": (
+            "Граф вызовов процедуры: кто вызывает (callers) или что вызывает "
+            "она (callees). Имя канонизируется до обращения к индексу, поэтому "
+            "одноимённые процедуры разных модулей не смешиваются."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string",
+                       "description": "Имя процедуры, можно квалифицированное."},
+                "project": _PROJECT,
+                "direction": {"type": "string", "enum": ["callers", "callees"],
+                              "default": "callers"},
+                "depth": {"type": "integer", "default": 1},
+            },
+            "required": ["id"],
+        },
+    },
+    {
+        "name": "usages",
+        "description": (
+            "Использования объекта метаданных: в метаданных (реквизиты с этим "
+            "типом и ссылки объект→объект) и/или в коде. Использования в коде "
+            "не покрыты ни одним индексом и берутся с диска — это помечено в "
+            "coverage."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "project": _PROJECT,
+                "where": {"type": "string", "enum": ["metadata", "code", "both"],
+                          "default": "both"},
+            },
+            "required": ["id"],
+        },
+    },
+    {
+        "name": "check",
+        "description": "Проверить изменения правилами проекта.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project": _PROJECT,
+                "scope": {"type": "string", "enum": ["staged", "path", "diff"],
+                          "default": "staged"},
+            },
+        },
+    },
+    {
+        "name": "status",
+        "description": (
+            "Состояние парка: отвечает ли бэкенд, поднят ли контейнер, возраст "
+            "индекса. Отличает «объекта нет» от «сервер выключен»."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"project": _PROJECT},
+        },
+    },
+]
+
+
+class Dispatcher(object):
+    """JSON-RPC over the facade. Errors come back as data, never as a stack."""
+
+    def __init__(self, facade):
+        self.facade = facade
+        self.lock = threading.Lock()
+
+    def handle(self, message):
+        method = message.get("method")
+        message_id = message.get("id")
+        if message_id is None:
+            return None                       # notification: nothing to answer
+        if method == "initialize":
+            return self._ok(message_id, {
+                "protocolVersion": PROTOCOL,
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": NAME, "version": VERSION}})
+        if method == "ping":
+            return self._ok(message_id, {})
+        if method == "tools/list":
+            return self._ok(message_id, {"tools": TOOLS})
+        if method == "tools/call":
+            return self._call(message_id, message.get("params") or {})
+        return self._error(message_id, -32601, "method not found: %s" % method)
+
+    def _call(self, message_id, params):
+        name = params.get("name")
+        arguments = dict(params.get("arguments") or {})
+        verb = getattr(self.facade, name, None)
+        if name not in {tool["name"] for tool in TOOLS} or verb is None:
+            return self._error(message_id, -32602, "unknown tool: %s" % name)
+        try:
+            with self.lock:
+                envelope = verb(**arguments)
+            payload = json.dumps(envelope.as_dict(), ensure_ascii=False)
+            return self._ok(message_id, {"content": [{"type": "text", "text": payload}]})
+        except KeyError as exc:               # unknown project -- caller's mistake
+            return self._tool_error(message_id, str(exc))
+        except TypeError as exc:              # bad arguments -- caller's mistake
+            return self._tool_error(message_id, "bad arguments: %s" % exc)
+        except Exception as exc:              # noqa: BLE001 - never kill the server
+            return self._tool_error(message_id, "%s: %s" % (type(exc).__name__, exc))
+
+    @staticmethod
+    def _ok(message_id, result):
+        return {"jsonrpc": "2.0", "id": message_id, "result": result}
+
+    @staticmethod
+    def _error(message_id, code, text):
+        return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": text}}
+
+    def _tool_error(self, message_id, text):
+        return self._ok(message_id, {"isError": True,
+                                     "content": [{"type": "text", "text": text}]})
+
+
+def make_handler(dispatcher, path):
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *_args):
+            pass                              # keep the console for real output
+
+        def _send(self, code, payload=None):
+            body = b"" if payload is None else json.dumps(
+                payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            if body:
+                self.wfile.write(body)
+
+        def do_POST(self):                    # noqa: N802 - http.server contract
+            if self.path.rstrip("/") != path.rstrip("/"):
+                return self._send(404, {"error": "not found"})
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                message = json.loads(self.rfile.read(length).decode("utf-8"))
+            except ValueError:
+                return self._send(400, {"jsonrpc": "2.0", "id": None,
+                                        "error": {"code": -32700, "message": "parse error"}})
+            reply = dispatcher.handle(message)
+            if reply is None:
+                return self._send(202)
+            return self._send(200, reply)
+
+        def do_GET(self):                     # noqa: N802 - http.server contract
+            if self.path.rstrip("/") == path.rstrip("/") + "/health":
+                return self._send(200, {"server": NAME, "version": VERSION})
+            return self._send(404, {"error": "not found"})
+
+    return Handler
+
+
+def build_facade():
+    reg = registry_mod.load()
+    if not len(reg):
+        print("реестр пуст: создайте facade-registry.json по registry.example.json "
+              "или укажите путь в FACADE_REGISTRY", file=sys.stderr)
+    return Facade(reg, Health(Client), Client)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="MCP-фасад для 1С")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8770)
+    parser.add_argument("--path", default="/mcp")
+    args = parser.parse_args(argv)
+
+    facade = build_facade()
+    server = ThreadingHTTPServer((args.host, args.port),
+                                 make_handler(Dispatcher(facade), args.path))
+    print("%s %s: http://%s:%d%s  (проектов в реестре: %d)"
+          % (NAME, VERSION, args.host, args.port, args.path, len(facade.registry)))
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
