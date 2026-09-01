@@ -1,0 +1,2517 @@
+{
+ "code_call_hierarchy__ok": {
+  "count": 2,
+  "declared": null,
+  "records": [
+   {
+    "id": "ПриобретениеУслугПрочихАктивов.ДЕМО_ОбработкаЗаполнения1",
+    "kind": "routine",
+    "loc": {
+     "line": 54,
+     "path": "Documents/ПриобретениеУслугПрочихАктивов/Ext/ObjectModule.bsl"
+    },
+    "name": "ДЕМО_ОбработкаЗаполнения1",
+    "owner": "ПриобретениеУслугПрочихАктивов",
+    "rel": {
+     "depth": 1,
+     "to": "ОтправкаПочты",
+     "type": "calls"
+    },
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_method_call_hierarchy"
+    }
+   },
+   {
+    "id": "ДЕМО_ВызовФоновыхЗаданий.ДЕМО_ДЕМО_РегулярныйЗапускАвтомата",
+    "kind": "routine",
+    "loc": {
+     "line": 46,
+     "path": "CommonModules/ДЕМО_ВызовФоновыхЗаданий/Ext/Module.bsl"
+    },
+    "name": "ДЕМО_ДЕМО_РегулярныйЗапускАвтомата",
+    "owner": "ДЕМО_ВызовФоновыхЗаданий",
+    "rel": {
+     "depth": 1,
+     "to": "ОтправкаПочты",
+     "type": "calls"
+    },
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_method_call_hierarchy"
+    }
+   }
+  ],
+  "resolved_id": "ОтправкаПочты",
+  "sections": {},
+  "status": "ok"
+ },
+ "code_dependencies__reverse": {
+  "count": 10,
+  "declared": null,
+  "records": [
+   {
+    "id": "Справочники.ОбъектыЭксплуатации",
+    "kind": "metadata",
+    "name": "ОбъектыЭксплуатации",
+    "owner": "Справочники",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_ВозобновлениеДоговораЛизинга",
+    "kind": "metadata",
+    "name": "ДЕМО_ВозобновлениеДоговораЛизинга",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_ПакетноеСозданиеКорректировокРТУ",
+    "kind": "metadata",
+    "name": "ДЕМО_ПакетноеСозданиеКорректировокРТУ",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_РеестрЗамечаний",
+    "kind": "metadata",
+    "name": "ДЕМО_РеестрЗамечаний",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг",
+    "kind": "metadata",
+    "name": "ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_СохранениеПечатныхФорм",
+    "kind": "metadata",
+    "name": "ДЕМО_СохранениеПечатныхФорм",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Обработки.инт_ОтражениеРасчетовМеждуФилиалами",
+    "kind": "metadata",
+    "name": "инт_ОтражениеРасчетовМеждуФилиалами",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Документы.ДЕМО_СправкаОПБС",
+    "kind": "metadata",
+    "name": "ДЕМО_СправкаОПБС",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Документы.ДЕМО_СторнированиеПроцентовПоЛизингу",
+    "kind": "metadata",
+    "name": "ДЕМО_СторнированиеПроцентовПоЛизингу",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   },
+   {
+    "id": "Документы.ДЕМО_СправкаОЗадолженности",
+    "kind": "metadata",
+    "name": "ДЕМО_СправкаОЗадолженности",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "REFERENCES"
+    },
+    "src": {
+     "backend": "code",
+     "score": 1.0,
+     "tier": "indexed",
+     "tool": "graph_dependencies"
+    }
+   }
+  ],
+  "resolved_id": "Справочники.ДоговорыКонтрагентов",
+  "sections": {
+   "reverse": {
+    "declared": -1,
+    "parsed": 10
+   }
+  },
+  "status": "ok"
+ },
+ "code_metadata_details__ok": {
+  "count": 19,
+  "declared": null,
+  "records": [
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ID_Обмена",
+    "kind": "attribute",
+    "name": "ДЕМО_ID_Обмена",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Строка(36, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ВнешняяДата",
+    "kind": "attribute",
+    "name": "ДЕМО_ВнешняяДата",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Дата(Дата)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ВнутреннийНомер",
+    "kind": "attribute",
+    "name": "ДЕМО_ВнутреннийНомер",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Строка(128, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ДатаНачалаДействияСтрахования",
+    "kind": "attribute",
+    "name": "ДЕМО_ДатаНачалаДействияСтрахования",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Дата(Дата)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ДатаОкончанияДействияСтрахования",
+    "kind": "attribute",
+    "name": "ДЕМО_ДатаОкончанияДействияСтрахования",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Дата(Дата)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ИспользоватьВнешнююДату",
+    "kind": "attribute",
+    "name": "ДЕМО_ИспользоватьВнешнююДату",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Булево"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_КодДопУслуги",
+    "kind": "attribute",
+    "name": "ДЕМО_КодДопУслуги",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Строка(32, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_Многопозиционность",
+    "kind": "attribute",
+    "name": "ДЕМО_Многопозиционность",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Число(1, 0, Неотрицательный)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_НаличиеСтрахования",
+    "kind": "attribute",
+    "name": "ДЕМО_НаличиеСтрахования",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Булево"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ОсобенностиОкончания",
+    "kind": "attribute",
+    "name": "ДЕМО_ОсобенностиОкончания",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_ОсобенностиОкончанияДоговораЛизинга"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ПодвидДоговоров",
+    "kind": "attribute",
+    "name": "ДЕМО_ПодвидДоговоров",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_ПодвидыДоговоров"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_РегистрацияНаИмя",
+    "kind": "attribute",
+    "name": "ДЕМО_РегистрацияНаИмя",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_РегистрацияНаИмяОбъекта"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_РедакцияПравил",
+    "kind": "attribute",
+    "name": "ДЕМО_РедакцияПравил",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Строка(15, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_СтатусДоговораВSAP",
+    "kind": "attribute",
+    "name": "ДЕМО_СтатусДоговораВSAP",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_СтатусыДоговоровВSAP"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_СуммаДКП",
+    "kind": "attribute",
+    "name": "ДЕМО_СуммаДКП",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Число(17, 2)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_СуммаФраншизы",
+    "kind": "attribute",
+    "name": "ДЕМО_СуммаФраншизы",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Число(15, 2, Неотрицательный)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ТипОбеспечиваемогоДоговора",
+    "kind": "attribute",
+    "name": "ДЕМО_ТипОбеспечиваемогоДоговора",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Строка(30, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ТипСделки",
+    "kind": "attribute",
+    "name": "ДЕМО_ТипСделки",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_ТипыСделок"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_УИД_БКИ",
+    "kind": "attribute",
+    "name": "ДЕМО_УИД_БКИ",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "Строка(38, Переменная)"
+   }
+  ],
+  "resolved_id": "Справочники.ДоговорыКонтрагентов",
+  "sections": {
+   "attributes": {
+    "declared": -1,
+    "parsed": 19
+   }
+  },
+  "status": "ok"
+ },
+ "code_search_function__ok": {
+  "count": 2,
+  "declared": null,
+  "records": [
+   {
+    "id": "ОтправкаПочты",
+    "kind": "routine",
+    "loc": {
+     "end": 1055,
+     "line": 1031
+    },
+    "name": "ОтправкаПочты",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_function"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ОтправкаПочты",
+    "kind": "routine",
+    "loc": {
+     "end": 1767,
+     "line": 1739
+    },
+    "name": "ОтправкаПочты",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_function"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   }
+  ],
+  "resolved_id": null,
+  "sections": {},
+  "status": "ok"
+ },
+ "graph_call_chain__callees": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": "ДЕМО_ОбменSAP.ОбработатьВходящиеПараметрыСервиса",
+  "sections": {},
+  "status": "empty"
+ },
+ "graph_call_chain__callers": {
+  "count": 8,
+  "declared": 8,
+  "records": [
+   {
+    "id": "web_ERPImportChange.ПроверитьИзаписатьМодель",
+    "kind": "routine",
+    "name": "ПроверитьИзаписатьМодель",
+    "owner": "web_ERPImportChange",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ПроверитьИзаписатьМодель(МодельОбъект)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "web_ERPImportContract.ImportContract",
+    "kind": "routine",
+    "name": "ImportContract",
+    "owner": "web_ERPImportContract",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Функция ImportContract(ВходящиеПараметры) Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_ВызовФоновыхЗаданий.ДЕМО_ДЕМО_РегулярныйЗапускАвтомата",
+    "kind": "routine",
+    "name": "ДЕМО_ДЕМО_РегулярныйЗапускАвтомата",
+    "owner": "ДЕМО_ВызовФоновыхЗаданий",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДЕМО_ДЕМО_РегулярныйЗапускАвтомата()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ДЕМО_ОтправкаЗаявокНаПересчет",
+    "kind": "routine",
+    "name": "ДЕМО_ОтправкаЗаявокНаПересчет",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДЕМО_ОтправкаЗаявокНаПересчет(ПараметрыВыполнения = \"\") Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ДЕМО_ОтправкаПочты",
+    "kind": "routine",
+    "name": "ДЕМО_ОтправкаПочты",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДЕМО_ОтправкаПочты() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ВыгрузитьВXMLНаСервере",
+    "kind": "routine",
+    "name": "ВыгрузитьВXMLНаСервере",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ВыгрузитьВXMLНаСервере(АдресВременногоХранилища = \"\")",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РеестрЗамечаний.ОтправитьНаEmailХозДокументыНаСервере",
+    "kind": "routine",
+    "name": "ОтправитьНаEmailХозДокументыНаСервере",
+    "owner": "ДЕМО_РеестрЗамечаний",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ОтправитьНаEmailХозДокументыНаСервере()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    },
+    "text": "&НаСервере"
+   },
+   {
+    "id": "ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг.ЗапуститьФоновоеВыполнение",
+    "kind": "routine",
+    "name": "ЗапуститьФоновоеВыполнение",
+    "owner": "ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Функция ЗапуститьФоновоеВыполнение() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   }
+  ],
+  "resolved_id": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+  "sections": {},
+  "status": "ok"
+ },
+ "graph_call_chain__deep": {
+  "count": 13,
+  "declared": 13,
+  "records": [
+   {
+    "id": "web_ERPImportChange.ПроверитьИзаписатьМодель",
+    "kind": "routine",
+    "name": "ПроверитьИзаписатьМодель",
+    "owner": "web_ERPImportChange",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ПроверитьИзаписатьМодель(МодельОбъект)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "web_ERPImportContract.ImportContract",
+    "kind": "routine",
+    "name": "ImportContract",
+    "owner": "web_ERPImportContract",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Функция ImportContract(ВходящиеПараметры) Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_ВызовФоновыхЗаданий.ДЕМО_ДЕМО_РегулярныйЗапускАвтомата",
+    "kind": "routine",
+    "name": "ДЕМО_ДЕМО_РегулярныйЗапускАвтомата",
+    "owner": "ДЕМО_ВызовФоновыхЗаданий",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДЕМО_ДЕМО_РегулярныйЗапускАвтомата()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ДЕМО_ОтправкаЗаявокНаПересчет",
+    "kind": "routine",
+    "name": "ДЕМО_ОтправкаЗаявокНаПересчет",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДЕМО_ОтправкаЗаявокНаПересчет(ПараметрыВыполнения = \"\") Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ДЕМО_ОтправкаПочты",
+    "kind": "routine",
+    "name": "ДЕМО_ОтправкаПочты",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДЕМО_ОтправкаПочты() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ВыгрузитьВXMLНаСервере",
+    "kind": "routine",
+    "name": "ВыгрузитьВXMLНаСервере",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ВыгрузитьВXMLНаСервере(АдресВременногоХранилища = \"\")",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РеестрЗамечаний.ОтправитьНаEmailХозДокументыНаСервере",
+    "kind": "routine",
+    "name": "ОтправитьНаEmailХозДокументыНаСервере",
+    "owner": "ДЕМО_РеестрЗамечаний",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ОтправитьНаEmailХозДокументыНаСервере()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    },
+    "text": "&НаСервере"
+   },
+   {
+    "id": "ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг.ЗапуститьФоновоеВыполнение",
+    "kind": "routine",
+    "name": "ЗапуститьФоновоеВыполнение",
+    "owner": "ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Функция ЗапуститьФоновоеВыполнение() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "web_ERPImportChange.РеструктуризацияМодели",
+    "kind": "routine",
+    "name": "РеструктуризацияМодели",
+    "owner": "web_ERPImportChange",
+    "rel": {
+     "depth": 2,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура РеструктуризацияМодели(ВходящиеПараметры, ПараметрыРеструктуризации)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "web_ERPImportChange.СменаКонтрагентаМодели",
+    "kind": "routine",
+    "name": "СменаКонтрагентаМодели",
+    "owner": "web_ERPImportChange",
+    "rel": {
+     "depth": 2,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура СменаКонтрагентаМодели(ВходящиеПараметры, ПараметрыРеструктуризации, ДатаСменыКонтрагента)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_ОбменSAP.ЗагрузитьСообщения",
+    "kind": "routine",
+    "name": "ЗагрузитьСообщения",
+    "owner": "ДЕМО_ОбменSAP",
+    "rel": {
+     "depth": 2,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ЗагрузитьСообщения(МассивСообщений, АдресВХранилище = \"\") Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РегламентныеЗадания.ВыгрузкаРеестраЗамечаний",
+    "kind": "routine",
+    "name": "ВыгрузкаРеестраЗамечаний",
+    "owner": "ДЕМО_РегламентныеЗадания",
+    "rel": {
+     "depth": 2,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ВыгрузкаРеестраЗамечаний() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_РеестрЗамечаний.ОтправитьНаEmailХозДокументы",
+    "kind": "routine",
+    "name": "ОтправитьНаEmailХозДокументы",
+    "owner": "ДЕМО_РеестрЗамечаний",
+    "rel": {
+     "depth": 2,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ОтправитьНаEmailХозДокументы(Команда)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    },
+    "text": "&НаКлиенте"
+   }
+  ],
+  "resolved_id": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+  "sections": {},
+  "status": "ok"
+ },
+ "graph_call_chain__empty": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": null,
+  "sections": {},
+  "status": "not_found"
+ },
+ "graph_dossier__ok": {
+  "count": 75,
+  "declared": null,
+  "records": [
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ID_Обмена",
+    "kind": "attribute",
+    "name": "ДЕМО_ID_Обмена",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Строка(36, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ВнешняяДата",
+    "kind": "attribute",
+    "name": "ДЕМО_ВнешняяДата",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Дата(Дата)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ВнутреннийНомер",
+    "kind": "attribute",
+    "name": "ДЕМО_ВнутреннийНомер",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Строка(128, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ДатаНачалаДействияСтрахования",
+    "kind": "attribute",
+    "name": "ДЕМО_ДатаНачалаДействияСтрахования",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Дата(Дата)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ДатаОкончанияДействияСтрахования",
+    "kind": "attribute",
+    "name": "ДЕМО_ДатаОкончанияДействияСтрахования",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Дата(Дата)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ИспользоватьВнешнююДату",
+    "kind": "attribute",
+    "name": "ДЕМО_ИспользоватьВнешнююДату",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Булево"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_КодДопУслуги",
+    "kind": "attribute",
+    "name": "ДЕМО_КодДопУслуги",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Строка(32, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_Многопозиционность",
+    "kind": "attribute",
+    "name": "ДЕМО_Многопозиционность",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Число(1, 0, Неотрицательный)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_НаличиеСтрахования",
+    "kind": "attribute",
+    "name": "ДЕМО_НаличиеСтрахования",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Булево"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ОсобенностиОкончания",
+    "kind": "attribute",
+    "name": "ДЕМО_ОсобенностиОкончания",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_ОсобенностиОкончанияДоговораЛизинга"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ПодвидДоговоров",
+    "kind": "attribute",
+    "name": "ДЕМО_ПодвидДоговоров",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_ПодвидыДоговоров"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_РегистрацияНаИмя",
+    "kind": "attribute",
+    "name": "ДЕМО_РегистрацияНаИмя",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_РегистрацияНаИмяОбъекта"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_РедакцияПравил",
+    "kind": "attribute",
+    "name": "ДЕМО_РедакцияПравил",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Строка(15, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_СтатусДоговораВSAP",
+    "kind": "attribute",
+    "name": "ДЕМО_СтатусДоговораВSAP",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_СтатусыДоговоровВSAP"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_СуммаДКП",
+    "kind": "attribute",
+    "name": "ДЕМО_СуммаДКП",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Число(17, 2)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_СуммаФраншизы",
+    "kind": "attribute",
+    "name": "ДЕМО_СуммаФраншизы",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Число(15, 2, Неотрицательный)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ТипОбеспечиваемогоДоговора",
+    "kind": "attribute",
+    "name": "ДЕМО_ТипОбеспечиваемогоДоговора",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Строка(30, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_ТипСделки",
+    "kind": "attribute",
+    "name": "ДЕМО_ТипСделки",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "ПеречислениеСсылка.ДЕМО_ТипыСделок"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ДЕМО_УИД_БКИ",
+    "kind": "attribute",
+    "name": "ДЕМО_УИД_БКИ",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    },
+    "text": "Строка(38, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.инт_ПродуктПрограмма",
+    "kind": "metadata",
+    "name": "инт_ПродуктПрограмма",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ФормаЭлемента",
+    "kind": "form",
+    "name": "ФормаЭлемента",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.ДЕМО_СправкаОЗадолженности",
+    "kind": "metadata",
+    "name": "ДЕМО_СправкаОЗадолженности",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.ДЕМО_СправкаОПБС",
+    "kind": "metadata",
+    "name": "ДЕМО_СправкаОПБС",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорПоставки"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.ДЕМО_СторнированиеПроцентовПоЛизингу",
+    "kind": "metadata",
+    "name": "ДЕМО_СторнированиеПроцентовПоЛизингу",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.КорректировкаРеализации",
+    "kind": "metadata",
+    "name": "КорректировкаРеализации",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.КорректировкаРеализации",
+    "kind": "metadata",
+    "name": "КорректировкаРеализации",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:КлиентДоговор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.ОтражениеЗарплатыВФинансовомУчете",
+    "kind": "metadata",
+    "name": "ОтражениеЗарплатыВФинансовомУчете",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:АгентскийДоговор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.ПриобретениеТоваровУслуг",
+    "kind": "metadata",
+    "name": "ПриобретениеТоваровУслуг",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Документы.РеализацияУслугПрочихАктивов",
+    "kind": "metadata",
+    "name": "РеализацияУслугПрочихАктивов",
+    "owner": "Документы",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_ВозобновлениеДоговораЛизинга",
+    "kind": "metadata",
+    "name": "ДЕМО_ВозобновлениеДоговораЛизинга",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_ПакетноеСозданиеКорректировокРТУ",
+    "kind": "metadata",
+    "name": "ДЕМО_ПакетноеСозданиеКорректировокРТУ",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_РеестрЗамечаний",
+    "kind": "metadata",
+    "name": "ДЕМО_РеестрЗамечаний",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_РеестрЗамечаний",
+    "kind": "metadata",
+    "name": "ДЕМО_РеестрЗамечаний",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорПоставки"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг",
+    "kind": "metadata",
+    "name": "ДЕМО_СозданиеПакетаДокументовПередачиВЛизинг",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:ДоговорКонтрагента"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.ДЕМО_СохранениеПечатныхФорм",
+    "kind": "metadata",
+    "name": "ДЕМО_СохранениеПечатныхФорм",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Обработки.инт_ОтражениеРасчетовМеждуФилиалами",
+    "kind": "metadata",
+    "name": "инт_ОтражениеРасчетовМеждуФилиалами",
+    "owner": "Обработки",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Отчеты.ДЕМО_ОтчетПоРасторгнутымДоговорам",
+    "kind": "metadata",
+    "name": "ДЕМО_ОтчетПоРасторгнутымДоговорам",
+    "owner": "Отчеты",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Отчеты.УУ_ОЭП",
+    "kind": "metadata",
+    "name": "УУ_ОЭП",
+    "owner": "Отчеты",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ДанныеПлатежныхПорученийЦУЛ",
+    "kind": "metadata",
+    "name": "ДЕМО_ДанныеПлатежныхПорученийЦУЛ",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ДоговорыОС",
+    "kind": "metadata",
+    "name": "ДЕМО_ДоговорыОС",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "resource:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ДоговорыСПроведеннымиДокументами",
+    "kind": "metadata",
+    "name": "ДЕМО_ДоговорыСПроведеннымиДокументами",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ЗаданияКПлановомуОкончаниюДоговоровЛизинга",
+    "kind": "metadata",
+    "name": "ДЕМО_ЗаданияКПлановомуОкончаниюДоговоровЛизинга",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ЗамечанияКПервичнымДокументам",
+    "kind": "metadata",
+    "name": "ДЕМО_ЗамечанияКПервичнымДокументам",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "resource:ДоговорПоставки"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ЗамечанияКПервичнымДокументам",
+    "kind": "metadata",
+    "name": "ДЕМО_ЗамечанияКПервичнымДокументам",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "resource:ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_КомплектыДокументовРеализацииОС",
+    "kind": "metadata",
+    "name": "ДЕМО_КомплектыДокументовРеализацииОС",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "resource:ДоговорДКП"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_КомплектыДокументовРеализацииОС",
+    "kind": "metadata",
+    "name": "ДЕМО_КомплектыДокументовРеализацииОС",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ОплатыЗаКлиента",
+    "kind": "metadata",
+    "name": "ДЕМО_ОплатыЗаКлиента",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "resource:ДоговорКлиента"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ПризнакиПлатежей",
+    "kind": "metadata",
+    "name": "ДЕМО_ПризнакиПлатежей",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "resource:демо_спрДоговор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_РасшифровкаЗадолженностейПриОкончанииДоговоров",
+    "kind": "metadata",
+    "name": "ДЕМО_РасшифровкаЗадолженностейПриОкончанииДоговоров",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_СозданныеОбъекты",
+    "kind": "metadata",
+    "name": "ДЕМО_СозданныеОбъекты",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_УведомленияОПени",
+    "kind": "metadata",
+    "name": "ДЕМО_УведомленияОПени",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:Договор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "РегистрыСведений.ккНачисленияПоАгентскимДоговорам",
+    "kind": "metadata",
+    "name": "ккНачисленияПоАгентскимДоговорам",
+    "owner": "РегистрыСведений",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "dimension:АгентскийДоговор"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ОбъектыЭксплуатации",
+    "kind": "metadata",
+    "name": "ОбъектыЭксплуатации",
+    "owner": "Справочники",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:инт_УдалитьДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ОбъектыЭксплуатации",
+    "kind": "metadata",
+    "name": "ОбъектыЭксплуатации",
+    "owner": "Справочники",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "references",
+     "via": "attribute:лз_ДоговорЛизинга"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Перечисления.ДЕМО_ОсобенностиОкончанияДоговораЛизинга",
+    "kind": "metadata",
+    "name": "ДЕМО_ОсобенностиОкончанияДоговораЛизинга",
+    "owner": "Перечисления",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "referenced_by",
+     "via": "attribute:ДЕМО_ОсобенностиОкончания"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Перечисления.ДЕМО_ПодвидыДоговоров",
+    "kind": "metadata",
+    "name": "ДЕМО_ПодвидыДоговоров",
+    "owner": "Перечисления",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "referenced_by",
+     "via": "attribute:ДЕМО_ПодвидДоговоров"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Перечисления.ДЕМО_РегистрацияНаИмяОбъекта",
+    "kind": "metadata",
+    "name": "ДЕМО_РегистрацияНаИмяОбъекта",
+    "owner": "Перечисления",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "referenced_by",
+     "via": "attribute:ДЕМО_РегистрацияНаИмя"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Перечисления.ДЕМО_СтатусыДоговоровВSAP",
+    "kind": "metadata",
+    "name": "ДЕМО_СтатусыДоговоровВSAP",
+    "owner": "Перечисления",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "referenced_by",
+     "via": "attribute:ДЕМО_СтатусДоговораВSAP"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Перечисления.ДЕМО_ТипыСделок",
+    "kind": "metadata",
+    "name": "ДЕМО_ТипыСделок",
+    "owner": "Перечисления",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "referenced_by",
+     "via": "attribute:ДЕМО_ТипСделки"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.инт_ПродуктПрограмма",
+    "kind": "metadata",
+    "name": "инт_ПродуктПрограмма",
+    "owner": "Справочники",
+    "rel": {
+     "to": "Справочники.ДоговорыКонтрагентов",
+     "type": "referenced_by",
+     "via": "attribute:ПродуктПрограмма"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДЕМО_ПередЗаписьюПеред",
+    "kind": "routine",
+    "name": "ДЕМО_ПередЗаписьюПеред",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДЕМО_ПередЗаписьюПеред(Отказ, ПараметрыЗаписи)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДобавитьПолеРегистрацияНаИмя",
+    "kind": "routine",
+    "name": "ДобавитьПолеРегистрацияНаИмя",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДобавитьПолеРегистрацияНаИмя(ГруппаСтраницы)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДобавитьПолеРедакцияПравил",
+    "kind": "routine",
+    "name": "ДобавитьПолеРедакцияПравил",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДобавитьПолеРедакцияПравил(ГруппаСтраницы)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДобавитьПолеВнешняяДата",
+    "kind": "routine",
+    "name": "ДобавитьПолеВнешняяДата",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДобавитьПолеВнешняяДата(Группа)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДЕМО_ВнешняяДатаПриИзменении",
+    "kind": "routine",
+    "name": "ДЕМО_ВнешняяДатаПриИзменении",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДЕМО_ВнешняяДатаПриИзменении(Элемент)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДЕМО_ПриСозданииНаСервереПосле",
+    "kind": "routine",
+    "name": "ДЕМО_ПриСозданииНаСервереПосле",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДЕМО_ПриСозданииНаСервереПосле(Отказ, СтандартнаяОбработка)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.FormModule.ДЕМО_ПриОткрытииПосле",
+    "kind": "routine",
+    "name": "ДЕМО_ПриОткрытииПосле",
+    "owner": "Справочники.ДоговорыКонтрагентов.FormModule",
+    "sig": "Процедура ДЕМО_ПриОткрытииПосле(Отказ)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ManagerModule.ДЕМО_ОбработкаПолученияДанныхВыбора",
+    "kind": "routine",
+    "name": "ДЕМО_ОбработкаПолученияДанныхВыбора",
+    "owner": "Справочники.ДоговорыКонтрагентов.ManagerModule",
+    "sig": "Процедура ДЕМО_ОбработкаПолученияДанныхВыбора(ДанныеВыбора, Параметры, СтандартнаяОбработка)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.БЛПередЗаписьюНаСервере",
+    "kind": "routine",
+    "name": "БЛПередЗаписьюНаСервере",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Процедура БЛПередЗаписьюНаСервере()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.ДЕМО_ПодставитьПодразделениеСогласноУсловиямДоговораЛизинга",
+    "kind": "routine",
+    "name": "ДЕМО_ПодставитьПодразделениеСогласноУсловиямДоговораЛизинга",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Функция ДЕМО_ПодставитьПодразделениеСогласноУсловиямДоговораЛизинга()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.ДЕМО_ПередЗаписью",
+    "kind": "routine",
+    "name": "ДЕМО_ПередЗаписью",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Процедура ДЕМО_ПередЗаписью(Отказ)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.ДЕМО_ПриКопировании",
+    "kind": "routine",
+    "name": "ДЕМО_ПриКопировании",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Процедура ДЕМО_ПриКопировании(ОбъектКопирования)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.ДЕМО_ОбработкаПроверкиЗаполнения",
+    "kind": "routine",
+    "name": "ДЕМО_ОбработкаПроверкиЗаполнения",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Процедура ДЕМО_ОбработкаПроверкиЗаполнения(Отказ, ПроверяемыеРеквизиты)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.ДЕМО_ОбработкаЗаполнения",
+    "kind": "routine",
+    "name": "ДЕМО_ОбработкаЗаполнения",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Процедура ДЕМО_ОбработкаЗаполнения(ДанныеЗаполнения, ТекстЗаполнения, СтандартнаяОбработка)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.ObjectModule.ДЕМО_ПриЗаписи",
+    "kind": "routine",
+    "name": "ДЕМО_ПриЗаписи",
+    "owner": "Справочники.ДоговорыКонтрагентов.ObjectModule",
+    "sig": "Процедура ДЕМО_ПриЗаписи(Отказ)",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "get_object_dossier"
+    }
+   }
+  ],
+  "resolved_id": "Справочники.ДоговорыКонтрагентов",
+  "sections": {
+   "attributes": {
+    "declared": 19,
+    "parsed": 19
+   },
+   "code": {
+    "declared": -1,
+    "parsed": 15
+   },
+   "downstream": {
+    "declared": 33,
+    "parsed": 33
+   },
+   "forms": {
+    "declared": -1,
+    "parsed": 1
+   },
+   "tabular": {
+    "declared": 1,
+    "parsed": 1
+   },
+   "upstream": {
+    "declared": 6,
+    "parsed": 6
+   }
+  },
+  "status": "ok"
+ },
+ "graph_search_code__ok": {
+  "count": 3,
+  "declared": 3,
+  "records": [
+   {
+    "id": "СчетФактураВыданный.ДЕМО_ОтправитьПоЭлПочтеКоманда",
+    "kind": "routine",
+    "loc": {
+     "line": 21,
+     "path": "Documents/СчетФактураВыданный/Forms/ФормаСписка/Ext/Form/Module.bsl"
+    },
+    "name": "ДЕМО_ОтправитьПоЭлПочтеКоманда",
+    "owner": "СчетФактураВыданный",
+    "sig": "Процедура ДЕМО_ОтправитьПоЭлПочтеКоманда(Команда)",
+    "src": {
+     "backend": "graph",
+     "score": 0.0098,
+     "tier": "indexed",
+     "tool": "search_code"
+    }
+   },
+   {
+    "id": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+    "kind": "routine",
+    "loc": {
+     "line": 1031,
+     "path": "CommonModules/ДЕМО_ОбщегоНазначенияСервер/Ext/Module.bsl"
+    },
+    "name": "ОтправкаПочты",
+    "owner": "ДЕМО_ОбщегоНазначенияСервер",
+    "sig": "Процедура ОтправкаПочты(МассивПолучателей, ИмяОтправителя, Отправитель, Тема, ТекстСообщения) Экспорт",
+    "src": {
+     "backend": "graph",
+     "score": 0.0097,
+     "tier": "indexed",
+     "tool": "search_code"
+    }
+   },
+   {
+    "id": "блАнализСчета7902.ОтправитьПоЭлектроннойПочте",
+    "kind": "routine",
+    "loc": {
+     "line": 751,
+     "path": "Reports/блАнализСчета7902/Forms/ФормаОтчета/Ext/Form/Module.bsl"
+    },
+    "name": "ОтправитьПоЭлектроннойПочте",
+    "owner": "блАнализСчета7902",
+    "sig": "Процедура ОтправитьПоЭлектроннойПочте(Команда)",
+    "src": {
+     "backend": "graph",
+     "score": 0.0095,
+     "tier": "indexed",
+     "tool": "search_code"
+    }
+   }
+  ],
+  "resolved_id": null,
+  "sections": {},
+  "status": "ok"
+ },
+ "graph_usages__empty": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": "НетТакогоОбъекта",
+  "sections": {},
+  "status": "empty"
+ },
+ "graph_usages__ok": {
+  "count": 26,
+  "declared": 26,
+  "records": [
+   {
+    "id": "Документы.ДЕМО_СправкаОПБС.ДоговорПоставки",
+    "kind": "attribute",
+    "name": "ДоговорПоставки",
+    "owner": "Документы.ДЕМО_СправкаОПБС",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Документы.КорректировкаРеализации.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Документы.КорректировкаРеализации",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Документы.КорректировкаРеализации.КлиентДоговор",
+    "kind": "attribute",
+    "name": "КлиентДоговор",
+    "owner": "Документы.КорректировкаРеализации",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Документы.ПриобретениеТоваровУслуг.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Документы.ПриобретениеТоваровУслуг",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Документы.РеализацияУслугПрочихАктивов.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Документы.РеализацияУслугПрочихАктивов",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Обработки.ДЕМО_ПакетноеСозданиеКорректировокРТУ.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Обработки.ДЕМО_ПакетноеСозданиеКорректировокРТУ",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Обработки.ДЕМО_ПакетноеСозданиеКорректировокРТУ.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Обработки.ДЕМО_ПакетноеСозданиеКорректировокРТУ",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Обработки.инт_ОтражениеРасчетовМеждуФилиалами.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Обработки.инт_ОтражениеРасчетовМеждуФилиалами",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Отчеты.ДЕМО_ОтчетПоРасторгнутымДоговорам.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "Отчеты.ДЕМО_ОтчетПоРасторгнутымДоговорам",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Отчеты.УУ_ОЭП.договор",
+    "kind": "attribute",
+    "name": "договор",
+    "owner": "Отчеты.УУ_ОЭП",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ДанныеПлатежныхПорученийЦУЛ.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_ДанныеПлатежныхПорученийЦУЛ",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ДоговорыОС.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_ДоговорыОС",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "resource"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ДоговорыСПроведеннымиДокументами.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_ДоговорыСПроведеннымиДокументами",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ЗаданияКПлановомуОкончаниюДоговоровЛизинга.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_ЗаданияКПлановомуОкончаниюДоговоровЛизинга",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ЗамечанияКПервичнымДокументам.ДоговорЛизинга",
+    "kind": "attribute",
+    "name": "ДоговорЛизинга",
+    "owner": "РегистрыСведений.ДЕМО_ЗамечанияКПервичнымДокументам",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "resource"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ЗамечанияКПервичнымДокументам.ДоговорПоставки",
+    "kind": "attribute",
+    "name": "ДоговорПоставки",
+    "owner": "РегистрыСведений.ДЕМО_ЗамечанияКПервичнымДокументам",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "resource"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_КомплектыДокументовРеализацииОС.ДоговорДКП",
+    "kind": "attribute",
+    "name": "ДоговорДКП",
+    "owner": "РегистрыСведений.ДЕМО_КомплектыДокументовРеализацииОС",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "resource"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_КомплектыДокументовРеализацииОС.ДоговорЛизинга",
+    "kind": "attribute",
+    "name": "ДоговорЛизинга",
+    "owner": "РегистрыСведений.ДЕМО_КомплектыДокументовРеализацииОС",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ОплатыЗаКлиента.ДоговорКлиента",
+    "kind": "attribute",
+    "name": "ДоговорКлиента",
+    "owner": "РегистрыСведений.ДЕМО_ОплатыЗаКлиента",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "resource"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_ПризнакиПлатежей.демо_спрДоговор",
+    "kind": "attribute",
+    "name": "демо_спрДоговор",
+    "owner": "РегистрыСведений.ДЕМО_ПризнакиПлатежей",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "resource"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "['ЛюбаяСсылка,', 'СправочникСсылка.ДоговорыКонтрагентов']"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_РасшифровкаЗадолженностейПриОкончанииДоговоров.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_РасшифровкаЗадолженностейПриОкончанииДоговоров",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_СозданныеОбъекты.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_СозданныеОбъекты",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ДЕМО_УведомленияОПени.Договор",
+    "kind": "attribute",
+    "name": "Договор",
+    "owner": "РегистрыСведений.ДЕМО_УведомленияОПени",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "РегистрыСведений.ккНачисленияПоАгентскимДоговорам.АгентскийДоговор",
+    "kind": "attribute",
+    "name": "АгентскийДоговор",
+    "owner": "РегистрыСведений.ккНачисленияПоАгентскимДоговорам",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "dimension"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Справочники.ОбъектыЭксплуатации.инт_УдалитьДоговорЛизинга",
+    "kind": "attribute",
+    "name": "инт_УдалитьДоговорЛизинга",
+    "owner": "Справочники.ОбъектыЭксплуатации",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   },
+   {
+    "id": "Справочники.ОбъектыЭксплуатации.лз_ДоговорЛизинга",
+    "kind": "attribute",
+    "name": "лз_ДоговорЛизинга",
+    "owner": "Справочники.ОбъектыЭксплуатации",
+    "rel": {
+     "to": "ДоговорыКонтрагентов",
+     "type": "typed_as",
+     "via": "attribute"
+    },
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "find_usages_of_object"
+    },
+    "text": "СправочникСсылка.ДоговорыКонтрагентов"
+   }
+  ],
+  "resolved_id": "ДоговорыКонтрагентов",
+  "sections": {},
+  "status": "ok"
+ }
+}

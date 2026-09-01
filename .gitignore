@@ -5,3 +5,5 @@ __pycache__/
 .mcp.json
 .DS_Store
 Thumbs.db
+# Сырые фикстуры фасада: снимаются с живых серверов, содержат данные конфигурации
+overlays/1c/tools/facade/fixtures.local/

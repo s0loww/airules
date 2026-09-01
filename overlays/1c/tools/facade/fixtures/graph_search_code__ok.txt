@@ -1,0 +1,20 @@
+Found 3 results for: 'отправка почты' (search_type=hybrid, detail_level=L1)
+
+
+1. ДЕМО_ОтправитьПоЭлПочтеКоманда (СчетФактураВыданный / FormModule)
+   Score: 0.0098 [semantic]
+   Signature: Процедура ДЕМО_ОтправитьПоЭлПочтеКоманда(Команда)
+   File: /app/metadata_files/Documents/СчетФактураВыданный/Forms/ФормаСписка/Ext/Form/Module.bsl:21
+   Category: Документы
+
+2. ОтправкаПочты (ДЕМО_ОбщегоНазначенияСервер / CommonModule)
+   Score: 0.0097 [semantic]
+   Signature: Процедура ОтправкаПочты(МассивПолучателей, ИмяОтправителя, Отправитель, Тема, ТекстСообщения) Экспорт
+   File: /app/metadata_files/CommonModules/ДЕМО_ОбщегоНазначенияСервер/Ext/Module.bsl:1031
+   Category: ОбщиеМодули
+
+3. ОтправитьПоЭлектроннойПочте (блАнализСчета7902 / FormModule)
+   Score: 0.0095 [semantic]
+   Signature: Процедура ОтправитьПоЭлектроннойПочте(Команда)
+   File: /app/metadata_files/Reports/блАнализСчета7902/Forms/ФормаОтчета/Ext/Form/Module.bsl:751
+   Category: Отчеты
