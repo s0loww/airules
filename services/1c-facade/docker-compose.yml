@@ -16,9 +16,13 @@ services:
     ports:
       - "127.0.0.1:8770:8770"
 
-    # Бэкенды (code_metadata, graph_metadata) живут на хосте, поэтому в реестре
-    # они адресуются как host.docker.internal, а не 127.0.0.1: последний внутри
-    # контейнера указывает на сам контейнер.
+    # Бэкенды живут в своих compose-стеках. Подключение к их сетям даёт
+    # адресацию по имени контейнера и внутреннему порту — пробрасывать порты
+    # на хост ради фасада не нужно, и не важно, проброшены ли они вообще.
+    # host.docker.internal остаётся для бэкендов вне docker (например rlm).
+    networks:
+      - project_bl_mcp_default
+      - erp_bl_mcp_default
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -27,9 +31,10 @@ services:
       - ./facade-registry.json:/etc/facade/registry.json:ro
 
       # Выгрузки конфигураций. По одной строке на проект, всегда :ro — фасад
-      # только читает: строит индекс резолвера и делает grep по коду.
+      # только читает: строит индексы символов и ссылок.
       - D:/AI_Projects/1c-config-dumps/ERP_BL:/srv/sources/erp_bl:ro
-      # - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro
+      - D:/AI_Projects/Project_BL/src:/srv/sources/bl:ro
+      - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro
 
       # Отметки последнего обращения для LRU. Именованный том, чтобы переживать
       # пересоздание контейнера.
@@ -55,3 +60,10 @@ services:
 
 volumes:
   facade-state:
+
+# Сети чужие — их создают compose-стеки бэкендов; фасад только подключается.
+networks:
+  project_bl_mcp_default:
+    external: true
+  erp_bl_mcp_default:
+    external: true

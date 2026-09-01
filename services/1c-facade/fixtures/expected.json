@@ -907,6 +907,85 @@
   "sections": {},
   "status": "not_found"
  },
+ "graph_call_chain__tails": {
+  "count": 4,
+  "declared": 4,
+  "records": [
+   {
+    "id": "ДЕМО_Модуль.БезХвоста",
+    "kind": "routine",
+    "name": "БезХвоста",
+    "owner": "ДЕМО_Модуль",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура БезХвоста()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_Модуль.ТолькоЭкспорт",
+    "kind": "routine",
+    "name": "ТолькоЭкспорт",
+    "owner": "ДЕМО_Модуль",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ТолькоЭкспорт() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    }
+   },
+   {
+    "id": "ДЕМО_Форма.ТолькоДиректива",
+    "kind": "routine",
+    "name": "ТолькоДиректива",
+    "owner": "ДЕМО_Форма",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ТолькоДиректива()",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    },
+    "text": "&НаСервере"
+   },
+   {
+    "id": "ДЕМО_Объект.ДирективаИЭкспорт",
+    "kind": "routine",
+    "name": "ДирективаИЭкспорт",
+    "owner": "ДЕМО_Объект",
+    "rel": {
+     "depth": 1,
+     "to": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+     "type": "calls"
+    },
+    "sig": "Процедура ДирективаИЭкспорт() Экспорт",
+    "src": {
+     "backend": "graph",
+     "tier": "indexed",
+     "tool": "trace_call_chain"
+    },
+    "text": "&НаСервере"
+   }
+  ],
+  "resolved_id": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
+  "sections": {},
+  "status": "ok"
+ },
  "graph_dossier__ok": {
   "count": 75,
   "declared": null,

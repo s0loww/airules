@@ -65,6 +65,11 @@ class Facade(object):
         status = self.health.ensure(backend)
         if not status.usable:
             envelope.coverage.add_backend(kind, status.state, detail=status.detail)
+            # `degraded` without a reason is just an alarm; name what is missing,
+            # so the caller can tell a thin answer from a complete one
+            envelope.coverage.note(
+                "backend %s is %s%s — the answer is incomplete"
+                % (kind, status.state, ": " + status.detail if status.detail else ""))
             return None
         elapsed, outcome, text = self.client(backend).call(tool, args)
         envelope.coverage.add_backend(kind, "up", ms=elapsed * 1000,
@@ -145,14 +150,27 @@ class Facade(object):
         if not resolution.ok:
             return envelope
         canonical = resolution.id
-        # graph resolves qualified names and traverses the real edge set;
-        # code_metadata matches bare names and misses most of them
-        bare = canonical.rsplit(".", 1)[-1]
-        text = self._ask(envelope, project, "graph", "trace_call_chain",
-                         {"routine_name": bare, "direction": direction, "depth": depth})
+        # The owner has to travel with the name. Asked for a bare
+        # `ПолучитьЗначениеНастройки`, the backend picked a same-named routine in
+        # a form module while the resolver had chosen the exported one in a
+        # common module -- and the envelope then attributed one routine's callers
+        # to the other. Passing `object_name` pins which homonym is meant.
+        owner, _, bare = canonical.rpartition(".")
+        args = {"routine_name": bare or canonical,
+                "direction": direction, "depth": depth}
+        if owner:
+            args["object_name"] = owner
+        text = self._ask(envelope, project, "graph", "trace_call_chain", args)
         if text:
-            envelope.merge(
-                graph_parsers.parse_call_chain(text, direction, root_id=canonical), "graph")
+            parsed = graph_parsers.parse_call_chain(text, direction, root_id=canonical)
+            # ...and if the backend still resolved elsewhere, say so: silently
+            # relabelling its answer with our id is how wrong data looks right.
+            if parsed.echoed_id and not _same_routine(parsed.echoed_id, canonical):
+                envelope.coverage.note(
+                    "backend resolved %r, the resolver chose %r — records describe "
+                    "the backend's pick" % (parsed.echoed_id, canonical))
+                envelope.coverage.degraded = True
+            envelope.merge(parsed, "graph")
         return envelope.dedupe()
 
     def usages(self, id, project=None, where="both"):
@@ -293,6 +311,22 @@ def grep_usages(source, id, limit=200):
                         return out
                     break
     return out
+
+
+def _same_routine(left, right):
+    """Do two qualifiers name the same routine?
+
+    The backend spells owners its own way (a form module comes back as the
+    document name), so only a disagreement on the *owner segment closest to the
+    routine* is treated as a real mismatch.
+    """
+    if not left or not right:
+        return True
+    left_parts = [p.lower() for p in left.split(".")]
+    right_parts = [p.lower() for p in right.split(".")]
+    if left_parts[-1] != right_parts[-1]:
+        return False
+    return left_parts[-2:-1] == right_parts[-2:-1]
 
 
 def _raw_snippet(text, backend, tool):

@@ -12,6 +12,12 @@ from record import Record, Loc, Rel, Src, ParseResult, rel_path
 
 BACKEND = "graph"
 
+
+def _directive(tail):
+    """The compilation directive from an item tail, if it carries one."""
+    match = _CC_DIRECTIVE.search(tail or "")
+    return match.group(1) if match else None
+
 # ---------------------------------------------------------------- call chain
 
 _CC_HEAD = re.compile(
@@ -20,9 +26,14 @@ _CC_HEAD = re.compile(
 _CC_NONE = re.compile(r"^'(?P<name>[^']+)'\s*\((?P<owner>[^)]+)\):\s*вызовы не найдены", re.M)
 _CC_404 = re.compile(r"^(?:Процедура|Функция)\s*'(?P<name>[^']+)'\s*не найдена", re.M)
 _CC_DEPTH = re.compile(r"^\s*Глубина\s+(?P<d>\d+):", re.M)
+# The tail after `(owner / kind)` carries an export marker and a compilation
+# directive in either order -- both `... Экспорт` and `... [&НаСервере] Экспорт`
+# occur. Matching a fixed order silently dropped the second shape, which the
+# drift detector caught the first time this met a new configuration.
 _CC_ITEM = re.compile(
     r"^\s*-\s+(?P<name>[^\s(]+)\s*\((?P<owner>[^/)]+?)\s*/\s*(?P<mtype>[^)]+)\)"
-    r"(?P<export>\s+Экспорт)?(?:\s*\[(?P<directive>[^\]]+)\])?\s*$")
+    r"(?P<tail>(?:\s+(?:Экспорт|Export)|\s*\[[^\]]*\])*)\s*$", re.IGNORECASE)
+_CC_DIRECTIVE = re.compile(r"\[([^\]]*)\]")
 _CC_SIG = re.compile(r"^\s*Сигнатура:\s*(?P<sig>.+?)\s*$")
 
 
@@ -40,12 +51,14 @@ def parse_call_chain(text, direction="callers", root_id=None):
     if not head:
         return ParseResult(status="unparsed", note="call-chain header not recognised")
 
-    root = root_id or (head.group("owner").strip() + "." + head.group("name").strip())
+    echoed = head.group("owner").strip() + "." + head.group("name").strip()
+    root = root_id or echoed
     direction = head.group("dir") or direction
     # a caller calls the root; a callee is called by it
     rel_type = "calls" if direction == "callers" else "called_by"
 
-    res = ParseResult(resolved_id=root, declared=int(head.group("n")))
+    res = ParseResult(resolved_id=root, echoed_id=echoed,
+                      declared=int(head.group("n")))
     depth, pending = None, None
     for line in text.splitlines():
         md = _CC_DEPTH.match(line)
@@ -60,7 +73,7 @@ def parse_call_chain(text, direction="callers", root_id=None):
                 id=owner + "." + name, kind="routine", name=name, owner=owner,
                 rel=Rel(type=rel_type, to=root, depth=depth),
                 src=Src(backend=BACKEND, tool="trace_call_chain", tier="indexed"),
-                text=mi.group("directive") or None)
+                text=_directive(mi.group("tail")))
             res.records.append(pending)
             continue
         ms = _CC_SIG.match(line)
@@ -88,7 +101,10 @@ def parse_usages(text):
         return ParseResult(status="unparsed", note="usages header not recognised")
 
     root = head.group("obj")
-    res = ParseResult(resolved_id=root, declared=int(head.group("n")))
+    # here the backend echoes the object it was asked about, so there is nothing
+    # to disagree with -- unlike the call chain, which resolves a name itself
+    res = ParseResult(resolved_id=root, echoed_id=root,
+                      declared=int(head.group("n")))
     for line in text.splitlines():
         mi = _US_ITEM.match(line)
         if not mi:

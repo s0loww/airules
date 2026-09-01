@@ -81,6 +81,7 @@ class ParseResult:
     """Parser output plus the signals that detect parser drift."""
     records: List[Record] = field(default_factory=list)
     resolved_id: Optional[str] = None
+    echoed_id: Optional[str] = None   # what the backend itself said it resolved
     declared: Optional[int] = None   # count the backend claimed in its header
     status: str = "ok"               # ok | empty | not_found | unparsed
     note: Optional[str] = None

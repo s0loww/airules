@@ -42,6 +42,7 @@ CASES = {
     "graph_call_chain__callees": lambda t: G.parse_call_chain(t, "callees"),
     "graph_call_chain__deep":    lambda t: G.parse_call_chain(t, "callers"),
     "graph_call_chain__empty":   lambda t: G.parse_call_chain(t, "callers"),
+    "graph_call_chain__tails":   lambda t: G.parse_call_chain(t, "callers"),
     "graph_usages__ok":          G.parse_usages,
     "graph_usages__empty":       G.parse_usages,
     "graph_search_code__ok":     G.parse_search_code,
@@ -90,6 +91,12 @@ def invariants(res):
     # measured asymmetry: code_metadata matches on the bare name and finds 2 of 8
     ch = res["code_call_hierarchy__ok"]
     eq("code callers count (known low recall)", len(ch.records), 2)
+
+    # an item tail carries the export marker and the directive in either order
+    tails = res["graph_call_chain__tails"]
+    eq("both tail orders parse", len(tails.records), 4)
+    eq("the directive is kept whichever side it sits on",
+       [r.text for r in tails.records], [None, None, "&НаСервере", "&НаСервере"])
 
     # empty and not-found must stay distinguishable
     eq("callees empty status", res["graph_call_chain__callees"].status, "empty")
