@@ -17,6 +17,7 @@ for free, because the two rankers barely agree and run concurrently. On `calls`
 it would add a known false record, and on `find(kind=metadata)` it would cost a
 seventy-fold slowdown to add nothing.
 """
+import json
 import os
 import re
 import subprocess
@@ -190,20 +191,34 @@ class Facade(object):
             envelope.coverage.degraded = True
             return envelope
         try:
-            proc = subprocess.run(command.split() + ["--scope", scope],
-                                  cwd=project.source, capture_output=True,
-                                  text=True, timeout=300)
+            proc = subprocess.run(
+                command.split() + ["--scope", scope, "--root", project.source, "--json"],
+                cwd=project.source, capture_output=True, timeout=300,
+                # the checker speaks Russian; Windows would otherwise decode its
+                # output with the ANSI code page and choke on the first Cyrillic
+                text=True, encoding="utf-8", errors="replace")
         except (OSError, subprocess.SubprocessError) as exc:
             envelope.coverage.note("checker failed: " + type(exc).__name__)
             envelope.coverage.degraded = True
             return envelope
-        envelope.coverage.note("checker exit=%d" % proc.returncode)
-        for line in (proc.stdout or "").splitlines():
-            if line.strip():
-                envelope.records.append(Record(
-                    id=line.strip()[:120], kind="snippet", name="violation",
-                    text=line.rstrip(),
-                    src=Src(backend="rules", tool="check", tier="grep")))
+        try:
+            report = json.loads(proc.stdout or "{}")
+        except ValueError:
+            envelope.coverage.note("checker did not return JSON; is --json supported?")
+            envelope.coverage.degraded = True
+            return envelope
+        if not report.get("git", True):
+            envelope.coverage.note("git unavailable: use scope=path")
+        envelope.coverage.note("checked %d file(s)" % report.get("files", 0))
+        for item in report.get("violations", []):
+            envelope.records.append(Record(
+                id="%s:%s" % (item.get("path"), item.get("line")),
+                kind="snippet", name=item.get("rule"),
+                owner=item.get("severity"),
+                loc=Loc(path=item.get("path"), line=item.get("line")),
+                sig=item.get("code"),
+                text="%s — %s" % (item.get("message"), item.get("source")),
+                src=Src(backend="rules", tool="rules_check", tier="grep")))
         return envelope
 
     def status(self, project=None):
