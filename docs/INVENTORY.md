@@ -23,7 +23,7 @@ python ci/simulate_install.py --emit-inventory
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 204 |
+| файлов в цели | 201 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -49,7 +49,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 |---|---|
 | `rules/` | 48 |
 | `openspec/` | 5 |
-| `tools/` | 40 |
+| `tools/` | 37 |
 | `.claude/agents/` | 13 |
 | `.claude/skills/` | 88 |
 | `.claude/commands/` | 4 |
