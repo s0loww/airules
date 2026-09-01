@@ -35,13 +35,18 @@ class Backend(object):
 
 
 class Project(object):
-    __slots__ = ("name", "source", "backends", "aliases")
+    __slots__ = ("name", "source", "backends", "aliases", "frozen")
 
-    def __init__(self, name, source, backends, aliases=None):
+    def __init__(self, name, source, backends, aliases=None, frozen=False):
         self.name = name
         self.source = source            # path to the configuration export
         self.backends = backends        # {"code": Backend, "graph": Backend}
         self.aliases = tuple(aliases or ())
+        # A snapshot that does not change between runs: reopen the stored
+        # index and skip the rescan. Re-hashing a full ERP base is 120 000
+        # files, and over a bind mount that is minutes even when nothing
+        # changed -- the scan itself is the cost, not the parsing.
+        self.frozen = bool(frozen)
 
     def backend(self, kind):
         return self.backends.get(kind)
@@ -85,7 +90,7 @@ def _project_from_dict(name, raw):
                                  container=spec.get("container"),
                                  cold_ok=bool(spec.get("cold_ok", False)))
     return Project(name=name, source=raw.get("source"), backends=backends,
-                   aliases=raw.get("aliases"))
+                   aliases=raw.get("aliases"), frozen=raw.get("frozen", False))
 
 
 def load(path=None):

@@ -330,6 +330,28 @@ class Resolver(object):
         return Resolution(name, candidates=sorted(r[0] for r in rows),
                           confidence="ambiguous")
 
+    def symbols(self, name, exact=True, limit=50):
+        """Routines matching a name, from the index built out of the source.
+
+        Authoritative where a backend is not: every declaration in the export is
+        here by construction, while a backend's own function search has gaps --
+        measured on УЛК, it returned nothing for `ПолучитьЗначениеНастройки`
+        while finding its neighbours.
+        """
+        bare = (name or "").strip().rsplit(".", 1)[-1]
+        if not bare:
+            return []
+        if exact:
+            sql = ("SELECT qual, owner, path, line, export FROM symbols "
+                   "WHERE name = ? ORDER BY export DESC, qual LIMIT ?")
+            params = (bare, limit)
+        else:
+            sql = ("SELECT qual, owner, path, line, export FROM symbols "
+                   "WHERE name LIKE ? ORDER BY export DESC, qual LIMIT ?")
+            params = ("%" + bare + "%", limit)
+        with self._lock:
+            return self.db.execute(sql, params).fetchall()
+
     def references(self, name, limit=200):
         """Where a metadata object is used in code.
 

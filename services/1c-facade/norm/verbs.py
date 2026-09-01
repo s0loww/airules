@@ -63,6 +63,8 @@ class Facade(object):
             resolver = Resolver(project.source, path or ":memory:")
         except Exception:                            # noqa: BLE001 - unwritable
             resolver = Resolver(project.source)
+        if project.frozen and resolver.stats()["files"]:
+            return resolver                          # snapshot, index already stored
         resolver.build()
         return resolver
 
@@ -93,7 +95,15 @@ class Facade(object):
             return None
         elapsed, outcome, text = self.client(backend).call(tool, args)
         envelope.coverage.add_backend(kind, "up", ms=elapsed * 1000,
-                                      index_age_s=status.index_age_s)
+                                      index_age_s=status.index_age_s,
+                                      detail="индексируется" if status.indexing else None)
+        if status.indexing:
+            # answering but still building: an empty result here means "not yet",
+            # not "not there"
+            envelope.coverage.note(
+                "бэкенд %s перестраивает индекс — пустой ответ означает «ещё нет», "
+                "а не «нет такого»" % kind)
+            envelope.coverage.degraded = True
         if outcome in ("ERR", "FAIL"):
             envelope.coverage.note("%s.%s failed: %s" % (kind, tool, text[:120]))
             envelope.coverage.degraded = True
@@ -118,6 +128,18 @@ class Facade(object):
         envelope = Envelope("find(%r, kind=%s)" % (query, kind))
 
         if kind in ("routine", "any"):
+            # The resolver is authoritative here: it holds every declaration in
+            # the export, while the backend's function search has measured gaps.
+            # The backend is still asked -- it carries the body -- and the two
+            # merge field by field, so a hit missing from one survives via the
+            # other.
+            for qual, owner, path, line, export in self.resolver(project).symbols(
+                    query, exact=bool(exact), limit=limit):
+                envelope.records.append(Record(
+                    id=qual, kind="routine", name=qual.rsplit(".", 1)[-1],
+                    owner=owner, loc=Loc(path=path, line=line),
+                    text="Экспорт" if export else None,
+                    src=Src(backend="resolver", tool="symbols", tier="indexed")))
             text = self._ask(envelope, project, "code", "search_function",
                              {"name": query, "exact": bool(exact), "limit": limit})
             if text:
@@ -277,10 +299,25 @@ class Facade(object):
                 src=Src(backend="rules", tool="rules_check", tier="grep")))
         return envelope
 
-    def status(self, project=None):
-        """Liveness of the whole fleet, or of one project."""
+    def status(self, project=None, reindex=False):
+        """Liveness of the fleet, or of one project; optionally rebuild its index.
+
+        `reindex` is what keeps `frozen` from becoming a trap: a snapshot stays
+        untouched until the snapshot itself is replaced on disk, and then one
+        call refreshes it without editing the registry or restarting anything.
+        """
         names = [project] if project else self.registry.names()
-        envelope = Envelope("status(%s)" % (project or "all"))
+        envelope = Envelope("status(%s%s)" % (project or "all",
+                                              ", reindex" if reindex else ""))
+        if reindex:
+            for name in names:
+                entry = self.registry.get(name)
+                self._resolvers.pop(entry.name, None)
+                resolver = Resolver(entry.source, self._index_path(entry) or ":memory:")
+                counts = resolver.build()
+                self._resolvers[entry.name] = resolver
+                envelope.coverage.note(
+                    "%s: индекс пересобран — %s" % (entry.name, counts))
         for name in names:
             entry = self.registry.get(name)
             if not entry.backends:

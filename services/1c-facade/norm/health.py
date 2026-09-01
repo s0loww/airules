@@ -1,10 +1,11 @@
 """Backend liveness, index freshness and container lifecycle.
 
-Three states look identical to a caller today: the object does not exist, the
-index is stale, the server is switched off. That ambiguity is what puts
-"CodeMetadata does not see fresh extension files" into a memory file when the
-real cause was a stopped container. Everything here exists to keep those three
-apart and to say so in the envelope.
+Four states look identical to a caller: the object does not exist, the index is
+stale, the server is switched off, and the server is up but still building its
+index. That ambiguity is what puts "CodeMetadata does not see fresh extension
+files" into a memory file when the real cause was a stopped container -- and it
+is what makes a freshly recreated backend look like an empty configuration.
+Everything here exists to keep those four apart and to say so in the envelope.
 
 Container lifecycle is deliberate, not automatic. Per-project indexes are cheap
 (a few hundred MB) while the graph stacks behind them are not, so keeping only
@@ -15,6 +16,7 @@ facade automates that only for backends explicitly marked `cold_ok`.
 import io
 import json
 import os
+import re
 import subprocess
 import time
 
@@ -30,14 +32,19 @@ UNKNOWN = "unknown"    # docker unavailable, so we cannot tell cold from down
 
 
 class BackendStatus(object):
-    __slots__ = ("kind", "state", "ms", "index_age_s", "detail")
+    __slots__ = ("kind", "state", "ms", "index_age_s", "detail", "indexing")
 
-    def __init__(self, kind, state, ms=None, index_age_s=None, detail=None):
+    def __init__(self, kind, state, ms=None, index_age_s=None, detail=None,
+                 indexing=False):
         self.kind = kind
         self.state = state
         self.ms = ms
         self.index_age_s = index_age_s
         self.detail = detail
+        # A backend that answers while still building its index returns nothing
+        # and looks exactly like "not found". That is the fourth state this
+        # class exists to keep apart from the other three.
+        self.indexing = indexing
 
     @property
     def usable(self):
@@ -51,6 +58,8 @@ class BackendStatus(object):
             out["index_age_s"] = int(self.index_age_s)
         if self.detail:
             out["detail"] = self.detail
+        if self.indexing:
+            out["indexing"] = True
         return out
 
 
@@ -226,22 +235,23 @@ class Health(object):
                 return BackendStatus(backend.kind, UNKNOWN, detail=type(exc).__name__)
             return BackendStatus(backend.kind, DOWN, detail=type(exc).__name__)
         elapsed = (time.time() - started) * 1000
-        age = self._index_age(client, backend)
-        return BackendStatus(backend.kind, UP, ms=elapsed, index_age_s=age)
+        age, indexing = self._index_state(client, backend)
+        return BackendStatus(backend.kind, UP, ms=elapsed, index_age_s=age,
+                             indexing=indexing)
 
-    def _index_age(self, client, backend):
-        """Seconds since the last incremental pass, when the backend says."""
+    def _index_state(self, client, backend):
+        """(seconds since the last pass, is it indexing right now)."""
         tool = "stats" if backend.kind == "code" else "get_indexing_status"
         try:
             _, status, text = client.call(tool, {})
         except Exception:                            # noqa: BLE001 - optional
-            return None
+            return None, False
         if status != "OK":
-            return None
+            return None, False
+        running = bool(re.search(r'"running"\s*:\s*true', text, re.IGNORECASE))
         stamp = _find_timestamp(text)
-        if stamp is None:
-            return None
-        return max(0.0, time.time() - stamp)
+        age = None if stamp is None else max(0.0, time.time() - stamp)
+        return age, running
 
     # -- lifecycle --------------------------------------------------------
 
