@@ -41,8 +41,28 @@ class Facade(object):
     # -- plumbing ---------------------------------------------------------
 
     @staticmethod
-    def _default_resolver(project):
-        resolver = Resolver(project.source)
+    def _index_path(project):
+        """Where a project's index lives, or None to keep it in memory.
+
+        A full ERP base is 25 000 modules and takes about a minute to index;
+        paying that on every restart is not worth the simplicity of an in-memory
+        database. The index already tracks files by content hash, so reopening a
+        stored one costs a rescan of hashes rather than a rebuild.
+        """
+        state = os.environ.get("FACADE_STATE")
+        directory = os.path.dirname(state) if state else None
+        if not directory or not os.path.isdir(directory):
+            return None
+        safe = re.sub(r"[^A-Za-z0-9_.-]", "_", project.name)
+        return os.path.join(directory, "index-%s.sqlite" % safe)
+
+    @classmethod
+    def _default_resolver(cls, project):
+        path = cls._index_path(project)
+        try:
+            resolver = Resolver(project.source, path or ":memory:")
+        except Exception:                            # noqa: BLE001 - unwritable
+            resolver = Resolver(project.source)
         resolver.build()
         return resolver
 
@@ -263,10 +283,18 @@ class Facade(object):
         envelope = Envelope("status(%s)" % (project or "all"))
         for name in names:
             entry = self.registry.get(name)
+            if not entry.backends:
+                envelope.coverage.note(
+                    "%s: бэкендов нет — работают только резолвер и индекс ссылок"
+                    % entry.name)
+                continue
             for kind in sorted(entry.backends):
                 state = self.health.probe(entry.backend(kind))
+                # label by the canonical project name, never by the alias the
+                # caller happened to use -- status is the inventory, and an
+                # inventory that echoes your own wording is not one
                 envelope.coverage.add_backend(
-                    "%s/%s" % (name, kind), state.state, ms=state.ms,
+                    "%s/%s" % (entry.name, kind), state.state, ms=state.ms,
                     index_age_s=state.index_age_s, detail=state.detail)
         return envelope
 

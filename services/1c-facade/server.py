@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -249,9 +250,15 @@ def warm(facade):
     """
     def run():
         for name in facade.registry.names():
+            project = facade.registry.get(name)
+            # Announce the start, not just the finish: a full ERP base is
+            # 121 000 files, and over a bind mount that is minutes, not the
+            # seconds it takes on the host. Silence there reads as a hang.
+            print("индекс %s: строится из %s…" % (name, project.source))
+            started = time.time()
             try:
-                stats = facade.resolver(facade.registry.get(name)).stats()
-                print("индекс %s: %s" % (name, stats))
+                stats = facade.resolver(project).stats()
+                print("индекс %s: %s за %.0f с" % (name, stats, time.time() - started))
             except Exception as exc:             # noqa: BLE001 - one bad project
                 print("индекс %s не собран: %s: %s"
                       % (name, type(exc).__name__, exc), file=sys.stderr)

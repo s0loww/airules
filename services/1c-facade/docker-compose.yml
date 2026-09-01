@@ -30,11 +30,11 @@ services:
       # Реестр проектов. Пути внутри него — контейнерные (см. монтирования ниже).
       - ./facade-registry.json:/etc/facade/registry.json:ro
 
-      # Выгрузки конфигураций. По одной строке на проект, всегда :ro — фасад
-      # только читает: строит индексы символов и ссылок.
-      - D:/AI_Projects/1c-config-dumps/ERP_BL:/srv/sources/erp_bl:ro
-      - D:/AI_Projects/Project_BL/src:/srv/sources/bl:ro
-      - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro
+      # Выгрузки. Имя тома — по реальному имени конфигурации из Configuration.xml.
+      - D:/AI_Projects/Project_BL/src:/srv/sources/ulk:ro            # УправлениеЛизингом
+      - D:/AI_Projects/1c-config-dumps/ERP_BL:/srv/sources/bl:ro     # БалтийскийЛизинг
+      - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro        # КонтурБКИ
+      - D:/AI_Projects/Project_BL/erp_crc:/srv/sources/erp:ro        # база ERP, бэкендов нет
 
       # Отметки последнего обращения для LRU. Именованный том, чтобы переживать
       # пересоздание контейнера.
