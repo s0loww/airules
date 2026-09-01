@@ -130,7 +130,7 @@ def check_reserved_form_names(ctx):
     """A local variable named after a form-element property is captured by it."""
     if not ctx.is_form_module:
         return
-    for number, line in enumerate(ctx.blanked.splitlines(), 1):
+    for number, line in enumerate(ctx.blanked.split(chr(10)), 1):
         match = _RESERVED_ASSIGN.match(line)
         if match:
             yield number, ("%s как локальная переменная в модуле формы: платформа "
@@ -146,7 +146,7 @@ _QUERY_EXEC = re.compile(r"\.\s*(?:Выполнить|Execute)\s*\(", re.IGNOREC
 def check_query_in_loop(ctx):
     """A query executed per iteration is O(n) round trips."""
     inside = bsl.loop_lines(ctx.blanked)
-    for number, line in enumerate(ctx.blanked.splitlines(), 1):
+    for number, line in enumerate(ctx.blanked.split(chr(10)), 1):
         if number in inside and _QUERY_EXEC.search(line):
             yield number, ("запрос выполняется в цикле: O(n) обращений к СУБД — "
                            "вынести в один запрос с параметром-списком")

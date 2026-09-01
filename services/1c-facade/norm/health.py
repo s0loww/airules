@@ -54,27 +54,153 @@ class BackendStatus(object):
         return out
 
 
-def _docker(*args, **kwargs):
-    """Run a docker command. Returns (ok, stdout). Never raises."""
-    timeout = kwargs.get("timeout", 30)
-    try:
-        proc = subprocess.run(("docker",) + args, capture_output=True,
-                              text=True, timeout=timeout)
-    except (OSError, subprocess.SubprocessError):
-        return False, ""
-    return proc.returncode == 0, (proc.stdout or "").strip()
+DOCKER_SOCKET = os.environ.get("FACADE_DOCKER_SOCKET", "/var/run/docker.sock")
+
+
+class SocketDocker(object):
+    """Docker Engine API over the unix socket, on the standard library.
+
+    The facade runs in a container, where the `docker` CLI is absent. Installing
+    it just to start a sibling container would add a package and a shell-out for
+    what is three HTTP calls; the socket, when mounted, answers directly.
+
+    Mounting that socket is root-equivalent access to the host daemon, so it is
+    opt-in in compose and the facade works without it -- lifecycle simply
+    becomes unavailable and `status` says so instead of guessing.
+    """
+
+    def __init__(self, path=DOCKER_SOCKET):
+        self.path = path
+
+    def available(self):
+        try:
+            import stat
+            return stat.S_ISSOCK(os.stat(self.path).st_mode)
+        except OSError:
+            return False
+
+    def _request(self, method, url, timeout=60):
+        import http.client
+        import socket as socket_mod
+
+        class _Connection(http.client.HTTPConnection):
+            def __init__(inner, path):
+                http.client.HTTPConnection.__init__(inner, "localhost")
+                inner._socket_path = path
+
+            def connect(inner):
+                sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+                sock.settimeout(timeout)
+                sock.connect(inner._socket_path)
+                inner.sock = sock
+
+        connection = _Connection(self.path)
+        try:
+            connection.request(method, url)
+            response = connection.getresponse()
+            return response.status, response.read().decode("utf-8", "replace")
+        finally:
+            connection.close()
+
+    def state(self, name):
+        try:
+            status, body = self._request("GET", "/containers/%s/json" % name)
+        except (OSError, ValueError):
+            return "unknown"
+        if status == 404:
+            return "absent"
+        if status != 200:
+            return "unknown"
+        try:
+            return (json.loads(body).get("State") or {}).get("Status") or "unknown"
+        except ValueError:
+            return "unknown"
+
+    def start(self, name):
+        try:
+            status, _ = self._request("POST", "/containers/%s/start" % name)
+        except (OSError, ValueError):
+            return False
+        return status in (204, 304)
+
+    def stop(self, name):
+        try:
+            status, _ = self._request("POST", "/containers/%s/stop" % name)
+        except (OSError, ValueError):
+            return False
+        return status in (204, 304)
+
+
+class CliDocker(object):
+    """The `docker` binary, for a facade running directly on the host."""
+
+    def available(self):
+        return self._run(("version", "-f", "{{.Server.Version}}"), timeout=10)[0]
+
+    @staticmethod
+    def _run(args, timeout=30):
+        try:
+            proc = subprocess.run(("docker",) + tuple(args), capture_output=True,
+                                  text=True, timeout=timeout)
+        except (OSError, subprocess.SubprocessError):
+            return False, ""
+        return proc.returncode == 0, (proc.stdout or "").strip()
+
+    def state(self, name):
+        ok, out = self._run(("inspect", "-f", "{{.State.Status}}", name))
+        if ok:
+            return out or "unknown"
+        return "absent" if self.available() else "unknown"
+
+    def start(self, name):
+        return self._run(("start", name), timeout=60)[0]
+
+    def stop(self, name):
+        return self._run(("stop", name), timeout=60)[0]
+
+
+class NoDocker(object):
+    """No way to reach a daemon: say so rather than report a container absent."""
+
+    @staticmethod
+    def available():
+        return False
+
+    @staticmethod
+    def state(_name):
+        return "unknown"
+
+    @staticmethod
+    def start(_name):
+        return False
+
+    @staticmethod
+    def stop(_name):
+        return False
+
+
+_ACCESS = None
+
+
+def docker_access(refresh=False):
+    """Socket first (we are probably in a container), then the CLI."""
+    global _ACCESS
+    if _ACCESS is not None and not refresh:
+        return _ACCESS
+    for candidate in (SocketDocker(), CliDocker()):
+        if candidate.available():
+            _ACCESS = candidate
+            break
+    else:
+        _ACCESS = NoDocker()
+    return _ACCESS
 
 
 def container_state(name):
     """running | exited | absent | unknown"""
     if not name:
         return "absent"
-    ok, out = _docker("inspect", "-f", "{{.State.Status}}", name)
-    if not ok:
-        # distinguish "docker is not there" from "container is not there"
-        alive, _ = _docker("version", "-f", "{{.Server.Version}}", timeout=10)
-        return "absent" if alive else "unknown"
-    return out or "unknown"
+    return docker_access().state(name)
 
 
 class Health(object):
@@ -132,9 +258,14 @@ class Health(object):
         if not (backend.cold_ok and backend.container):
             status.detail = "container stopped; cold_ok not set for this backend"
             return status
-        ok, _ = _docker("start", backend.container, timeout=60)
-        if not ok:
-            status.detail = "docker start failed"
+        access = docker_access()
+        if not access.available():
+            status.state = UNKNOWN
+            status.detail = ("docker unreachable: mount the daemon socket to let "
+                             "the facade start backends")
+            return status
+        if not access.start(backend.container):
+            status.detail = "docker start refused"
             return status
         deadline = time.time() + wait_s
         while time.time() < deadline:
@@ -163,8 +294,9 @@ class Health(object):
         victims = [name for _stamp, name in managed[keep:]
                    if container_state(name) == "running"]
         if not dry_run:
+            access = docker_access()
             for name in victims:
-                _docker("stop", name, timeout=60)
+                access.stop(name)
         return {"kept": keep, "stopped": victims, "dry_run": dry_run}
 
     # -- last-use bookkeeping --------------------------------------------

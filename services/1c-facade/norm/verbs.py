@@ -171,12 +171,30 @@ class Facade(object):
                 envelope.merge(code_parsers.parse_dependencies(deps, "reverse"), "code")
 
         if where in ("code", "both"):
-            # neither index answers this: measured against grep, 50 files
-            # reference the object in code and both backends returned none
-            hits = grep_usages(project.source, id)
-            envelope.coverage.note(
-                "usages in code answered by grep: no index covers them")
-            envelope.extend(hits)
+            # Neither backend answers this: both work at the metadata level. The
+            # resolver indexes references while it reads the export for symbols
+            # anyway, so the answer is a query rather than a tree walk -- which
+            # over a bind mount is the difference between milliseconds and
+            # seconds, on every call.
+            try:
+                rows = self.resolver(project).references(id)
+            except Exception:                        # noqa: BLE001 - fall back
+                rows = None
+            if rows is None:
+                envelope.coverage.note(
+                    "usages in code answered by a filesystem scan: reference "
+                    "index unavailable")
+                envelope.extend(grep_usages(project.source, id))
+            else:
+                envelope.coverage.note(
+                    "usages in code answered from the reference index: no "
+                    "backend covers them")
+                bare = id.rsplit(".", 1)[-1]
+                for path, line, text, prefix in rows:
+                    envelope.records.append(Record(
+                        id="%s:%d" % (path, line), kind="snippet", name=bare,
+                        owner=prefix, loc=Loc(path=path, line=line), text=text,
+                        src=Src(backend="resolver", tool="references", tier="grep")))
 
         return envelope.dedupe()
 

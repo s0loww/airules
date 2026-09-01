@@ -1,0 +1,57 @@
+# Запуск:
+#   docker compose -f services/1c-facade/docker-compose.yml up -d --build
+#
+# Контекст сборки — корень репозитория: в образ едет и сервис, и чекер правил.
+services:
+  facade:
+    build:
+      context: ../..
+      dockerfile: services/1c-facade/Dockerfile
+    image: 1c-facade:local
+    container_name: 1c_facade
+    restart: unless-stopped
+
+    # Только на петлю. Своей аутентификации у фасада нет, а через него читается
+    # исходный код всех зарегистрированных конфигураций — наружу не выставлять.
+    ports:
+      - "127.0.0.1:8770:8770"
+
+    # Бэкенды (code_metadata, graph_metadata) живут на хосте, поэтому в реестре
+    # они адресуются как host.docker.internal, а не 127.0.0.1: последний внутри
+    # контейнера указывает на сам контейнер.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    volumes:
+      # Реестр проектов. Пути внутри него — контейнерные (см. монтирования ниже).
+      - ./facade-registry.json:/etc/facade/registry.json:ro
+
+      # Выгрузки конфигураций. По одной строке на проект, всегда :ro — фасад
+      # только читает: строит индекс резолвера и делает grep по коду.
+      - D:/AI_Projects/1c-config-dumps/ERP_BL:/srv/sources/erp_bl:ro
+      # - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro
+
+      # Отметки последнего обращения для LRU. Именованный том, чтобы переживать
+      # пересоздание контейнера.
+      - facade-state:/var/lib/facade
+
+      # ⚠ Сокет демона: нужен ТОЛЬКО если фасад должен поднимать остановленные
+      # бэкенды сам (cold_ok в реестре). Это доступ к демону хоста, равносильный
+      # root на хосте. Без него фасад полностью рабочий — просто сообщает
+      # состояние unknown вместо того, чтобы запускать контейнеры.
+      # - /var/run/docker.sock:/var/run/docker.sock
+
+    environment:
+      FACADE_REGISTRY: /etc/facade/registry.json
+      FACADE_STATE: /var/lib/facade/state.json
+      FACADE_CHECK_CMD: "python /app/rules-check/rules_check.py"
+
+    # Внутрь ничего не пишется, кроме тома состояния.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  facade-state:

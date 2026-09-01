@@ -1,0 +1,19 @@
+# Контекст сборки — корень репозитория, но образу нужны только services/ и
+# overlays/1c/tools/rules-check. Всё остальное только замедляет сборку.
+.git
+.githooks
+ci
+core
+docs
+evals
+project-template
+overlays/1c/agents
+overlays/1c/commands
+overlays/1c/rules
+overlays/1c/skills
+overlays/1c/tools/agent-1c
+overlays/1c/tools/com-tools
+**/__pycache__
+**/fixtures.local
+**/facade-registry.json
+**/facade-state.json

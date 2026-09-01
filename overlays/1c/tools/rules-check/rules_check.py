@@ -70,7 +70,7 @@ def check_file(path, text=None):
     if text is None:
         text = bsl.read_source(path)
     context = Context(path, text)
-    lines = text.splitlines()
+    lines = text.split(chr(10))
     found = []
     for rule in RULES:
         for line, message in rule["check"](context):

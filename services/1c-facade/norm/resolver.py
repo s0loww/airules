@@ -101,7 +101,27 @@ CREATE TABLE IF NOT EXISTS symbols (
 CREATE INDEX IF NOT EXISTS symbols_name ON symbols(name);
 CREATE INDEX IF NOT EXISTS symbols_qual ON symbols(qual);
 CREATE INDEX IF NOT EXISTS symbols_path ON symbols(path);
+CREATE TABLE IF NOT EXISTS refs (
+    name   TEXT NOT NULL,
+    prefix TEXT NOT NULL,
+    path   TEXT NOT NULL,
+    line   INTEGER,
+    text   TEXT
+);
+CREATE INDEX IF NOT EXISTS refs_name ON refs(name);
+CREATE INDEX IF NOT EXISTS refs_path ON refs(path);
 """
+
+# References to a metadata object in code, through the access prefixes 1C
+# actually uses (`Справочники.X`, `СправочникСсылка.X`, `ДокументОбъект.X`, ...).
+# Indexed while the export is being read for symbols anyway: no index covers
+# these, and walking the tree per request costs seconds on a bind mount.
+_REF = re.compile(
+    r"\b(?P<prefix>Справочник|Документ|Перечисление|РегистрСведений|"
+    r"РегистрНакопления|РегистрБухгалтерии|РегистрРасчета|ПланВидовХарактеристик|"
+    r"ПланСчетов|ПланВидовРасчета|БизнесПроцесс|Задача|Обработка|Отчет|"
+    r"ПланОбмена|ЖурналДокументов|Константа)[А-Яа-яЁё]*\s*\.\s*"
+    r"(?P<name>[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё_0-9]*)")
 
 
 class Resolution(object):
@@ -216,6 +236,7 @@ class Resolver(object):
             counts["modified" if rel in known else "new"] += 1
             with self._lock:
                 self.db.execute("DELETE FROM symbols WHERE path = ?", (rel,))
+                self.db.execute("DELETE FROM refs WHERE path = ?", (rel,))
                 self._index_file(full, rel)
                 self.db.execute(
                     "INSERT INTO files(path, hash) VALUES(?, ?) "
@@ -225,28 +246,47 @@ class Resolver(object):
             for gone in set(known) - seen:
                 counts["deleted"] += 1
                 self.db.execute("DELETE FROM symbols WHERE path = ?", (gone,))
+                self.db.execute("DELETE FROM refs WHERE path = ?", (gone,))
                 self.db.execute("DELETE FROM files WHERE path = ?", (gone,))
             self.db.commit()
         return counts
 
     def _index_file(self, full, rel):
-        owner = owner_of(rel)
-        if not owner:
-            return
         text = read_source(full)
-        offsets = None
+        offsets = _line_offsets(text)
+        # split(chr(10)), not splitlines(): the latter also breaks on a lone
+        # CR, on form feeds and on U+2028, so its numbering drifts from the
+        # offset table -- and 1C exports do contain stray CRs
+        lines = text.split(chr(10))
+
+        owner = owner_of(rel)
+        if owner:
+            rows = []
+            for match in _DECL.finditer(text):
+                name = match.group("name")
+                rows.append((name, owner, owner + "." + name, "routine", rel,
+                             _line_of(offsets, match.start()),
+                             _is_export(text, match.end() - 1)))
+            if rows:
+                self.db.executemany(
+                    "INSERT INTO symbols(name, owner, qual, kind, path, line, export) "
+                    "VALUES(?,?,?,?,?,?,?)", rows)
+
+        # One reference per object per line: a line naming the same object twice
+        # is one usage to a reader.
+        seen = set()
         rows = []
-        for match in _DECL.finditer(text):
-            if offsets is None:
-                offsets = _line_offsets(text)
-            name = match.group("name")
+        for match in _REF.finditer(text):
             line = _line_of(offsets, match.start())
-            export = _is_export(text, match.end() - 1)
-            rows.append((name, owner, owner + "." + name, "routine", rel, line, export))
+            key = (match.group("name"), line)
+            if key in seen:
+                continue
+            seen.add(key)
+            body = lines[line - 1].strip()[:200] if line <= len(lines) else ""
+            rows.append((match.group("name"), match.group("prefix"), rel, line, body))
         if rows:
             self.db.executemany(
-                "INSERT INTO symbols(name, owner, qual, kind, path, line, export) "
-                "VALUES(?,?,?,?,?,?,?)", rows)
+                "INSERT INTO refs(name, prefix, path, line, text) VALUES(?,?,?,?,?)", rows)
 
     # -- lookup -----------------------------------------------------------
 
@@ -290,13 +330,30 @@ class Resolver(object):
         return Resolution(name, candidates=sorted(r[0] for r in rows),
                           confidence="ambiguous")
 
+    def references(self, name, limit=200):
+        """Where a metadata object is used in code.
+
+        No backend index covers this: both of them work at the metadata level
+        and answer about attributes and object-to-object links, not call sites.
+        Walking the export per request costs seconds over a bind mount, so the
+        answer is served from the same index the resolver already builds.
+        """
+        bare = (name or "").strip().rsplit(".", 1)[-1]
+        if not bare:
+            return []
+        with self._lock:
+            return self.db.execute(
+                "SELECT path, line, text, prefix FROM refs WHERE name = ? "
+                "ORDER BY path, line LIMIT ?", (bare, limit)).fetchall()
+
     def stats(self):
         with self._lock:
             files = self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0]
             symbols = self.db.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
             owners = self.db.execute(
                 "SELECT COUNT(DISTINCT owner) FROM symbols").fetchone()[0]
-        return {"files": files, "symbols": symbols, "owners": owners}
+            refs = self.db.execute("SELECT COUNT(*) FROM refs").fetchone()[0]
+        return {"files": files, "symbols": symbols, "owners": owners, "refs": refs}
 
 
 def _line_offsets(text):

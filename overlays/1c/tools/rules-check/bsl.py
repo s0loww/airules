@@ -106,8 +106,8 @@ def procedures(blanked, original=None):
     original, because in the blanked text it is a run of spaces. That split --
     decide on blanked, display from original -- holds throughout this module.
     """
-    lines = blanked.splitlines()
-    original_lines = original.splitlines() if original is not None else lines
+    lines = blanked.split(chr(10))
+    original_lines = original.split(chr(10)) if original is not None else lines
     found = []
     pending_annotations = []
     pending_targets = []
@@ -158,7 +158,7 @@ def loop_lines(blanked):
     """Line numbers that sit strictly inside a loop body."""
     inside = set()
     depth = 0
-    for number, line in enumerate(blanked.splitlines(), 1):
+    for number, line in enumerate(blanked.split(chr(10)), 1):
         if _LOOP_END.match(line):
             depth = max(0, depth - 1)
             continue
@@ -229,5 +229,5 @@ def calls(blanked, name, original=None):
 
 def find_lines(blanked, pattern):
     """Line numbers where a compiled pattern matches the blanked text."""
-    return [number for number, line in enumerate(blanked.splitlines(), 1)
+    return [number for number, line in enumerate(blanked.split(chr(10)), 1)
             if pattern.search(line)]

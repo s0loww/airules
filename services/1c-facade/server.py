@@ -238,6 +238,28 @@ def build_facade():
     return Facade(reg, Health(Client), Client)
 
 
+def warm(facade):
+    """Build every project's index in the background.
+
+    The index is built lazily on first use, and over a bind mount that first use
+    costs seconds while the caller waits. Doing it at boot moves the cost to
+    where nobody is watching; `status` answers without an index, so the server is
+    useful immediately either way. Failures are reported, not fatal: a project
+    whose export is not mounted must not stop the rest from serving.
+    """
+    def run():
+        for name in facade.registry.names():
+            try:
+                stats = facade.resolver(facade.registry.get(name)).stats()
+                print("индекс %s: %s" % (name, stats))
+            except Exception as exc:             # noqa: BLE001 - one bad project
+                print("индекс %s не собран: %s: %s"
+                      % (name, type(exc).__name__, exc), file=sys.stderr)
+    thread = threading.Thread(target=run, name="facade-warm", daemon=True)
+    thread.start()
+    return thread
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="MCP-фасад для 1С")
     parser.add_argument("--host", default="127.0.0.1")
@@ -246,6 +268,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     facade = build_facade()
+    warm(facade)
     server = ThreadingHTTPServer((args.host, args.port),
                                  make_handler(Dispatcher(facade), args.path))
     print("%s %s: http://%s:%d%s  (проектов в реестре: %d)"

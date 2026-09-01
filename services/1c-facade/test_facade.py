@@ -161,11 +161,16 @@ def checks():
     eq("both backends contributed", backends, {"graph", "code"})
 
     env = facade.usages("Справочники.ДоговорыКонтрагентов", where="code")
-    eq("code usages come from grep", len(env.records), 4)
-    eq("grep records are tiered as grep",
+    eq("code usages are found at all", len(env.records), 4)
+    eq("they are tiered below an index",
        {r.src.tier for r in env.records if r.src}, {"grep"})
-    ok("grep provenance is stated",
-       any("grep" in n for n in env.coverage.notes), str(env.coverage.notes))
+    eq("they are attributed to the resolver, not a backend",
+       {r.src.backend for r in env.records if r.src}, {"resolver"})
+    ok("their provenance is stated",
+       any("reference index" in n or "filesystem scan" in n
+           for n in env.coverage.notes), str(env.coverage.notes))
+    ok("every hit carries a location",
+       all(r.loc and r.loc.path and r.loc.line for r in env.records))
 
     # -- describe ------------------------------------------------------
     env = facade.describe("Справочники.ДоговорыКонтрагентов")

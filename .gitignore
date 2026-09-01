@@ -6,7 +6,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 # Сырые фикстуры фасада: снимаются с живых серверов, содержат данные конфигурации
-overlays/1c/tools/facade/fixtures.local/
-overlays/1c/tools/facade/facade-registry.json
-overlays/1c/tools/facade/facade-state.json
-overlays/1c/tools/facade/*.sqlite
+services/1c-facade/fixtures.local/
+services/1c-facade/facade-registry.json
+services/1c-facade/facade-state.json
+services/1c-facade/*.sqlite
