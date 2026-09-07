@@ -124,7 +124,7 @@ def _build_rules():
         # --- domain names: core + overlays ---
         {
             "id": "domain-names",
-            "regex": r"(\b(BKI|НБКИ|GUTDF|УниверсальнаяВыгрузка)\b|1c-rag-(bki|ka2)|СУТ_[А-Яа-яA-Za-z]|ГС_[А-Яа-яA-Za-z]|\b(КА2|KA2)\b)",
+            "regex": r"(\b(BKI|CUL|НБКИ|GUTDF|УниверсальнаяВыгрузка)\b|1c-rag-(bki|ka2)|СУТ_[А-Яа-яA-Za-z]|ГС_[А-Яа-яA-Za-z]|\b(КА2|KA2)\b)",
             "severity": "error",
             "layers": ("core", "overlays"),
             "description": "Concrete project / domain name.",

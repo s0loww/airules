@@ -85,7 +85,7 @@ pitfall note below):
 - **`Комментарий`** (5) — short free-text. Use an empty string when `Данные` already carries everything.
 - **`РежимТранзакции`** (6) — `РежимТранзакцииЗаписиЖурналаРегистрации.Независимая` when the entry must survive a rollback of the surrounding transaction (error diagnostics); omit for ordinary entries.
 
-> **Pitfall (bit twice in the CUL project):** passing the `Структура` as the 6th
+> **Pitfall (bit twice on a live project):** passing the `Структура` as the 6th
 > argument. The 6th slot is `РежимТранзакции`; a structure there raises
 > "Несоответствие типов (параметр номер 6)" **at the log-write call site** —
 > which, inside an `Исключение` handler, replaces the original error and kills

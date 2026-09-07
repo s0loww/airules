@@ -123,6 +123,12 @@ model-family behavior blocks are rendered into the agent definitions.
 - **Excluded:** {{DISABLED_MCP}}
 - The source of truth is `{{SOURCE_OF_TRUTH}}`; MCP and RAG are navigation,
   confirm facts against the source.
+- **Layer boundary.** The constitution — rules, agreements, topology, paths —
+  lives in markdown under git (`AGENTS.md`, `rules/`, the memory file). The
+  operational flow — what a session did, incidents, findings, TODO — lives in
+  the memory server. Do not mix them: two sources of truth drift apart and both
+  claim the same context slot at session start. When to read it and what to
+  write back — `rules/verification-matrix.md`, gate F.
 
 ## Output
 
