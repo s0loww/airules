@@ -261,7 +261,14 @@ an `.epf`, walk the form module against this checklist.
 12. **Copy-from-sibling drift.** Code copied from another processor carries its
     pre-fix defects — re-run this checklist on pasted fragments too.
 
-Cheap automation: a script that lists call names undefined in the module, scans
-`&НаКлиенте` bodies for server-only names, and checks quote parity and per-query
-alias clashes catches most of the list in seconds — worth having in the project's
-`tools/` next to the build script.
+The checklist is the cheap pass; the **mechanical gate for this whole class is
+opening the built `.epf` in a test client** — that open is the only compilation
+of a form module there is. If the project has a UI-test contour, wire an
+open-check scenario per built processor into it and run it after the build; the
+contour's own documentation describes what such a gate needs (library steps,
+an extension permitting external files on the test infobase, and the platform's
+unsafe-action protection lifted for test infobases only).
+
+Cheap automation next to it: a script that lists call names undefined in the
+module, scans `&НаКлиенте` bodies for server-only names, and checks quote parity
+and per-query alias clashes catches most of the list in seconds.

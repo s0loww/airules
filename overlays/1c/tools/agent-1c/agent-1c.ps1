@@ -392,6 +392,13 @@ function Invoke-Test {
     $stdout = Join-Path $script:RunDir 'vanessa-stdout.log'
     $stderr = Join-Path $script:RunDir 'vanessa-stderr.log'
 
+    # Библиотечные шаги VA (пакет add: открытие внешнего файла и прочие) подхватываются
+    # только через КаталогиБиблиотек временного VAParams. Путь — ТОЛЬКО прямыми слешами:
+    # с обратными VA каталог молча не находит и шаги остаются нераспознанными.
+    $vaLibrariesDir = Join-Path $script:ToolRoot 'onescript\lib\add\features\libraries'
+    if (-not (Test-Path -LiteralPath $vaLibrariesDir -PathType Container)) {
+        Add-Step 'test.vanessa.libraries' 'warning' "Каталог библиотечных фич не найден: $vaLibrariesDir; шаги пакета add будут нераспознаны (поставьте пакет через opm)"
+    }
     $ibConnection = '/F' + ($credentials.path -replace '\\', '/')
     $ibFileConnection = 'File="' + $credentials.path + '";'
 
@@ -417,6 +424,7 @@ function Invoke-Test {
             FEATURES_DIR       = ($featuresDir -replace '\\', '/')
             TESTCLIENT_TIMEOUT = [string]$testClientTimeout
             IB_FILE_CONNECTION = $ibFileConnection
+            VA_LIBRARIES_DIR   = ($vaLibrariesDir -replace '\\', '/')
             LOGIN              = [string]$credentials.user
             PASSWORD           = [string]$credentials.password  # airules:allow creds-password (template value from resolved credentials, no literal secret)
         }) $addTmp
