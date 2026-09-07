@@ -21,6 +21,20 @@ $script:StartedAt = [DateTime]::UtcNow
 $script:ToolRoot = Join-Path $env:LOCALAPPDATA 'agent-1c\tools'
 $script:LockPath = Join-Path $PSScriptRoot 'toolchain.lock.json'
 
+# Сторож над 1cv8 и межпроцессный лок на базу. Скрипты проекта, ходящие в ту
+# же ИБ мимо этого контура, обязаны подключать ЭТОТ же файл: лок, накрывающий
+# один путь из двух, не гарантирует ничего.
+. (Join-Path $PSScriptRoot 'lib\1c-guard.ps1')
+
+function Get-1CBaseIdentity {
+    <# Строка, однозначно определяющая базу, — ключ лока. #>
+    param($Target, [string]$ResolvedPath)
+
+    if ($Target.kind -eq 'file') { return $ResolvedPath }
+    if ($Target.kind -eq 'server') { return ([string]$Target.server + '/' + [string]$Target.ref) }
+    return ''
+}
+
 function Add-Step {
     param([string]$Name, [string]$Status, [string]$Message)
     [void]$script:Steps.Add([ordered]@{ name = $Name; status = $Status; message = $Message })
@@ -278,11 +292,30 @@ function Invoke-Deploy {
 
     if (-not $Apply) { Add-Step 'deploy.apply' 'dry-run' 'Для применения требуется -Apply'; return }
 
-    foreach ($run in $runs) {
-        $process = Start-Process -FilePath $platform.FullName -ArgumentList $run.args -Wait -PassThru -NoNewWindow
-        [void]$script:Artifacts.Add($run.log)
-        if ($process.ExitCode -ne 0) { throw "Deploy ($($run.name)) завершился с кодом $($process.ExitCode). См. $($run.log)" }
-        Add-Step "deploy.apply.$($run.name)" 'ok' "Шаг выполнен; лог: $($run.log)"
+    # Лок держится на ОБА запуска: между load и update конфигурация в базе уже
+    # изменена, но не применена — чужой деплой в этот промежуток ломает обе стороны.
+    $guardLog = Join-Path $script:RunDir 'guard.log'
+    $baseId = Get-1CBaseIdentity $target $credentials.path
+    $lock = $null
+    if ($baseId) { $lock = Enter-1CBaseLock -Target $baseId -LogPath $guardLog }
+    try {
+        foreach ($run in $runs) {
+            $guard = Invoke-Guarded1C -FilePath $platform.FullName -ArgumentList ([string[]]$run.args) `
+                -Label "deploy/$($run.name)" -LogPath $guardLog
+            [void]$script:Artifacts.Add($run.log)
+            if ($guard.Killed) {
+                $hint = ''
+                if ($guard.DialogSeen) { $hint = ' У процесса было окно — вероятен модальный диалог платформы.' }
+                Add-Step "deploy.apply.$($run.name)" 'error' "Сторож снял процесс: $($guard.Reason).$hint"
+                throw "Deploy ($($run.name)) снят сторожем: $($guard.Reason).$hint См. $guardLog"
+            }
+            if ($guard.ExitCode -ne 0) { throw "Deploy ($($run.name)) завершился с кодом $($guard.ExitCode). См. $($run.log)" }
+            Add-Step "deploy.apply.$($run.name)" 'ok' "Шаг выполнен за $($guard.DurationSec) с, пик памяти $($guard.PeakPrivateGb) ГБ; лог: $($run.log)"
+        }
+    }
+    finally {
+        Exit-1CBaseLock $lock
+        [void]$script:Artifacts.Add($guardLog)
     }
     Add-Step 'deploy.apply' 'ok' ("Тестовая ИБ обновлена; запусков: " + $runs.Count)
 }
@@ -446,8 +479,30 @@ function Invoke-Test {
         $displayCommand = (Quote-IfNeeded $vrunner) + ' ' + (($arguments | ForEach-Object { Quote-IfNeeded ([string]$_) }) -join ' ')
         Add-Step 'test.command' 'planned' ($displayCommand + '  [секрет: RUNNER_DBPWD=<hidden> в окружении + /P с кавычками во временном VAParams (затирается в finally)]')
 
-        $process = Start-Process -FilePath $vrunner -ArgumentList $arguments -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-        $code = $process.ExitCode
+        # Тест тоже держит базу: деплой, влезший в середину прогона Vanessa,
+        # меняет конфигурацию под работающими сценариями. Лок — тот же, что у деплоя.
+        # Память здесь НЕ сторожим: vrunner лишь ждёт дочерние 1cv8 и всегда
+        # выглядит пустым и стоящим; остаётся таймаут (прогон длиннее деплоя).
+        $guardLog = Join-Path $script:RunDir 'guard.log'
+        $baseId = Get-1CBaseIdentity $target $credentials.path
+        $testLock = $null
+        if ($baseId) { $testLock = Enter-1CBaseLock -Target $baseId -LogPath $guardLog }
+        try {
+            $guard = Invoke-Guarded1C -FilePath $vrunner -ArgumentList ([string[]]$arguments) `
+                -Label 'test/vrunner' -TimeoutOnly -LogPath $guardLog `
+                -TimeoutMinutes ([int](Get-1CGuardSetting 'AGENT1C_TEST_TIMEOUT_MIN' 45)) `
+                -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        }
+        finally {
+            Exit-1CBaseLock $testLock
+            [void]$script:Artifacts.Add($guardLog)
+        }
+        if ($guard.Killed) {
+            Add-Step 'test.vanessa' 'error' "Сторож снял прогон: $($guard.Reason). См. $guardLog"
+            $script:ExitCode = 1
+            return
+        }
+        $code = $guard.ExitCode
 
         Remove-SecretFromFiles @($stdout, $stderr, (Join-Path $outputDir 'vanessaonline.txt'), (Join-Path $outputDir 'message.txt')) $credentials.password
         [void]$script:Artifacts.Add($outputDir)
