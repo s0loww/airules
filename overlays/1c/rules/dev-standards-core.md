@@ -154,6 +154,52 @@ The reason is the diff: a change of literal structure rewrites lines that carry
 no change in meaning, and the reviewer can no longer see what actually happened.
 If the original already concatenates — continue in that style.
 
+### Refactoring edits — where the explanation lives
+
+For refactoring and performance edits of existing code the explanatory ballast
+must **not** stay at the change sites: a marker pair plus `Было/Стало` prose at
+every site makes the procedure unreadable. Canonical layout:
+
+**At each change site** — the marker pair and the working code, nothing else:
+
+```bsl
+// {COMMENT_OPEN}
+НовыйКод();
+// {COMMENT_CLOSE}
+```
+
+No `Было/Стало` lines and no commented-out original at the site.
+
+**All explanations and the commented-out original** go into one collapsible block
+at the top of the modified procedure, wrapped in a real region (pseudo-regions
+are prohibited — see "General Rules" below):
+
+```bsl
+Процедура Имя(...)
+
+	#Область ОписаниеИзменений_<TaskId>
+	// {COMMENT_OPEN}
+	// <what the edit does, one line>
+	// Change sites in the body carry markers without explanations — the
+	// explanations and the original code are collected here.
+	// 1. <what it was> → <what it became>.
+	//    Было: <the original line verbatim, with its indentation>
+	// 2. ...
+	// {COMMENT_CLOSE}
+	#КонецОбласти
+```
+
+- The region name must be a valid identifier (`-` → `_`); the task id lives
+  there, not inside the markers (markers stay free of dates, authors and task
+  numbers — see "Format" above). One region per procedure per task id; numbered
+  points inside it cover several sites in that procedure.
+- The "comment out, DO NOT delete" rule is satisfied by the `Было:` lines of the
+  header block — the original text is preserved verbatim, in one place instead of
+  scattered across the body.
+- For an entirely new procedure added by the refactoring the markers still wrap
+  the whole body, and its explanation block goes into the same kind of region
+  right after the header.
+
 ### General Rules
 - `TODO` / `FIXME` must contain a task reference: `// TODO No.14752: description`
 - **Pseudo-regions via comments are PROHIBITED** — use only `#Область` / `#КонецОбласти`

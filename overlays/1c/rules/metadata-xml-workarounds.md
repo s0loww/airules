@@ -1,5 +1,5 @@
 ---
-description: "Common XML generation pitfalls for 1C metadata and managed forms (`TabularSection` `LineNumber`, `PagesGroupExtInfo` typo, `Page.enabled`, UID uniqueness, ScheduledJob method binding, post-edit validation). Load when authoring or fixing metadata XML or `Form.xml` by hand. Триггеры: конфигурация не загружается из файлов, ошибка загрузки XML, права роли, дублирующийся UUID, битая структура метаданных."
+description: "Common XML generation pitfalls for 1C metadata and managed forms (`TabularSection` `LineNumber`, `PagesGroupExtInfo` typo, `Page.enabled`, UID uniqueness, ScheduledJob method binding, post-edit validation), plus the open-time checklist for form modules of an external data processor — a built `.epf` whose form fails only when opened. Load when authoring or fixing metadata XML or `Form.xml` by hand, or before handing over a built `.epf`. Триггеры: конфигурация не загружается из файлов, ошибка загрузки XML, права роли, дублирующийся UUID, битая структура метаданных, внешняя обработка не открывается, переменная не определена при открытии формы."
 alwaysApply: false
 kind: invariant
 ---
@@ -198,3 +198,70 @@ Whenever editing metadata XML by hand, after the change run:
 - A duplicate-UUID scan across the source tree after bulk generation.
 
 This catches structural issues (missing required elements, wrong type names, broken references) before they reach the platform.
+
+## 11. Form modules of an external data processor compile only at open time
+
+Building an `.epf` via `/LoadExternalDataProcessorOrReportFromFiles` does **not**
+compile form modules, and BSL LS checks neither the validity of platform names
+nor client/server availability. Every defect below shipped inside a successfully
+built `.epf` and surfaced only when a person opened the form. Before handing over
+an `.epf`, walk the form module against this checklist.
+
+1. **Invented platform names.** Extract every call not defined in the module and
+   confirm each against the platform documentation, not from memory. Names that
+   shipped: `СтрРЗаменить`, `ПолучитьФайлАсинх` (real:
+   `ПолучитьФайлССервераАсинх`), `ЧтениеXML.ЧитатьДальше` / `.ИмяУзла` /
+   `.УзелXML` (real: `Прочитать` / `Имя` / `ТипУзла`), `ДобавитьКДате` and
+   `ЧастьДаты` in BSL code (query language only — in code use `ДобавитьМесяц`).
+2. **Client context.** In `&НаКлиенте` sections: no `ТекущаяДатаСеанса`
+   (server-only — compute on the server and return it in the result structure),
+   no queries and no serializers. Saving a file to a user folder —
+   `ПолучитьФайлССервераАсинх`; picking a folder — `ДиалогВыбораФайла` +
+   `ВыбратьФайлАсинх`.
+3. **Temp storage owner.** `ПоместитьВоВременноеХранилище` needs the form
+   `УникальныйИдентификатор` passed in from the client, otherwise the address
+   dies at the end of the server call.
+4. **Main form attribute name.** Scaffolding emits `Attribute name="Object"`
+   while a Russian module refers to `Объект` — "Переменная не определена" at form
+   open. Rename the attribute (and its `DataPath` prefix) to match the module.
+5. **Form property collisions.** A local variable named like a read-only form
+   property fails at **runtime**, not at compile time: `ИмяФормы = ...` →
+   "Поле объекта недоступно для записи". Cross-check assigned names against the
+   properties of `УправляемаяФорма` (`form-reserved-names.md`).
+6. **Server-side attach of external files.** Since 8.3.9
+   `ВнешниеОбработки.Подключить` on the server accepts **only** a temp-storage
+   address; a file path raises "Неправильный путь к файлу". Read the file into
+   `ДвоичныеДанные`, put it into temp storage (form UUID as owner), attach by
+   address.
+7. **Server code never sees client paths.** On a client-server infobase a
+   `&НаСервере` routine opening a user-profile path runs inside `rphost` on the
+   application server — "Каталог не обнаружен" even though the folder exists on
+   the client machine. File exchange with the user's machine goes through temp
+   storage only: the server writes into its own `ПолучитьИмяВременногоФайла()`
+   directory → `ПоместитьВоВременноеХранилище` → the client saves via
+   `ПолучитьФайлССервераАсинх`. **A file infobase masks this defect** (client and
+   server are the same machine) — it surfaces only in production.
+8. **Query literals.** Quotes inside a string literal comment must be doubled
+   (a bare `"` splits the literal). A table alias must not be a reserved word,
+   and must not equal a field alias in the same query — otherwise
+   "неоднозначное поле".
+9. **Number + string concatenation.** `Счетчик + " объектов"` fails with
+   "Преобразование значения к типу Число": the type of the **left** operand wins.
+   Start the concatenation with a string, or wrap numbers in `Строка()`.
+10. **Register manager collections.** Not every register that carries movements
+    is an accumulation register — look the type up in the sources before
+    indexing `РегистрыНакопления[...]`; a `РегистрСведений` subordinate to a
+    recorder is a common shape.
+11. **Serialized objects carry extension attributes.** XML exported from a base
+    with installed extensions contains their attributes (prefixed names) in the
+    current-configuration namespace; a strict `СериализаторXDTO` on a base
+    without those extensions rejects the whole file
+    ("НачалоСвойства: ..."). Strip such elements before deserialization —
+    self-closed tags first, then paired ones.
+12. **Copy-from-sibling drift.** Code copied from another processor carries its
+    pre-fix defects — re-run this checklist on pasted fragments too.
+
+Cheap automation: a script that lists call names undefined in the module, scans
+`&НаКлиенте` bodies for server-only names, and checks quote parity and per-query
+alias clashes catches most of the list in seconds — worth having in the project's
+`tools/` next to the build script.
