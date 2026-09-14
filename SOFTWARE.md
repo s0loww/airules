@@ -46,6 +46,7 @@
 | opm | пакетный менеджер OneScript | <https://github.com/oscript-library/opm> |
 | vanessa-runner | запуск сценарных тестов | <https://github.com/oscript-library/vanessa-runner> |
 | Vanessa Automation | BDD-сценарии (`vanessa-suite/`) | <https://github.com/Pr-Mex/vanessa-automation/releases> |
+| 7-Zip | чтение архивов `.7z` технологического журнала скиллом `1c-tj-analysis` (опционально: `.zip` и каталог — без него) | <https://www.7-zip.org/download.html> |
 | Apache HTTP Server | веб-публикация ИБ (`docs/web-manage.md`) | <https://httpd.apache.org/download.cgi> (windows-сборки: <https://www.apachelounge.com/download/>) |
 
 Правило обновления ссылок: версии в этом файле не фиксируются — источник

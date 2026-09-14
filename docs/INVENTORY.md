@@ -19,11 +19,11 @@ python ci/simulate_install.py --emit-inventory
 |---|---|
 | версия | 0.8.1 |
 | правил | 48 |
-| скиллов | 8 |
+| скиллов | 9 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 202 |
+| файлов в цели | 209 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -51,7 +51,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `openspec/` | 5 |
 | `tools/` | 38 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 88 |
+| `.claude/skills/` | 95 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -146,6 +146,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `openspec-propose` | core | Propose a new change with all artifacts generated in one step |
 | `powershell-windows` | core | Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7 |
 | `1c-metadata-manage` | 1c | 1C metadata management — create, edit, validate, and remove configuration objects (catalogs, doc |
+| `1c-tj-analysis` | 1c | Analyse a 1C technological log (ТЖ): what the log actually recorded, the slowest server calls an |
 | `img-grid-analysis` | 1c | Overlay a numbered grid on an image to determine column proportions for layout generation |
 <!-- /generated:skills -->
 

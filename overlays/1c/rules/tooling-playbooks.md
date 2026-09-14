@@ -113,6 +113,7 @@ Follow the four-phase loop in `systematic-debugging.md`; this playbook lists the
 
 ## Performance Optimization
 
+0. **Evidence first.** A slow operation is located by measurement — the technological log (ТЖ), a performance measurement or a timed reproduction — not by reading code. A ТЖ is analysed with the `1c-tj-analysis` skill: its script aggregates the log locally, starts with what the log recorded at all, and never pulls raw log text (SQL with parameters, user names) into the context. A ТЖ event's `Context` names the module and line — continue from there with the steps below.
 1. **code search** — locate slow patterns (semantic queries like "медленный запрос", "цикл по выборке").
 2. **call graph (call-chain / hierarchy)** — identify hot call chains.
 3. **call graph (impact / dependencies)** — objects that cause cascading issues (pure code paths).
