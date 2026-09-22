@@ -1,10 +1,10 @@
 ---
-description: "Writing unit tests for 1C code with YaXUnit — when a unit test is the right channel at all, test naming, the Arrange / Act / Assert shape, and the boundary with scenario runs. Load when asked to cover a routine with tests, or when deciding between a unit test and a scenario. Триггеры: юнит-тест, покрыть тестами функцию, YaXUnit, ЮТест, модульный тест, какой тест писать."
+description: "Writing unit tests for 1C code (YaXUnit or a native test extension) — when a unit test is the right channel at all, test naming, the Arrange / Act / Assert shape, and the boundary with scenario runs. Load when asked to cover a routine with tests, or when deciding between a unit test and a scenario. Триггеры: юнит-тест, покрыть тестами функцию, YaXUnit, ЮТест, модульный тест, какой тест писать, тестовое расширение, RUN_CI_TESTS."
 alwaysApply: false
 kind: recipe
 ---
 
-# Unit tests for 1C code (YaXUnit)
+# Unit tests for 1C code
 
 What makes a test worth keeping at all — seams agreed in advance, vertical
 red-green slices, no tautological or implementation-coupled assertions — is
@@ -13,10 +13,21 @@ about the 1C-specific shape.
 
 ## Before writing one
 
-- **Only if the project already runs YaXUnit.** Introducing a test framework
-  is a decision with its own infrastructure cost, not a side effect of a
-  change. No framework in the project — say so and offer it as a separate
-  piece of work.
+- **Only if the project already runs a unit engine** — YaXUnit, or a native
+  test extension whose modules the project's runner discovers by a name
+  pattern. Write in the engine the project has; the shape below carries
+  over, only the assertion calls differ. Introducing a test framework is a
+  decision with its own infrastructure cost, not a side effect of a change.
+  No engine in the project — say so and offer it as a separate piece of
+  work.
+- **The runner contract, whatever the engine:** headless run through a `/C`
+  launch parameter (skill `ibcmd-ibsrv`), a machine-readable report
+  (JUnit), exit code by result. A discovery or setup error inside the
+  engine must land in the report as a failure — an engine that only logs it
+  turns a broken suite into a green one.
+- **The test base is reused, not wiped**: every test builds its own fixture
+  with a per-run marker and scopes its assertions to it. A test that passes
+  only on a fresh base is broken.
 - **Pick the channel deliberately.** A unit test earns its place on logic that
   can be exercised without the platform's data layer: computation, parsing,
   transformation, branching. Everything whose value is "the document posted and

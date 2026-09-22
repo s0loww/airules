@@ -1,5 +1,5 @@
 ---
-description: "What makes an automated test worth keeping: pre-agreed seams, vertical red-green slices, mocking only at system boundaries, anti-patterns with their tells. Load when writing or reviewing tests, adding a regression test, or deciding where to test. Триггеры: тесты, тестирование, регрессионный тест, TDD, моки."
+description: "What makes an automated test worth keeping: pre-agreed seams, vertical red-green slices, mocking only at system boundaries, anti-patterns with their tells, and the oracles that report a wrong verdict (checks that cannot fail, empty results, admin-only runs, fixture defects, shared state). Load when writing or reviewing tests, adding a regression test, deciding where to test, or doubting a green or red run. Триггеры: тесты, тестирование, регрессионный тест, TDD, моки, ложно-зелёный, ложный провал, мутант, фикстура, тест под ролью."
 alwaysApply: false
 kind: invariant
 ---
@@ -62,6 +62,55 @@ decision, not a by-product of writing tests.
    implementation. The tests verify *imagined* behavior and freeze the test
    structure before the implementation is understood.
 
+## Oracles that lie — false green and false red
+
+Each item below is a way a suite reports the wrong verdict while every test
+"works".
+
+- **A check that cannot fail.** Every validation rule, guard or assertion
+  helper gets a *mutant* — a deliberately broken input on which it must
+  fail. A rule without a mutant is unverified: it may be dead from birth
+  (wrong key, wrong path, wrong case) and pass everything.
+- **A trusted in-process validator.** A validator built into the runtime is
+  admitted into acceptance only after it agrees with an external reference
+  validator on a set of corrupted samples. Output files are always checked
+  against the reference, and the first real output goes through it as early
+  as possible.
+- **Outcome without path.** When a result can be produced by several
+  branches (a disjunction, alternative triggers), each branch gets its own
+  scenario, and the test asserts *which* branch fired, not only that the
+  result exists. A branch no data exercises is reported as *not verified*.
+- **No exception ≠ success.** An operation that finished without an error
+  is checked by its effect: the count and content of what it wrote, key
+  references actually filled.
+- **Empty ≠ none.** An empty result from a query or a service may be a
+  swallowed error. Validate the query first and get a non-empty answer on a
+  known-positive control before reading emptiness as "no data".
+- **Silenced errors.** When the code under test logs failures instead of
+  raising them, the run's verdict includes the error log for the run's time
+  window: any error there fails the run, even if every functional check is
+  green.
+- **Admin-only runs.** Behavior that depends on permissions is run under
+  each target role, not only under an administrator. Access restriction is
+  checked quantitatively — the restricted user sees strictly fewer rows,
+  and a specific forbidden record is not readable.
+- **Fixture defect read as product defect.** Before filing a failure as a
+  product bug, check the fixture: generated values against type, length and
+  schema; the type of an assigned value against the target field. A
+  generator of synthetic data passes the same schema check as the product.
+- **Shared state.** A test changes nothing outside its own fixture, or
+  reverts what it changed; an unavoidable order dependency is declared in
+  the suite, not remembered. Queues and buffers are drained before a run.
+  On a shared environment, arrange, act and assert run in one server call —
+  data vanishing between steps is first explained by another consumer, not
+  by a defect.
+- **Stale caches and pre-fix objects.** After changing settings or code,
+  reset the runtime's cached values and test on objects created *after* the
+  change; objects processed before it keep their old outcome.
+- **Reading instead of running.** Behavior of a generated query, a report
+  or a template is asserted by running it on control data at the
+  boundaries, never by reading its text.
+
 ## Mocking
 
 - Mock **only at system boundaries**: external services, clock and
@@ -84,6 +133,8 @@ paper over — lives there.
 
 - `verification-matrix.md` — soft gate D runs the affected tests as part of
   the closing gate.
+- `test-model.md` — which channel a test runs through and whether its
+  verdict gates or advises.
 - `debugging-loop.md` — where the reproduction that seeds a regression test
   comes from.
 - `subagent-pipeline.md` — the stage-2 plan is where seams get named and

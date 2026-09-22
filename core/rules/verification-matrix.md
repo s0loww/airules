@@ -17,7 +17,7 @@ supplied by the project profile; below they are described as categories.
 | Code logic | syntax check + static analysis + affected automated tests (when a suite exists) | deeper review for shared modules, queries, transactions |
 | Query / data access | local impact search + syntax + static analysis | review of query parameters, derived-view filters, callers |
 | Metadata (XML) | schema/tool validation when available | load/open the object on a test environment when feasible |
-| Form (XML/module) | markup/event inspection + form validation when available | UI smoke / opening the form |
+| Form (XML/module) | markup/event inspection + form validation + **opening the form in the client** when a test environment exists — a successful load or compile does not prove the form opens | UI smoke: open → first command → close |
 | Integration / XML / JSON | check against schema/sample/reference payload | retry/error/security review; coverage reconciliation (gate E) when many input shapes map onto handling rules |
 | Refactoring | caller/usage impact + syntax/analysis | wider impact search across dependents |
 | OpenSpec artifacts | `openspec validate` or the project equivalent | verify tasks/specs/design stay consistent |
@@ -93,7 +93,9 @@ and a bounded retry budget.
   and nothing dropped for uncertainty — the reviewer roles own that reporting
   contract; do not restate or narrow it here.
 - **D. Automated tests (only when the project has a test suite)** — the
-  tests affected by the change pass. A bug fix additionally carries a
+  tests affected by the change pass, in the gating layers of
+  `test-model.md`; advisory layers (agent exploration, simulation) never
+  stand in for them. A bug fix additionally carries a
   regression test at a correct seam, built from the minimised reproduction —
   or the absence of a correct seam is recorded in "Risks"
   (`debugging-loop.md`, phase 5). New tests follow `test-discipline.md`: no

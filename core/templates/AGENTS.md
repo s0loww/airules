@@ -85,6 +85,8 @@ Rule Index at the moment it applies, never preloaded.
 | refactoring, duplicates, dead code / рефакторинг, дубли | {{DOMAIN_ROUTES}} | refactoring |
 | check, review, verification / проверка, ревью | `verification-matrix` | code-reviewer |
 | tests, regression test, mocking / тесты, регрессия, моки | `test-discipline` | developer / tester |
+| test channels, gating vs advisory, run evidence / каналы проверки, стенд | `test-model` | tester |
+| exploratory testing, intent, ratification / исследовательское тестирование, интент | `intent-testing` | tester / analytic |
 | work mode, scouting vs edit, emergency fix / режим работы, разведка | `collaboration-modes` | (orchestrator) |
 | debugging, bug, error reproduction / отладка, баг | `debugging-loop` | error-fixer |
 | session handoff, new session, context limit / передача сессии, хэндофф | `session-handoff` | (orchestrator) |
