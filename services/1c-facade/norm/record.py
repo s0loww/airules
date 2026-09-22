@@ -64,6 +64,12 @@ class Record:
     rel: Optional[Rel] = None
     text: Optional[str] = None
     src: Optional[Src] = None
+    # Which part of a base-plus-extensions group the record comes from:
+    # "base" or "ext:<name>". None outside such a group.
+    scope: Optional[str] = None
+    # Set on a base routine that an extension intercepts: the runtime may not
+    # execute this code as written. "ext:<name> &Вместо Метод".
+    overridden_by: Optional[List[str]] = None
 
     def errors(self) -> List[str]:
         out = []

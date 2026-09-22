@@ -23,8 +23,16 @@ def _directive(tail):
 _CC_HEAD = re.compile(
     r"^Цепочка вызовов '(?P<name>[^'(]+?)\s*\((?P<owner>[^)]+)\)'\s*"
     r"\(direction=(?P<dir>\w+),\s*depth=(?P<depth>\d+)\)\s*—\s*(?P<n>\d+)", re.M)
-_CC_NONE = re.compile(r"^'(?P<name>[^']+)'\s*\((?P<owner>[^)]+)\):\s*вызовы не найдены", re.M)
-_CC_404 = re.compile(r"^(?:Процедура|Функция)\s*'(?P<name>[^']+)'\s*не найдена", re.M)
+# "вызовы не найдены" answers callees, "вызывающие не найдены" answers callers:
+# the same empty result in two wordings.
+_CC_NONE = re.compile(
+    r"^'(?P<name>[^']+)'\s*\((?P<owner>[^)]+)\):\s*(?:вызовы|вызывающие) не найдены", re.M)
+# Asked with an owner (`object_name`, which `calls` always passes to pin the
+# homonym) the refusal reads "Процедура 'X' (object: Y) не найдена"; the bare
+# form lacks the parenthesis. Both are one answer: the graph does not know it.
+_CC_404 = re.compile(
+    r"^(?:Процедура|Функция)\s*'(?P<name>[^']+)'\s*(?:\(object:\s*(?P<owner>[^)]*)\)\s*)?"
+    r"не найдена", re.M)
 _CC_DEPTH = re.compile(r"^\s*Глубина\s+(?P<d>\d+):", re.M)
 # The tail after `(owner / kind)` carries an export marker and a compilation
 # directive in either order -- both `... Экспорт` and `... [&НаСервере] Экспорт`

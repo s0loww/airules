@@ -35,6 +35,12 @@ VERSION = "0.2.0"
 
 _PROJECT = {"type": "string",
             "description": "Проект из реестра; опущен — проект по умолчанию."}
+_SCOPE = {"type": "string",
+          "description": "Для базы с расширениями: all — база и все расширения, "
+                         "base — только база, <имя расширения> — база и оно. "
+                         "По умолчанию: для базы all, для расширения — оно с базой. "
+                         "Записи несут scope (base | ext:<имя>), процедура базы, "
+                         "перехваченная расширением, — overridden_by."}
 
 TOOLS = [
     {
@@ -55,6 +61,7 @@ TOOLS = [
                          "default": "any"},
                 "exact": {"type": "boolean", "default": False},
                 "limit": {"type": "integer", "default": 20},
+                "scope": _SCOPE,
             },
             "required": ["query"],
         },
@@ -77,6 +84,7 @@ TOOLS = [
                                       "или путь модуля."},
                 "project": _PROJECT,
                 "sections": {"type": "array", "items": {"type": "string"}},
+                "scope": _SCOPE,
             },
             "required": ["id"],
         },
@@ -97,6 +105,7 @@ TOOLS = [
                 "direction": {"type": "string", "enum": ["callers", "callees"],
                               "default": "callers"},
                 "depth": {"type": "integer", "default": 1},
+                "scope": _SCOPE,
             },
             "required": ["id"],
         },
@@ -115,6 +124,7 @@ TOOLS = [
                 "project": _PROJECT,
                 "where": {"type": "string", "enum": ["metadata", "code", "both"],
                           "default": "both"},
+                "scope": _SCOPE,
             },
             "required": ["id"],
         },

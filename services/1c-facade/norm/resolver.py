@@ -55,6 +55,42 @@ _DECL = re.compile(
     re.MULTILINE)
 _EXPORT_TAIL = re.compile(r"^\s*(?:Экспорт|Export)\b", re.IGNORECASE)
 
+# An extension method intercepting a routine of the base configuration. The
+# annotation sits on the lines just above the declaration, possibly next to a
+# compilation directive (&НаСервере) or a comment.
+_OVERRIDE = re.compile(
+    r"^[ \t]*&(?P<directive>Вместо|Перед|После|ИзменениеИКонтроль|"
+    r"Around|Before|After|ChangeAndValidate)[ \t]*\([ \t]*\"(?P<target>[^\"]+)\"",
+    re.IGNORECASE)
+_OVERRIDE_CANON = {"around": "Вместо", "before": "Перед", "after": "После",
+                   "changeandvalidate": "ИзменениеИКонтроль"}
+
+# Bumped whenever the index gains a table or a column: a stored index of an
+# older shape is rebuilt from scratch, because the incremental pass trusts file
+# hashes and would otherwise never fill the new table for unchanged files.
+SCHEMA_VERSION = 2
+
+
+def _override_above(lines, decl_line):
+    """(directive, target) of the annotation above a declaration, or None."""
+    index = decl_line - 2                     # 1-based line -> previous line index
+    for _ in range(6):
+        if index < 0:
+            return None
+        line = lines[index].strip()
+        if not line or line.startswith("//"):
+            index -= 1
+            continue
+        if not line.startswith("&"):
+            return None
+        match = _OVERRIDE.match(lines[index])
+        if match:
+            directive = match.group("directive")
+            return (_OVERRIDE_CANON.get(directive.lower(), directive),
+                    match.group("target"))
+        index -= 1
+    return None
+
 
 def _is_export(text, open_paren):
     """Is this declaration exported?
@@ -110,6 +146,15 @@ CREATE TABLE IF NOT EXISTS refs (
 );
 CREATE INDEX IF NOT EXISTS refs_name ON refs(name);
 CREATE INDEX IF NOT EXISTS refs_path ON refs(path);
+CREATE TABLE IF NOT EXISTS overrides (
+    owner     TEXT NOT NULL,
+    target    TEXT NOT NULL,
+    method    TEXT NOT NULL,
+    directive TEXT NOT NULL,
+    path      TEXT NOT NULL,
+    line      INTEGER
+);
+CREATE INDEX IF NOT EXISTS overrides_path ON overrides(path);
 """
 
 # References to a metadata object in code, through the access prefixes 1C
@@ -213,7 +258,12 @@ class Resolver(object):
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self._lock = threading.Lock()
         with self._lock:
+            stored = self.db.execute("PRAGMA user_version").fetchone()[0]
             self.db.executescript(SCHEMA)
+            has_files = self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+        # a stored index of an older shape: its unchanged files would never be
+        # re-read, so the new tables would stay empty -- rebuild it once
+        self.stale_schema = bool(has_files) and stored < SCHEMA_VERSION
 
     def close(self):
         with self._lock:
@@ -224,9 +274,22 @@ class Resolver(object):
     def build(self, force=False):
         """Index the export. Incremental by content hash; returns a count map."""
         counts = {"new": 0, "modified": 0, "unchanged": 0, "deleted": 0}
+        if self.stale_schema:
+            # An index of an older shape starts over -- but as an ordinary
+            # incremental pass over an emptied index, with the new version
+            # recorded up front. Interrupted halfway (a restart during the
+            # minutes a full ERP takes), the next pass resumes from what was
+            # committed instead of starting from zero again.
+            with self._lock:
+                for table in ("symbols", "refs", "overrides", "files"):
+                    self.db.execute("DELETE FROM %s" % table)
+                self.db.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
+                self.db.commit()
+            self.stale_schema = False
         with self._lock:
             known = dict(self.db.execute("SELECT path, hash FROM files"))
         seen = set()
+        pending = 0
         for full, rel in _walk(self.source):
             seen.add(rel)
             digest = _digest(full)
@@ -234,9 +297,14 @@ class Resolver(object):
                 counts["unchanged"] += 1
                 continue
             counts["modified" if rel in known else "new"] += 1
+            pending += 1
+            if pending % 500 == 0:
+                with self._lock:
+                    self.db.commit()
             with self._lock:
                 self.db.execute("DELETE FROM symbols WHERE path = ?", (rel,))
                 self.db.execute("DELETE FROM refs WHERE path = ?", (rel,))
+                self.db.execute("DELETE FROM overrides WHERE path = ?", (rel,))
                 self._index_file(full, rel)
                 self.db.execute(
                     "INSERT INTO files(path, hash) VALUES(?, ?) "
@@ -247,8 +315,11 @@ class Resolver(object):
                 counts["deleted"] += 1
                 self.db.execute("DELETE FROM symbols WHERE path = ?", (gone,))
                 self.db.execute("DELETE FROM refs WHERE path = ?", (gone,))
+                self.db.execute("DELETE FROM overrides WHERE path = ?", (gone,))
                 self.db.execute("DELETE FROM files WHERE path = ?", (gone,))
+            self.db.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
             self.db.commit()
+        self.stale_schema = False
         return counts
 
     def _index_file(self, full, rel):
@@ -262,15 +333,23 @@ class Resolver(object):
         owner = owner_of(rel)
         if owner:
             rows = []
+            intercepts = []
             for match in _DECL.finditer(text):
                 name = match.group("name")
+                line = _line_of(offsets, match.start())
                 rows.append((name, owner, owner + "." + name, "routine", rel,
-                             _line_of(offsets, match.start()),
-                             _is_export(text, match.end() - 1)))
+                             line, _is_export(text, match.end() - 1)))
+                above = _override_above(lines, line)
+                if above:
+                    intercepts.append((owner, above[1], name, above[0], rel, line))
             if rows:
                 self.db.executemany(
                     "INSERT INTO symbols(name, owner, qual, kind, path, line, export) "
                     "VALUES(?,?,?,?,?,?,?)", rows)
+            if intercepts:
+                self.db.executemany(
+                    "INSERT INTO overrides(owner, target, method, directive, path, line) "
+                    "VALUES(?,?,?,?,?,?)", intercepts)
 
         # One reference per object per line: a line naming the same object twice
         # is one usage to a reader.
@@ -379,6 +458,15 @@ class Resolver(object):
             return [row[0] for row in self.db.execute(
                 "SELECT DISTINCT path FROM symbols WHERE owner = ? ORDER BY path",
                 (owner,))]
+
+    def overrides(self):
+        """Every interception an extension declares: (owner, target routine,
+        extension method, directive, path, line). In the base's own index this
+        is empty; it is the extensions' index that carries it."""
+        with self._lock:
+            return self.db.execute(
+                "SELECT owner, target, method, directive, path, line FROM overrides "
+                "ORDER BY owner, target").fetchall()
 
     def stats(self):
         with self._lock:

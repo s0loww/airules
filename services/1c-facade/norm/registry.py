@@ -50,9 +50,11 @@ class Backend(object):
 
 
 class Project(object):
-    __slots__ = ("name", "source", "backends", "aliases", "frozen")
+    __slots__ = ("name", "source", "backends", "aliases", "frozen", "parent",
+                 "extensions")
 
-    def __init__(self, name, source, backends, aliases=None, frozen=False):
+    def __init__(self, name, source, backends, aliases=None, frozen=False,
+                 parent=None, extensions=None):
         self.name = name
         self.source = source            # path to the configuration export
         self.backends = backends        # {"code": Backend, "graph": Backend}
@@ -62,6 +64,14 @@ class Project(object):
         # files, and over a bind mount that is minutes even when nothing
         # changed -- the scan itself is the cost, not the parsing.
         self.frozen = bool(frozen)
+        # A base configuration and its extensions form a group: the extension
+        # knows its base (`parent`), the base knows its extensions by name.
+        self.parent = parent
+        self.extensions = list(extensions or ())
+
+    @property
+    def grouped(self):
+        return bool(self.parent or self.extensions)
 
     def backend(self, kind):
         return self.backends.get(kind)
@@ -116,7 +126,7 @@ def _backend_from_dict(kind, spec):
                    expose=spec.get("expose"))
 
 
-def _project_from_dict(name, raw):
+def _project_from_dict(name, raw, parent=None):
     backends = {}
     for kind, spec in (raw.get("backends") or {}).items():
         backends[kind] = Backend(kind=kind, url=spec["url"],
@@ -126,7 +136,8 @@ def _project_from_dict(name, raw):
                                  code_root=spec.get("code_root"),
                                  expose=spec.get("expose"))
     return Project(name=name, source=raw.get("source"), backends=backends,
-                   aliases=raw.get("aliases"), frozen=raw.get("frozen", False))
+                   aliases=raw.get("aliases"), frozen=raw.get("frozen", False),
+                   parent=parent, extensions=sorted(raw.get("extensions") or ()))
 
 
 def load(path=None):
@@ -136,8 +147,14 @@ def load(path=None):
         return Registry([])
     with io.open(path, encoding="utf-8") as handle:
         raw = json.load(handle)
-    projects = [_project_from_dict(name, spec)
-                for name, spec in sorted((raw.get("projects") or {}).items())]
+    # v2 nests extensions under their base; v1 (no "version") is flat. Both
+    # flatten into one name table, so `project="bki"` keeps working and simply
+    # arrives with its base attached.
+    projects = []
+    for name, spec in sorted((raw.get("projects") or {}).items()):
+        projects.append(_project_from_dict(name, spec))
+        for ext_name, ext_spec in sorted((spec.get("extensions") or {}).items()):
+            projects.append(_project_from_dict(ext_name, ext_spec, parent=name))
     shared = Project(name=SHARED, source=None, backends={
         kind: _backend_from_dict(kind, spec)
         for kind, spec in (raw.get("shared") or {}).items()})

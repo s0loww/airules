@@ -44,6 +44,8 @@ CASES = {
     "graph_call_chain__deep":    lambda t: G.parse_call_chain(t, "callers"),
     "graph_call_chain__empty":   lambda t: G.parse_call_chain(t, "callers"),
     "graph_call_chain__tails":   lambda t: G.parse_call_chain(t, "callers"),
+    "graph_call_chain__owned_missing": lambda t: G.parse_call_chain(t, "callers"),
+    "graph_call_chain__no_callers": lambda t: G.parse_call_chain(t, "callers"),
     "graph_usages__ok":          G.parse_usages,
     "graph_usages__empty":       G.parse_usages,
     "graph_search_code__ok":     G.parse_search_code,
@@ -118,6 +120,9 @@ def invariants(res):
     # empty and not-found must stay distinguishable
     eq("callees empty status", res["graph_call_chain__callees"].status, "empty")
     eq("unknown routine status", res["graph_call_chain__empty"].status, "not_found")
+    eq("unknown routine asked with its owner is not_found, not drift",
+       res["graph_call_chain__owned_missing"].status, "not_found")
+    eq("no callers is empty, not drift", res["graph_call_chain__no_callers"].status, "empty")
     eq("usages empty status", res["graph_usages__empty"].status, "empty")
 
     # server-declared totals must equal what we parsed, everywhere

@@ -59,6 +59,9 @@ class Envelope(object):
     def __init__(self, asked):
         self.records = []
         self.coverage = Coverage(asked)
+        # Set on the per-unit envelopes of a base-plus-extensions fan-out: there
+        # a unit that simply does not have the object is not a degraded answer.
+        self.absent_ok = False
 
     def extend(self, records):
         self.records.extend(records)
@@ -72,6 +75,8 @@ class Envelope(object):
             self.coverage.note("unparsed reply from %s: %s"
                                % (backend_name or "backend", parse_result.note or "?"))
             self.coverage.degraded = True
+        elif parse_result.status == "not_found" and self.absent_ok:
+            pass
         elif parse_result.note and (parse_result.status == "not_found"
                                     or "in progress" in parse_result.note):
             # a refusal ("Module not found") or a fallback layer answering while
@@ -102,8 +107,11 @@ class Envelope(object):
         kept = {}
         order = []
         for record in self.records:
+            # the scope is part of identity: the same routine in the base and in
+            # an extension are two records, and merging them would hide exactly
+            # the difference the caller asked about
             key = (record.id, record.rel.type if record.rel else None,
-                   record.rel.to if record.rel else None)
+                   record.rel.to if record.rel else None, record.scope)
             if key not in kept:
                 kept[key] = record
                 order.append(key)

@@ -35,7 +35,12 @@
     "          {\"code\": [\"verify_xml\", ...]}; у бэкенда можно задать свой список.",
     "shared  — серверы платформы (документация, синтаксис, проверка кода,",
     "          шаблоны): url, timeout, свой expose. Не проект, по имени не",
-    "          адресуется."
+    "          адресуется.",
+    "",
+    "version 2 — расширения лежат под своей базой: projects.<база>.extensions.<имя>",
+    "          с теми же полями (source, backends, frozen, aliases). Имя",
+    "          расширения адресуется напрямую (project=\"bki\") и приезжает с",
+    "          базой; scope выбирает all | base | <имя>. Без version — плоский v1."
   ],
   "default": "erp_bl",
   "expose": {
@@ -46,23 +51,34 @@
       "helpsearch"
     ]
   },
+  "version": 2,
   "projects": {
-    "erp_bl": {
-      "source": "/srv/sources/erp_bl",
+    "erp": {
+      "source": "/srv/sources/erp",
       "aliases": [
-        "bl"
+        "база"
       ],
-      "backends": {
-        "code": {
-          "url": "http://host.docker.internal:8012/mcp",
-          "container": "erp_bl_code_metadata",
-          "cold_ok": false,
-          "timeout": 30
-        },
-        "graph": {
-          "url": "http://host.docker.internal:8013/mcp/",
-          "container": "erp_bl_graph_metadata",
-          "cold_ok": false
+      "frozen": true,
+      "backends": {},
+      "extensions": {
+        "erp_bl": {
+          "source": "/srv/sources/erp_bl",
+          "aliases": [
+            "bl"
+          ],
+          "backends": {
+            "code": {
+              "url": "http://host.docker.internal:8012/mcp",
+              "container": "erp_bl_code_metadata",
+              "cold_ok": false,
+              "timeout": 30
+            },
+            "graph": {
+              "url": "http://host.docker.internal:8013/mcp/",
+              "container": "erp_bl_graph_metadata",
+              "cold_ok": false
+            }
+          }
         }
       }
     }

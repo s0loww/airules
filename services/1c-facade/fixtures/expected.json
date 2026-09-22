@@ -1544,6 +1544,22 @@
   "sections": {},
   "status": "not_found"
  },
+ "graph_call_chain__no_callers": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": "ДатыЗапретаИзмененияПереопределяемый.ЛК_ЗаполнитьИсточникиДанныхДляПроверкиЗапретаИзменения",
+  "sections": {},
+  "status": "empty"
+ },
+ "graph_call_chain__owned_missing": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": null,
+  "sections": {},
+  "status": "not_found"
+ },
  "graph_call_chain__tails": {
   "count": 4,
   "declared": 4,

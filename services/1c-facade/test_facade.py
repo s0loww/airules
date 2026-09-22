@@ -22,9 +22,14 @@ import registry as registry_mod                  # noqa: E402
 from health import BackendStatus                 # noqa: E402
 from resolver import Resolver, owner_of          # noqa: E402
 from verbs import Facade, grep_usages            # noqa: E402
+from envelope import Envelope                    # noqa: E402
+from record import Record                        # noqa: E402
+import sqlite3                                   # noqa: E402
+import tempfile                                  # noqa: E402
 
 FX = os.path.join(HERE, "fixtures")
 SOURCE = os.path.join(FX, "source")
+SOURCE_EXT = os.path.join(FX, "source_ext")      # an extension over SOURCE
 CANON = "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты"
 
 
@@ -127,6 +132,27 @@ def build_facade(health=None, graph=True, resolver_factory=None):
         resolver_factory = lambda _project: resolver     # noqa: E731
     return Facade(reg, health or AlwaysUpHealth(), ReplayClient,
                   resolver_factory=resolver_factory)
+
+
+def build_group(scope_resolvers=None):
+    """A base without backends plus one extension with a code backend -- the
+    shape of a real ERP fleet, where the host has no containers of its own."""
+    path = os.path.join(tempfile.mkdtemp(), "registry.json")
+    with io.open(path, "w", encoding="utf-8") as handle:
+        json.dump({"version": 2, "default": "base", "projects": {
+            "base": {"source": SOURCE, "backends": {}, "extensions": {
+                "ext": {"source": SOURCE_EXT, "backends": {
+                    "code": {"url": "http://127.0.0.1:8012/mcp"}}}}},
+            "solo": {"source": SOURCE, "backends": {
+                "code": {"url": "http://127.0.0.1:8012/mcp"}}},
+        }}, handle, ensure_ascii=False)
+    reg = registry_mod.load(path)
+    resolvers = {}
+    for name, source in (("base", SOURCE), ("ext", SOURCE_EXT), ("solo", SOURCE)):
+        resolvers[name] = Resolver(source)
+        resolvers[name].build()
+    return Facade(reg, AlwaysUpHealth(), ReplayClient,
+                  resolver_factory=lambda project: resolvers[project.name])
 
 
 class SlowReplayClient(ReplayClient):
@@ -378,6 +404,116 @@ def checks():
        {"shared/docs", "shared/syntax", "shared/codecheck", "shared/templates"}
        <= {b["name"] for b in env.coverage.backends},
        str([b["name"] for b in env.coverage.backends]))
+
+    # -- 0.2: base + extensions ----------------------------------------
+    ext_resolver = Resolver(SOURCE_EXT)
+    ext_resolver.build()
+    rows = {(o, t, m, d) for o, t, m, d, _p, _l in ext_resolver.overrides()}
+    eq("the extension's interceptions are indexed", rows, {
+        ("ДЕМО_ОбщегоНазначенияСервер", "ОтправкаПочты", "РАСШ_ОтправкаПочты", "Вместо"),
+        ("Справочники.ДоговорыКонтрагентов", "ОбработкаЗаполнения",
+         "РАСШ_ОбработкаЗаполненияПосле", "После")})
+
+    stored = os.path.join(tempfile.mkdtemp(), "index.sqlite")
+    old = Resolver(SOURCE_EXT, stored)
+    old.build()
+    old.close()
+    raw = sqlite3.connect(stored)
+    raw.execute("PRAGMA user_version = 1")
+    raw.execute("DELETE FROM overrides")
+    raw.commit()
+    raw.close()
+    reopened = Resolver(SOURCE_EXT, stored)
+    eq("a stored index of an older schema is flagged", reopened.stale_schema, True)
+    reopened.build()
+    eq("and rebuilt, filling the new table", len(reopened.overrides()), 2)
+
+    group = build_group()
+    eq("v2 registry: an extension knows its base", group.registry.get("ext").parent, "base")
+    eq("v2 registry: the base lists its extensions", group.registry.get("base").extensions,
+       ["ext"])
+    eq("v2 registry: a plain project stays ungrouped", group.registry.get("solo").grouped,
+       False)
+
+    env = group.find("ОтправкаПочты", project="base", kind="routine")
+    scopes = {(r.id, r.scope) for r in env.records if r.src and r.src.backend == "resolver"}
+    ok("base scope=all finds the routine in the base and the extension's namesake",
+       ("ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты", "base") in scopes
+       and ("РАСШ_ОбщийСервер.ОтправкаПочты", "ext:ext") in scopes, str(sorted(scopes)))
+    base_rec = [r for r in env.records
+                if r.id == "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты" and r.scope == "base"]
+    eq("the intercepted base routine names its interceptor",
+       base_rec[0].overridden_by if base_rec else None,
+       ["ext:ext &Вместо РАСШ_ОтправкаПочты"])
+    namesake = [r for r in env.records if r.id == "РАСШ_ОбщийСервер.ОтправкаПочты"]
+    eq("a namesake in the extension's own module is not an interception",
+       [r.overridden_by for r in namesake], [None])
+    ok("the base without backends is said once, not as a failure",
+       any("base: бэкендов нет" in n for n in env.coverage.notes)
+       and all(b["state"] == "up" for b in env.coverage.backends),
+       json.dumps(env.coverage.as_dict(), ensure_ascii=False)[:300])
+    eq("backends are labelled by unit", {b["name"] for b in env.coverage.backends},
+       {"ext:ext/code"})
+
+    env = group.find("ОбработкаЗаполнения", project="base", kind="routine", scope="base")
+    eq("scope=base asks the base only", {r.scope for r in env.records}, {"base"})
+    marked = {r.id: r.overridden_by for r in env.records if r.overridden_by}
+    eq("interception is marked even when the extension is out of scope", marked,
+       {"Справочники.ДоговорыКонтрагентов.ОбработкаЗаполнения":
+        ["ext:ext &После РАСШ_ОбработкаЗаполненияПосле"]})
+
+    env = group.find("РАСШ_ПроверитьДоговор", project="ext", kind="routine")
+    eq("an extension's routine comes from the extension",
+       {r.scope for r in env.records if r.src and r.src.backend == "resolver"}, {"ext:ext"})
+    ok("an extension's default scope brings its base along",
+       any(n.startswith("base:") for n in env.coverage.notes), str(env.coverage.notes))
+    try:
+        group.find("x", project="base", scope="solo")
+        out.append((False, "a scope outside the group must be refused"))
+    except KeyError:
+        out.append((True, "a scope outside the group is refused"))
+
+    env = group.calls("ОтправкаПочты", project="base")
+    eq("calls asked of the base resolves in the base first",
+       env.coverage.resolved_id, "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты")
+    env = group.calls("ОтправкаПочты", project="ext")
+    eq("calls asked of the extension resolves in the extension first",
+       env.coverage.resolved_id, "РАСШ_ОбщийСервер.ОтправкаПочты")
+
+    env = group.usages("Справочники.ДоговорыКонтрагентов", project="base", where="code")
+    eq("usages in code come from every unit", {r.scope for r in env.records},
+       {"base", "ext:ext"})
+
+    ordered = Envelope("order")
+    ordered.records = [Record(id="X.Y", kind="routine", name="Y", scope="base"),
+                       Record(id="Z", kind="routine", name="Z", scope="base"),
+                       Record(id="X.Y", kind="routine", name="Y", scope="ext:e")]
+    ordered.dedupe()
+    Facade._order(ordered)
+    eq("same id: the extension's record goes above the base's, both kept",
+       [(r.id, r.scope) for r in ordered.records],
+       [("X.Y", "ext:e"), ("X.Y", "base"), ("Z", "base")])
+
+    # a base still indexing must not hold its extension's answers hostage
+    warming = build_group()
+    gate = threading.Lock()
+    warming._building["base"] = gate
+    warming._resolvers.pop("base", None)
+    with gate:
+        started = time.time()
+        env = warming.find("РАСШ_ПроверитьДоговор", project="ext", kind="routine")
+        took = time.time() - started
+    ok("an extension answers while its base is still indexing", took < 2.0,
+       "%.2fs" % took)
+    ok("the skipped base is named and the answer marked incomplete",
+       env.coverage.degraded and any("base: индекс строится" in n
+                                     for n in env.coverage.notes),
+       str(env.coverage.notes))
+    eq("the extension's part still arrives",
+       {r.scope for r in env.records if r.src and r.src.backend == "resolver"}, {"ext:ext"})
+
+    env = group.find("ОтправкаПочты", project="solo", kind="routine")
+    eq("an ungrouped project's records carry no scope", {r.scope for r in env.records}, {None})
 
     # -- 0.2: concurrent first use builds the resolver once ------------
     built = []

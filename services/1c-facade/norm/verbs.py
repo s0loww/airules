@@ -81,7 +81,7 @@ class Facade(object):
             resolver = Resolver(project.source, path or ":memory:")
         except Exception:                            # noqa: BLE001 - unwritable
             resolver = Resolver(project.source)
-        if project.frozen and resolver.stats()["files"]:
+        if project.frozen and resolver.stats()["files"] and not resolver.stale_schema:
             return resolver                          # snapshot, index already stored
         resolver.build()
         return resolver
@@ -124,6 +124,10 @@ class Facade(object):
         events = []
         backend = project.backend(kind)
         if backend is None:
+            if project.grouped:
+                # in a group a unit without this backend is by design (the base
+                # often has none) -- the fold reports it once, not per call
+                return None, events
             events.append(("backend", (kind, "down"), {"detail": "not in registry"}))
             return None, events
         status = self.health.ensure(backend)
@@ -190,23 +194,176 @@ class Facade(object):
             texts.append(text)
         return texts
 
-    def _resolve(self, envelope, project, name, required=True):
-        resolution = self.resolver(project).resolve(name)
-        envelope.coverage.resolved_id = resolution.id
-        envelope.coverage.candidates = resolution.candidates
-        if resolution.candidates and resolution.confidence == "ambiguous":
+    # -- base + extensions ------------------------------------------------
+
+    def _units(self, project, scope=None):
+        """The parts of a group a verb consults, base first.
+
+        A configuration without extensions is its own single unit. In a group,
+        `scope` picks: "all" -- the base and every extension; "base"; or an
+        extension's name -- the base plus that extension, since an extension
+        without the code it extends answers half a question. The default is
+        what the caller named: a base means all of it, an extension means that
+        extension on top of its base.
+        """
+        base = self.registry.get(project.parent) if project.parent else project
+        if not base.extensions:
+            return [project]
+        if scope is None:
+            scope = project.name if project.parent else "all"
+        if scope == "all":
+            return [base] + [self.registry.get(name) for name in base.extensions]
+        if scope == "base" or scope == base.name:
+            return [base]
+        unit = self.registry.get(scope)
+        if unit.parent != base.name:
+            raise KeyError("scope %r is not an extension of %s; extensions: %s"
+                           % (scope, base.name, ", ".join(base.extensions)))
+        return [base, unit]
+
+    def _index_building(self, unit):
+        """Is another thread building this unit's resolver right now?"""
+        with self._lock:
+            if unit.name in self._resolvers:
+                return False
+            gate = self._building.get(unit.name)
+        return bool(gate and gate.locked())
+
+    @staticmethod
+    def _label(unit):
+        return ("ext:" + unit.name) if unit.parent else "base"
+
+    def _group_extensions(self, units):
+        base = next((u for u in units if not u.parent), None)
+        if base is None:
+            base = self.registry.get(units[0].parent)
+        return [self.registry.get(name) for name in base.extensions]
+
+    def _over_units(self, envelope, units, work):
+        """Run `work(envelope, unit)` for every unit and fold the results.
+
+        Units run concurrently, each into its own envelope, so one slow
+        extension backend does not serialise the rest. Folding stamps every
+        record with its unit and every backend and note with the unit's label.
+        A unit that simply lacks the object (an extension that never borrowed
+        it) is not a degraded answer; a unit whose backend is down is.
+        """
+        if len(units) == 1:
+            unit = units[0]
+            work(envelope, unit)
+            if unit.grouped:
+                for record in envelope.records:
+                    record.scope = self._label(unit)
+                if not unit.backends:
+                    envelope.coverage.note(
+                        "%s: бэкендов нет — ответ только из индекса резолвера"
+                        % self._label(unit))
+            return
+        # A unit whose index is being built right now is left out rather than
+        # waited for: a full ERP base takes minutes to index, and an extension
+        # must not stop answering because its base is warming up.
+        building = [u for u in units if self._index_building(u)]
+        for unit in building:
             envelope.coverage.note(
-                "name is ambiguous; pass a qualified id to pick one")
-        if not resolution.ok and required:
-            envelope.coverage.note("unresolved name: " + str(name))
-        return resolution
+                "%s: индекс строится — единица пропущена, ответ неполон" % self._label(unit))
+            envelope.coverage.degraded = True
+        units = [u for u in units if u not in building]
+        if not units:
+            return
+        subs = []
+        for _unit in units:
+            sub = Envelope(envelope.coverage.asked)
+            sub.absent_ok = True
+            subs.append(sub)
+        with ThreadPoolExecutor(max_workers=len(units)) as pool:
+            futures = [pool.submit(work, sub, unit) for sub, unit in zip(subs, units)]
+            for future in futures:
+                future.result()
+        cov = envelope.coverage
+        for sub, unit in zip(subs, units):
+            label = self._label(unit)
+            for record in sub.records:
+                record.scope = label
+            envelope.records.extend(sub.records)
+            for entry in sub.coverage.backends:
+                entry = dict(entry)
+                entry["name"] = "%s/%s" % (label, entry["name"])
+                cov.backends.append(entry)
+                if entry["state"] != "up":
+                    cov.degraded = True
+            for text in sub.coverage.notes:
+                cov.note("%s: %s" % (label, text))
+            if sub.coverage.degraded:
+                cov.degraded = True
+            if sub.coverage.index_age_s is not None and (
+                    cov.index_age_s is None or sub.coverage.index_age_s > cov.index_age_s):
+                cov.index_age_s = sub.coverage.index_age_s
+            if cov.resolved_id is None and sub.coverage.resolved_id:
+                cov.resolved_id = sub.coverage.resolved_id
+            for candidate in sub.coverage.candidates:
+                if candidate not in cov.candidates:
+                    cov.candidates.append(candidate)
+            if not unit.backends:
+                cov.note("%s: бэкендов нет — ответ только из индекса резолвера" % label)
+
+    def _mark_overrides(self, envelope, units):
+        """Flag base routines that an extension intercepts.
+
+        The one place the facade knows extension semantics, and it earns it:
+        without the flag, `find` over the base shows code the runtime replaces.
+        The flag names the extension, the directive and the method, because
+        &Перед / &После add to the base code while &Вместо replaces it.
+        """
+        if not any(r.kind == "routine" and r.scope == "base" for r in envelope.records):
+            return
+        intercepted = {}
+        for ext in self._group_extensions(units):
+            if self._index_building(ext):
+                envelope.coverage.note("ext:%s: индекс строится — перехваты не отмечены"
+                                       % ext.name)
+                continue
+            try:
+                rows = self.resolver(ext).overrides()
+            except Exception:                        # noqa: BLE001 - index optional
+                continue
+            for owner, target, method, directive, _path, _line in rows:
+                intercepted.setdefault(owner + "." + target, []).append(
+                    "ext:%s &%s %s" % (ext.name, directive, method))
+        marked = 0
+        for record in envelope.records:
+            if record.kind == "routine" and record.scope == "base" and record.id in intercepted:
+                record.overridden_by = intercepted[record.id]
+                marked += 1
+        if marked:
+            envelope.coverage.note(
+                "%d процедур(ы) базы перехвачены расширениями — см. overridden_by"
+                % marked)
+
+    @staticmethod
+    def _order(envelope):
+        """Same id: the extension's record above the base's, both kept."""
+        first = {}
+        for index, record in enumerate(envelope.records):
+            first.setdefault(record.id, index)
+        envelope.records.sort(key=lambda r: (first[r.id], 1 if r.scope == "base" else 0))
+        return envelope
+
+    def _finish(self, envelope, units):
+        envelope.dedupe()
+        self._mark_overrides(envelope, units)
+        return self._order(envelope)
 
     # -- verbs ------------------------------------------------------------
 
-    def find(self, query, project=None, kind="any", exact=False, limit=20):
+    def find(self, query, project=None, kind="any", exact=False, limit=20, scope=None):
         project = self.registry.get(project)
+        units = self._units(project, scope)
         envelope = Envelope("find(%r, kind=%s)" % (query, kind))
+        self._over_units(envelope, units, lambda env, unit: self._find_one(
+            env, unit, query, kind, exact, limit))
+        return self._finish(envelope, units)
 
+    def _find_one(self, envelope, project, query, kind, exact, limit):
         if kind in ("routine", "any"):
             # The resolver is authoritative here: it holds every declaration in
             # the export, while the backend's function search has measured gaps.
@@ -225,14 +382,15 @@ class Facade(object):
             if text:
                 envelope.merge(code_parsers.parse_search_function(text), "code")
             if envelope.records or kind == "routine":
-                return envelope.dedupe()
+                envelope.dedupe()
+                return
 
         if kind == "metadata":
             text = self._ask(envelope, project, "code", "metadatasearch",
                              {"query": query, "limit": limit})
             if text:
                 envelope.merge(code_parsers.parse_metadatasearch(text), "code")
-            return envelope.dedupe()
+            return
 
         if kind == "form":
             # the only index of forms there is: element trees, data paths, titles
@@ -240,7 +398,7 @@ class Facade(object):
                              {"query": query, "limit": limit})
             if text:
                 envelope.merge(code_parsers.parse_search_forms(text), "code")
-            return envelope.dedupe()
+            return
 
         # text: fan out -- the two rankers overlap by ~3%, so the union is
         # nearly twice as complete, and asked concurrently it costs max(t1, t2)
@@ -253,20 +411,28 @@ class Facade(object):
             envelope.merge(graph_parsers.parse_search_code(graph_text), "graph")
         if code_text:
             envelope.merge(code_parsers.parse_codesearch(code_text), "code")
-        return envelope.dedupe()
 
-    def describe(self, id, project=None, sections=None):
+    def describe(self, id, project=None, sections=None, scope=None):
         """Dossier of an object; the layout of a form; the structure of a module.
 
         What `id` names decides the route. `Справочники.X.Форма.Y` is a form: its
         layout plus the structure of its module. A module path (`.../Module.bsl`)
         is a module. Anything else is an object -- the graph dossier plus typed
         attributes from code, and with `sections` containing "modules" or "form"
-        the object's module structures or its forms' layouts on top.
+        the object's module structures or its forms' layouts on top. In a group
+        every unit that has the object contributes: an extension that borrowed
+        it adds its attributes, forms and modules.
         """
         project = self.registry.get(project)
+        units = self._units(project, scope)
         envelope = Envelope("describe(%r)" % id)
         envelope.coverage.resolved_id = id
+        self._over_units(envelope, units, lambda env, unit: self._describe_one(
+            env, unit, id, sections))
+        envelope.coverage.resolved_id = id
+        return self._finish(envelope, units)
+
+    def _describe_one(self, envelope, project, id, sections):
         wanted = set(sections or ())
         local = wanted & _OWN_SECTIONS
 
@@ -274,10 +440,10 @@ class Facade(object):
         if form:
             self._describe_form(envelope, project, form.group("object"), form.group("form"))
             self._describe_modules(envelope, project, self._module_paths(project, id), id)
-            return envelope.dedupe()
+            return
         if (id or "").endswith(".bsl"):
             self._describe_modules(envelope, project, [id.lstrip("/")], None)
-            return envelope.dedupe()
+            return
 
         args = {"object_name": id}
         passed = sorted(wanted - _OWN_SECTIONS)
@@ -297,7 +463,6 @@ class Facade(object):
             self._describe_modules(envelope, project, self._module_paths(project, id), id)
         if "form" in local:
             self._describe_form(envelope, project, id, "")
-        return envelope.dedupe()
 
     def _module_paths(self, project, owner):
         try:
@@ -314,11 +479,13 @@ class Facade(object):
     def _describe_modules(self, envelope, project, paths, owner):
         backend = project.backend("code")
         if not paths:
-            if owner:
+            if owner and not getattr(envelope, "absent_ok", False):
                 envelope.coverage.note(
                     "no module with routines found for %s in the export" % owner)
             return
-        root = backend.code_root if backend else ""
+        if backend is None:
+            return
+        root = backend.code_root
         # module paths are repo-relative in the resolver; the backend wants them
         # absolute inside its container
         texts = self._ask_many(envelope, project, [
@@ -331,13 +498,50 @@ class Facade(object):
             envelope.coverage.note("%d modules, structure shown for the first 8"
                                    % len(paths))
 
-    def calls(self, id, project=None, direction="callers", depth=1):
+    def calls(self, id, project=None, direction="callers", depth=1, scope=None):
         project = self.registry.get(project)
+        units = self._units(project, scope)
         envelope = Envelope("calls(%r, %s, depth=%d)" % (id, direction, depth))
-        resolution = self._resolve(envelope, project, id)
-        if not resolution.ok:
+        # One canonical id for the whole group, decided before any backend is
+        # asked -- in the unit the caller named first. A bare name asked of the
+        # base means the base's routine even when an extension's own module
+        # happens to declare a namesake; asked of an extension, the reverse.
+        resolution = None
+        candidates = []
+        for unit in sorted(units, key=lambda u: 0 if u.name == project.name else 1):
+            if len(units) > 1 and self._index_building(unit):
+                continue                             # reported by the fold below
+            attempt = self.resolver(unit).resolve(id)
+            for candidate in attempt.candidates:
+                if candidate not in candidates:
+                    candidates.append(candidate)
+            if attempt.ok:
+                resolution = attempt
+                break
+        envelope.coverage.candidates = candidates
+        if resolution is None:
+            if candidates:
+                envelope.coverage.note("name is ambiguous; pass a qualified id to pick one")
+            envelope.coverage.note("unresolved name: " + str(id))
             return envelope
+        envelope.coverage.resolved_id = resolution.id
+        if resolution.candidates and resolution.confidence == "ambiguous":
+            envelope.coverage.note("name is ambiguous; pass a qualified id to pick one")
         canonical = resolution.id
+        self._over_units(envelope, units, lambda env, unit: self._calls_one(
+            env, unit, canonical, direction, depth))
+        envelope.coverage.resolved_id = canonical
+        blind = [self._label(u) for u in units
+                 if u.grouped and not (u.backend("graph") or u.backend("code"))]
+        if blind:
+            # the resolver knows declarations, not call sites: zero callers here
+            # means "none seen in the units that have a call index", nothing more
+            envelope.coverage.note(
+                "вызовы из кода %s не покрыты: нет индекса вызовов — пустой ответ "
+                "не значит «никто не вызывает»" % ", ".join(blind))
+        return self._finish(envelope, units)
+
+    def _calls_one(self, envelope, project, canonical, direction, depth):
         # The owner has to travel with the name. Asked for a bare
         # `ПолучитьЗначениеНастройки`, the backend picked a same-named routine in
         # a form module while the resolver had chosen the exported one in a
@@ -359,7 +563,10 @@ class Facade(object):
                     "the backend's pick" % (parsed.echoed_id, canonical))
                 envelope.coverage.degraded = True
             envelope.merge(parsed, "graph")
-            return envelope.dedupe()
+            envelope.dedupe()
+            return
+        if project.grouped and project.backend("code") is None:
+            return
 
         # Graph could not answer at all (not declared, down, failed). The code
         # backend's hierarchy is the weaker source -- measured 2 of 8 callers and
@@ -377,20 +584,25 @@ class Facade(object):
                 "in, and it is known to miss callers")
             envelope.coverage.degraded = True
             envelope.merge(parsed, "code")
-        return envelope.dedupe()
 
-    def usages(self, id, project=None, where="both"):
+    def usages(self, id, project=None, where="both", scope=None):
         project = self.registry.get(project)
+        units = self._units(project, scope)
         envelope = Envelope("usages(%r, where=%s)" % (id, where))
+        self._over_units(envelope, units, lambda env, unit: self._usages_one(
+            env, unit, id, where))
         envelope.coverage.resolved_id = id
+        return self._finish(envelope, units)
 
+    def _usages_one(self, envelope, project, id, where):
         if where in ("metadata", "both"):
-            text = self._ask(envelope, project, "graph", "find_usages_of_object",
-                             {"object_name": id, "limit": 100})
+            text, deps = self._ask_many(envelope, project, [
+                ("graph", "find_usages_of_object", {"object_name": id, "limit": 100}),
+                ("code", "graph_dependencies",
+                 {"object_name": id, "direction": "reverse", "limit": 100}),
+            ])
             if text:
                 envelope.merge(graph_parsers.parse_usages(text), "graph")
-            deps = self._ask(envelope, project, "code", "graph_dependencies",
-                             {"object_name": id, "direction": "reverse", "limit": 100})
             if deps:
                 envelope.merge(code_parsers.parse_dependencies(deps, "reverse"), "code")
 
@@ -419,8 +631,6 @@ class Facade(object):
                         id="%s:%d" % (path, line), kind="snippet", name=bare,
                         owner=prefix, loc=Loc(path=path, line=line), text=text,
                         src=Src(backend="resolver", tool="references", tier="grep")))
-
-        return envelope.dedupe()
 
     def check(self, project=None, scope="staged"):
         project = self.registry.get(project)
@@ -497,6 +707,9 @@ class Facade(object):
                     detail=state.detail)
         for name in names:
             entry = self.registry.get(name)
+            if entry.extensions:
+                envelope.coverage.note("%s: база, расширения — %s"
+                                       % (entry.name, ", ".join(entry.extensions)))
             if not entry.backends:
                 envelope.coverage.note(
                     "%s: бэкендов нет — работают только резолвер и индекс ссылок"
