@@ -7,7 +7,7 @@ The protocol surface actually needed is small -- initialize, tools/list,
 tools/call, ping.
 
 The point of the whole component is on display in TOOLS below: six schemas,
-roughly 5 KB, replacing some 72 KB across eight servers. What disappears is not
+roughly 3 KB, replacing some 31 KB across five servers. What disappears is not
 just tokens but the choice itself -- which backend answers which question is
 decided here, in code, from measurements.
 
@@ -31,7 +31,7 @@ from verbs import Facade                           # noqa: E402
 
 PROTOCOL = "2025-03-26"
 NAME = "1c-facade"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 _PROJECT = {"type": "string",
             "description": "Проект из реестра; опущен — проект по умолчанию."}
@@ -41,9 +41,10 @@ TOOLS = [
         "name": "find",
         "description": (
             "Найти в конфигурации: процедуру по имени (kind=routine), объект "
-            "метаданных (kind=metadata) или код по описанию (kind=text). "
-            "По описанию опрашиваются оба индекса и выдачи объединяются — "
-            "поодиночке каждый неполон."),
+            "метаданных (kind=metadata), форму по элементам и заголовкам "
+            "(kind=form) или код по описанию (kind=text). По описанию "
+            "опрашиваются оба индекса и выдачи объединяются — поодиночке "
+            "каждый неполон."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -62,12 +63,18 @@ TOOLS = [
         "name": "describe",
         "description": (
             "Досье объекта метаданных: структура, реквизиты с типами, формы, "
-            "зависимости в обе стороны, состав модулей."),
+            "зависимости в обе стороны. id вида Справочники.X.Форма.Y — "
+            "раскладка формы (элементы, реквизиты, команды, обработчики) и "
+            "структура её модуля; путь .../Module.bsl или имя общего модуля — "
+            "процедуры модуля с строками и директивами. sections: modules, "
+            "form — добавить модули объекта или раскладку его формы."),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "id": {"type": "string",
-                       "description": "Квалификатор, например Справочники.Контрагенты."},
+                       "description": "Справочники.Контрагенты, "
+                                      "Справочники.Контрагенты.Форма.ФормаЭлемента "
+                                      "или путь модуля."},
                 "project": _PROJECT,
                 "sections": {"type": "array", "items": {"type": "string"}},
             },
@@ -79,7 +86,8 @@ TOOLS = [
         "description": (
             "Граф вызовов процедуры: кто вызывает (callers) или что вызывает "
             "она (callees). Имя канонизируется до обращения к индексу, поэтому "
-            "одноимённые процедуры разных модулей не смешиваются."),
+            "одноимённые процедуры разных модулей не смешиваются. Без "
+            "графового индекса отвечает code-индекс — это помечено в coverage."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -128,8 +136,9 @@ TOOLS = [
         "description": (
             "Состояние парка: отвечает ли бэкенд, поднят ли контейнер, возраст "
             "индекса, строится ли он прямо сейчас. Отличает «объекта нет» от "
-            "«сервер выключен». reindex=true пересобирает индекс проекта — нужно "
-            "после замены выгрузки-снимка на диске."),
+            "«сервер выключен». reindex=true пересобирает индекс проекта и "
+            "запускает переиндексацию code-бэкенда — нужно после замены "
+            "выгрузки-снимка на диске."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -146,8 +155,10 @@ class Dispatcher(object):
     """JSON-RPC over the facade. Errors come back as data, never as a stack."""
 
     def __init__(self, facade):
+        # No lock here: it used to serialise every call, so a slow graph walk
+        # held up a 0.1 s lookup behind it. What is shared -- resolvers, client
+        # sessions, container starts -- is guarded where it lives.
         self.facade = facade
-        self.lock = threading.Lock()
 
     def handle(self, message):
         method = message.get("method")
@@ -174,8 +185,7 @@ class Dispatcher(object):
         if name not in {tool["name"] for tool in TOOLS} or verb is None:
             return self._error(message_id, -32602, "unknown tool: %s" % name)
         try:
-            with self.lock:
-                envelope = verb(**arguments)
+            envelope = verb(**arguments)
             payload = json.dumps(envelope.as_dict(), ensure_ascii=False)
             return self._ok(message_id, {"content": [{"type": "text", "text": payload}]})
         except KeyError as exc:               # unknown project -- caller's mistake

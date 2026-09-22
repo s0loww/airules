@@ -51,6 +51,15 @@ CASES = {
     "code_search_function__ok":  C.parse_search_function,
     "code_metadata_details__ok": C.parse_metadata_details,
     "code_dependencies__reverse": lambda t: C.parse_dependencies(t, "reverse"),
+    "code_search_forms__ok":     C.parse_search_forms,
+    "code_search_forms__empty":  C.parse_search_forms,
+    "code_form_layout__ok":      C.parse_form_layout,
+    "code_module_structure__ok": C.parse_module_structure,
+    "code_module_structure__missing": C.parse_module_structure,
+    "code_metadatasearch__ok":   C.parse_metadatasearch,
+    "code_metadatasearch__names": C.parse_metadatasearch,
+    "code_metadatasearch__empty": C.parse_metadatasearch,
+    "code_codesearch__ok":       C.parse_codesearch,
 }
 
 
@@ -123,6 +132,48 @@ def invariants(res):
     ch2 = C.parse_call_hierarchy(load("code_call_hierarchy__ok"), "callers", root_id=CANON)
     targets = {r.rel.to for r in list(cc.records) + list(ch2.records) if r.rel}
     eq("merged rel.to is canonical across backends", targets, {CANON})
+
+    # -- facade 0.2: forms, modules, metadata and code search ------------
+    raw = json.loads(load("code_form_layout__ok"))["data"]
+    fl = res["code_form_layout__ok"]
+    elements = [r for r in fl.records if r.kind == "element"]
+    eq("form layout: every element parsed", len(elements), len(raw["elements"]))
+    eq("form layout: the form itself heads the records", fl.records[0].kind, "form")
+    ids = {r.id for r in fl.records}
+    dangling = [r.id for r in elements if r.rel and r.rel.to not in ids]
+    eq("form layout: every parent link lands on a parsed element", dangling, [])
+    eq("form layout: form id is the resolver's spelling",
+       fl.resolved_id, "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента")
+
+    sf = res["code_search_forms__ok"]
+    eq("forms search: every hit is a form with a Form.xml location",
+       sum(1 for r in sf.records if r.kind == "form" and r.loc.path.endswith("Form.xml")),
+       len(sf.records))
+    eq("forms search: nothing found stays empty", res["code_search_forms__empty"].status, "empty")
+
+    ms = res["code_module_structure__ok"]
+    eq("module structure: owner rebuilt from the path",
+       ms.resolved_id, "СчетФактураВыданный.ФормаСписка")
+    eq("module structure: every routine carries a line span",
+       sum(1 for r in ms.records if r.loc.line and r.loc.end and r.loc.line <= r.loc.end),
+       len(ms.records))
+    missing = res["code_module_structure__missing"]
+    eq("module structure: a refusal is not_found, not format drift", missing.status, "not_found")
+
+    names = res["code_metadatasearch__names"]
+    eq("metadata names: canonical qualifier",
+       [r.id for r in names.records], ["Справочники.ДоговорыКонтрагентов"])
+    chunks = res["code_metadatasearch__ok"]
+    eq("metadata chunks: every hit has a line",
+       sum(1 for r in chunks.records if r.loc and isinstance(r.loc.line, int)),
+       len(chunks.records))
+    eq("metadata: nothing found stays empty", res["code_metadatasearch__empty"].status, "empty")
+
+    cs = res["code_codesearch__ok"]
+    eq("codesearch: no hashed module id survives",
+       [r.id for r in cs.records if r.id.startswith("Module_")], [])
+    eq("codesearch: every chunk is located",
+       sum(1 for r in cs.records if r.loc and r.loc.path), len(cs.records))
 
     # every record must validate against the schema
     bad = []

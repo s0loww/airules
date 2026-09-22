@@ -12,6 +12,8 @@ import io
 import json
 import os
 import sys
+import threading
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "norm"))
@@ -42,9 +44,15 @@ REPLAY = {
     ("code", "search_function"): "code_search_function__ok",
     ("code", "get_metadata_details"): "code_metadata_details__ok",
     ("code", "graph_dependencies"): "code_dependencies__reverse",
-    ("code", "codesearch"): "code_search_function__ok",
-    ("code", "metadatasearch"): "code_metadata_details__ok",
+    ("code", "codesearch"): "code_codesearch__ok",
+    ("code", "metadatasearch"): "code_metadatasearch__names",
+    ("code", "search_forms"): "code_search_forms__ok",
+    ("code", "inspect_form_layout"): "code_form_layout__ok",
+    ("code", "get_module_structure"): "code_module_structure__ok",
 }
+
+# every backend call made by any ReplayClient, for asserting routes
+CALLS = []
 
 
 class ReplayClient(object):
@@ -54,6 +62,7 @@ class ReplayClient(object):
 
     def call(self, tool, args):
         self.calls.append(tool)
+        CALLS.append((self.kind, tool, dict(args)))
         name = REPLAY.get((self.kind, tool))
         if name is None:
             return 0.0, "EMPTY", ""
@@ -75,17 +84,28 @@ class AlwaysUpHealth(object):
         return self.probe(backend)
 
 
-def build_facade(health=None):
+def build_facade(health=None, graph=True, resolver_factory=None):
+    backends = {"code": registry_mod.Backend("code", "http://127.0.0.1:8012/mcp")}
+    if graph:
+        backends["graph"] = registry_mod.Backend("graph", "http://127.0.0.1:8013/mcp/")
     reg = registry_mod.Registry([registry_mod.Project(
-        name="demo", source=SOURCE, aliases=("дем",),
-        backends={
-            "code": registry_mod.Backend("code", "http://127.0.0.1:8012/mcp"),
-            "graph": registry_mod.Backend("graph", "http://127.0.0.1:8013/mcp/"),
-        })])
-    resolver = Resolver(SOURCE)
-    resolver.build()
+        name="demo", source=SOURCE, aliases=("дем",), backends=backends)])
+    if resolver_factory is None:
+        resolver = Resolver(SOURCE)
+        resolver.build()
+        resolver_factory = lambda _project: resolver     # noqa: E731
     return Facade(reg, health or AlwaysUpHealth(), ReplayClient,
-                  resolver_factory=lambda _project: resolver)
+                  resolver_factory=resolver_factory)
+
+
+class SlowReplayClient(ReplayClient):
+    """Each call takes a fixed time -- to tell a parallel fan-out from a serial one."""
+
+    DELAY = 0.3
+
+    def call(self, tool, args):
+        time.sleep(self.DELAY)
+        return ReplayClient.call(self, tool, args)
 
 
 def checks():
@@ -201,6 +221,86 @@ def checks():
     # -- grep helper ---------------------------------------------------
     hits = grep_usages(SOURCE, "Справочники.ДоговорыКонтрагентов")
     eq("grep matches through access prefixes", len(hits), 4)
+
+    # -- 0.2: find(kind=form | metadata | text) ------------------------
+    env = facade.find("договор", kind="form")
+    ok("find(kind=form) answers with forms",
+       env.records and all(r.kind == "form" for r in env.records),
+       str([r.kind for r in env.records]))
+    env = facade.find("ДоговорыКонтрагентов", kind="metadata")
+    eq("find(kind=metadata) is parsed, not a raw blob",
+       [r.id for r in env.records], ["Справочники.ДоговорыКонтрагентов"])
+    env = facade.find("отправка почты", kind="text")
+    eq("find(kind=text) merges both rankers",
+       {r.src.backend for r in env.records if r.src}, {"graph", "code"})
+    eq("parallel fan-out reports coverage in request order",
+       [b["name"] for b in env.coverage.backends], ["graph", "code"])
+
+    slow = Facade(facade.registry, AlwaysUpHealth(), SlowReplayClient,
+                  resolver_factory=lambda _p: facade.resolver(facade.registry.get()))
+    started = time.time()
+    slow.find("отправка почты", kind="text")
+    took = time.time() - started
+    ok("the text fan-out runs concurrently", took < 2 * SlowReplayClient.DELAY,
+       "%.2fs for two %.1fs calls" % (took, SlowReplayClient.DELAY))
+
+    # -- 0.2: describe a form, a module --------------------------------
+    del CALLS[:]
+    env = facade.describe("Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента")
+    tools = [c[1] for c in CALLS]
+    ok("describe(form) asks for the layout", "inspect_form_layout" in tools, str(tools))
+    ok("describe(form) asks for its module", "get_module_structure" in tools, str(tools))
+    ok("describe(form) skips the object dossier", "get_object_dossier" not in tools, str(tools))
+    module_args = [c[2] for c in CALLS if c[1] == "get_module_structure"]
+    eq("module path is absolute inside the backend",
+       module_args[0]["module_path"],
+       "/app/code/Catalogs/ДоговорыКонтрагентов/Forms/ФормаЭлемента/Ext/Form/Module.bsl")
+    ok("the layout's elements come back",
+       any(r.kind == "element" for r in env.records), str(len(env.records)))
+
+    del CALLS[:]
+    facade.describe("ДЕМО_ОбщегоНазначенияСервер")
+    ok("a bare common-module name gets its structure",
+       "get_module_structure" in [c[1] for c in CALLS], str(CALLS))
+
+    # -- 0.2: calls falls back to code when graph cannot answer --------
+    no_graph = build_facade(graph=False)
+    env = no_graph.calls("ОтправкаПочты")
+    eq("calls without graph answers from code", len(env.records), 2)
+    eq("the fallback is flagged degraded", env.coverage.degraded, True)
+    ok("the fallback is explained",
+       any("code backend" in n for n in env.coverage.notes), str(env.coverage.notes))
+    eq("fallback records still point at the canonical id",
+       {r.rel.to for r in env.records if r.rel}, {CANON})
+    env = facade.calls("ОтправкаПочты")
+    ok("with graph up, code is not asked",
+       all(b["name"] != "code" for b in env.coverage.backends),
+       str(env.coverage.backends))
+
+    # -- 0.2: status(reindex) reaches the backend ----------------------
+    del CALLS[:]
+    facade.status(reindex=True)
+    ok("reindex reaches the code backend",
+       ("code", "reindex") in [(c[0], c[1]) for c in CALLS], str(CALLS))
+
+    # -- 0.2: concurrent first use builds the resolver once ------------
+    built = []
+
+    def counting_factory(project):
+        built.append(project.name)
+        time.sleep(0.3)
+        r = Resolver(SOURCE)
+        r.build()
+        return r
+
+    racing = build_facade(resolver_factory=counting_factory)
+    threads = [threading.Thread(target=racing.find, args=("ОтправкаПочты",))
+               for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    eq("four concurrent callers build the index once", len(built), 1)
 
     return out
 

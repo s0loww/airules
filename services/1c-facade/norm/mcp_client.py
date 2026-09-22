@@ -32,12 +32,16 @@ class Client(object):
 
     PROTOCOL = "2025-03-26"
 
-    def __init__(self, url):
+    def __init__(self, url, timeout=120):
         self.url = url
+        # Read per call, so the facade can tighten it after construction from
+        # the registry entry without the factory having to know about it.
+        self.timeout = timeout
         self.session_id, _ = _post(url, {
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {"protocolVersion": self.PROTOCOL, "capabilities": {},
-                       "clientInfo": {"name": "facade-capture", "version": "1"}}})
+                       "clientInfo": {"name": "facade-capture", "version": "1"}}},
+                                   timeout=min(timeout, 30))
 
     def tools(self):
         _, reply = _post(self.url, {"jsonrpc": "2.0", "id": 2,
@@ -50,7 +54,7 @@ class Client(object):
         try:
             _, reply = _post(self.url, {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                                         "params": {"name": name, "arguments": arguments}},
-                             self.session_id)
+                             self.session_id, timeout=self.timeout)
         except Exception as exc:                     # noqa: BLE001 - capture tool
             return time.time() - started, "FAIL", type(exc).__name__ + ": " + str(exc)
         elapsed = time.time() - started

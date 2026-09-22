@@ -36,6 +36,7 @@ services:
       - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro        # КонтурБКИ
       - D:/AI_Projects/Project_BL/erp_crc:/srv/sources/erp:ro        # база ERP, бэкендов нет
       - D:/AI_Projects/Project_BL/src_lk:/srv/sources/lk:ro         # ЛизинговыйКонтур (единый контур лизинга)
+      - D:/AI_Projects/Эквадор/src/main:/srv/sources/ec:ro          # Contabilidad (Эквадор)
 
       # Отметки последнего обращения для LRU. Именованный том, чтобы переживать
       # пересоздание контейнера.

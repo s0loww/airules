@@ -35,7 +35,9 @@ MAP = (
 )
 
 # Fields whose value is source code: replaced wholesale, never mapped.
-BODY_FIELDS = ("body",)
+# `document` is a code chunk in codesearch and a raw metadata line in
+# metadatasearch -- either way customer text, never format.
+BODY_FIELDS = ("body", "document")
 BODY_STUB = "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
 
 

@@ -22,13 +22,24 @@ EXAMPLE_PATH = os.path.join(HERE, "registry.example.json")
 class Backend(object):
     """One MCP endpoint plus the container that serves it, if any."""
 
-    __slots__ = ("kind", "url", "container", "cold_ok")
+    __slots__ = ("kind", "url", "container", "cold_ok", "timeout", "code_root")
 
-    def __init__(self, kind, url, container=None, cold_ok=False):
+    DEFAULT_TIMEOUT = 120.0
+    DEFAULT_CODE_ROOT = "/app/code"
+
+    def __init__(self, kind, url, container=None, cold_ok=False, timeout=None,
+                 code_root=None):
         self.kind = kind                # "code" | "graph"
         self.url = url
         self.container = container      # docker name, or None if not managed
         self.cold_ok = cold_ok          # may the facade start it on demand?
+        # Per-call ceiling. A graph walk on a full ERP base legitimately takes
+        # tens of seconds while a code lookup takes a tenth of one; one global
+        # number is either too tight for the first or too loose for the second.
+        self.timeout = float(timeout) if timeout else self.DEFAULT_TIMEOUT
+        # Where the backend mounts the export. Tools that take a module path
+        # (get_module_structure) want it absolute inside the container.
+        self.code_root = (code_root or self.DEFAULT_CODE_ROOT).rstrip("/")
 
     def __repr__(self):
         return "Backend(%s, %s)" % (self.kind, self.url)
@@ -88,7 +99,9 @@ def _project_from_dict(name, raw):
     for kind, spec in (raw.get("backends") or {}).items():
         backends[kind] = Backend(kind=kind, url=spec["url"],
                                  container=spec.get("container"),
-                                 cold_ok=bool(spec.get("cold_ok", False)))
+                                 cold_ok=bool(spec.get("cold_ok", False)),
+                                 timeout=spec.get("timeout"),
+                                 code_root=spec.get("code_root"))
     return Project(name=name, source=raw.get("source"), backends=backends,
                    aliases=raw.get("aliases"), frozen=raw.get("frozen", False))
 

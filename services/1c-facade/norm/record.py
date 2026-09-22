@@ -7,8 +7,10 @@ allowed to see a backend-specific shape.
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 
-KINDS = {"metadata", "module", "routine", "attribute", "form", "snippet"}
-REL_TYPES = {"calls", "called_by", "references", "referenced_by", "typed_as", "overrides"}
+KINDS = {"metadata", "module", "routine", "attribute", "form", "element", "command",
+         "snippet"}
+REL_TYPES = {"calls", "called_by", "references", "referenced_by", "typed_as", "overrides",
+             "child_of"}
 TIERS = {"indexed", "live", "grep"}
 
 # Container mounts differ per backend; strip them so `loc.path` is repo-relative

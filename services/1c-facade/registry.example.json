@@ -25,6 +25,9 @@
     "            только когда фасаду доступен демон: на хосте через CLI, в",
     "            контейнере — через смонтированный сокет (см. предупреждение",
     "            в docker-compose.yml).",
+    "timeout   — потолок одного вызова бэкенда, секунды (по умолчанию 120).",
+    "code_root — где бэкенд монтирует выгрузку (по умолчанию /app/code):",
+    "            get_module_structure принимает только абсолютный путь.",
     "aliases   — как проект можно назвать в вызове помимо основного имени.",
     "default   — проект, который берётся, когда в вызове он не указан."
   ],
@@ -32,12 +35,15 @@
   "projects": {
     "erp_bl": {
       "source": "/srv/sources/erp_bl",
-      "aliases": ["bl"],
+      "aliases": [
+        "bl"
+      ],
       "backends": {
         "code": {
           "url": "http://host.docker.internal:8012/mcp",
           "container": "erp_bl_code_metadata",
-          "cold_ok": false
+          "cold_ok": false,
+          "timeout": 30
         },
         "graph": {
           "url": "http://host.docker.internal:8013/mcp/",

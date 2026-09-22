@@ -34,6 +34,13 @@ ROUTINE2 = os.environ.get("FACADE_SAMPLE_ROUTINE2", "ОбработатьВхо�
 OBJECT = os.environ.get("FACADE_SAMPLE_OBJECT", "ДоговорыКонтрагентов")
 ABSENT_ROUTINE = "НетТакогоМетодаВообще"
 ABSENT_OBJECT = "НетТакогоОбъекта"
+# A form of OBJECT, a module path as the code backend mounts it, and a phrase
+# that should hit forms and code chunks alike.
+FORM = os.environ.get("FACADE_SAMPLE_FORM", "ФормаЭлемента")
+MODULE = os.environ.get(
+    "FACADE_SAMPLE_MODULE",
+    "/app/code/Documents/СчетФактураВыданный/Forms/ФормаСписка/Ext/Form/Module.bsl")
+PHRASE = os.environ.get("FACADE_SAMPLE_PHRASE", "договор контрагента")
 
 CASES = (
     ("graph_call_chain__callers", "graph", "trace_call_chain",
@@ -58,10 +65,31 @@ CASES = (
     ("code_metadata_details__ok", "code", "get_metadata_details", {"object_name": OBJECT}),
     ("code_dependencies__reverse", "code", "graph_dependencies",
      {"object_name": OBJECT, "direction": "reverse", "limit": 10}),
+    # facade 0.2: forms, modules, metadata and code search parsed, not raw
+    ("code_search_forms__ok", "code", "search_forms", {"query": PHRASE, "limit": 5}),
+    ("code_search_forms__empty", "code", "search_forms",
+     {"query": ABSENT_OBJECT + " " + ABSENT_ROUTINE, "limit": 0}),
+    ("code_form_layout__ok", "code", "inspect_form_layout",
+     {"object_name": "Справочники." + OBJECT, "form_name": FORM}),
+    ("code_module_structure__ok", "code", "get_module_structure", {"module_path": MODULE}),
+    ("code_module_structure__missing", "code", "get_module_structure",
+     {"module_path": "/app/code/CommonModules/" + ABSENT_OBJECT + "/Ext/Module.bsl"}),
+    ("code_metadatasearch__ok", "code", "metadatasearch", {"query": OBJECT, "limit": 5}),
+    ("code_metadatasearch__names", "code", "metadatasearch",
+     {"query": OBJECT, "limit": 5, "names_only": True}),
+    ("code_metadatasearch__empty", "code", "metadatasearch",
+     {"query": ABSENT_OBJECT, "limit": 5}),
+    ("code_codesearch__ok", "code", "codesearch", {"query": PHRASE, "limit": 5}),
 )
 
 
-def main():
+def main(argv=None):
+    # `--only a,b` re-captures just those cases: a new parser should not force
+    # re-baselining every old fixture against whatever the corpus holds today
+    argv = sys.argv[1:] if argv is None else argv
+    only = None
+    if len(argv) == 2 and argv[0] == "--only":
+        only = set(argv[1].split(","))
     if not CODE_URL or not GRAPH_URL:
         print("set FACADE_CODE_URL and FACADE_GRAPH_URL to the two MCP endpoints")
         return 2
@@ -69,6 +97,8 @@ def main():
     clients = {"code": Client(CODE_URL), "graph": Client(GRAPH_URL)}
     failed = 0
     for name, backend, tool, args in CASES:
+        if only is not None and name not in only:
+            continue
         elapsed, status, text = clients[backend].call(tool, args)
         extension = "json" if name.startswith("code_") else "txt"
         with io.open(os.path.join(OUT, name + "." + extension),

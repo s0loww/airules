@@ -48,6 +48,108 @@
   "sections": {},
   "status": "ok"
  },
+ "code_codesearch__ok": {
+  "count": 5,
+  "declared": null,
+  "records": [
+   {
+    "id": "ДЕМО_СозданиеПакетаДокументовПередачиВОперАренду.Форма.ЗаполнитьДокументыНаСервере",
+    "kind": "routine",
+    "loc": {
+     "end": 966,
+     "line": 849,
+     "path": "DataProcessors/ДЕМО_СозданиеПакетаДокументовПередачиВОперАренду/Forms/Форма/Ext/Form/Module.bsl"
+    },
+    "name": "ЗаполнитьДокументыНаСервере",
+    "owner": "ДЕМО_СозданиеПакетаДокументовПередачиВОперАренду.Форма",
+    "sig": "НаСервере",
+    "src": {
+     "backend": "code",
+     "score": 1.114,
+     "tier": "indexed",
+     "tool": "codesearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ДЕМО_СозданиеПакетаДокументовПередачиВОперАренду.Форма.ЗаполнитьДокументыНаСервере",
+    "kind": "routine",
+    "loc": {
+     "end": 966,
+     "line": 849,
+     "path": "DataProcessors/ДЕМО_СозданиеПакетаДокументовПередачиВОперАренду/Forms/Форма/Ext/Form/Module.bsl"
+    },
+    "name": "ЗаполнитьДокументыНаСервере",
+    "owner": "ДЕМО_СозданиеПакетаДокументовПередачиВОперАренду.Форма",
+    "sig": "НаСервере",
+    "src": {
+     "backend": "code",
+     "score": 1.0854,
+     "tier": "indexed",
+     "tool": "codesearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ДЕМО_КлиентБанк.ДЕМО_ЗаполнитьПрочие",
+    "kind": "routine",
+    "loc": {
+     "end": 14161,
+     "line": 13713,
+     "path": "DataProcessors/ДЕМО_КлиентБанк/Ext/ManagerModule.bsl"
+    },
+    "name": "ДЕМО_ЗаполнитьПрочие",
+    "owner": "ДЕМО_КлиентБанк",
+    "src": {
+     "backend": "code",
+     "score": 1.0715,
+     "tier": "indexed",
+     "tool": "codesearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "демо_РеализацияВПовторныйЛизинг.Форма.ЕстьДубльДоговора",
+    "kind": "routine",
+    "loc": {
+     "end": 142,
+     "line": 113,
+     "path": "DataProcessors/демо_РеализацияВПовторныйЛизинг/Forms/Форма/Ext/Form/Module.bsl"
+    },
+    "name": "ЕстьДубльДоговора",
+    "owner": "демо_РеализацияВПовторныйЛизинг.Форма",
+    "sig": "НаСервере",
+    "src": {
+     "backend": "code",
+     "score": 1.027,
+     "tier": "indexed",
+     "tool": "codesearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ДЕМО_КлиентБанк.СписокОбъектовРасчетовПоДоговорам",
+    "kind": "routine",
+    "loc": {
+     "end": 10411,
+     "line": 10231,
+     "path": "DataProcessors/ДЕМО_КлиентБанк/Ext/ManagerModule.bsl"
+    },
+    "name": "СписокОбъектовРасчетовПоДоговорам",
+    "owner": "ДЕМО_КлиентБанк",
+    "src": {
+     "backend": "code",
+     "score": 1.0228,
+     "tier": "indexed",
+     "tool": "codesearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   }
+  ],
+  "resolved_id": null,
+  "sections": {},
+  "status": "ok"
+ },
  "code_dependencies__reverse": {
   "count": 10,
   "declared": null,
@@ -228,6 +330,269 @@
    "reverse": {
     "declared": -1,
     "parsed": 10
+   }
+  },
+  "status": "ok"
+ },
+ "code_form_layout__ok": {
+  "count": 17,
+  "declared": null,
+  "records": [
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "kind": "form",
+    "loc": {
+     "path": "Catalogs/ДоговорыКонтрагентов/Forms/ФормаЭлемента/Ext/Form.xml"
+    },
+    "name": "ФормаЭлемента",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    },
+    "text": "ФормаЭлемента"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ФормаЗаписатьИЗакрыть",
+    "kind": "element",
+    "name": "ФормаЗаписатьИЗакрыть",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Button",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ФормаЗаписать",
+    "kind": "element",
+    "name": "ФормаЗаписать",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Button",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОсновании",
+    "kind": "element",
+    "name": "ПодменюСоздатьНаОсновании",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Popup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОснованииВажное",
+    "kind": "element",
+    "name": "ПодменюСоздатьНаОснованииВажное",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "rel": {
+     "depth": 1,
+     "to": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОсновании",
+     "type": "child_of"
+    },
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОснованииОбычное",
+    "kind": "element",
+    "name": "ПодменюСоздатьНаОснованииОбычное",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "rel": {
+     "depth": 1,
+     "to": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОсновании",
+     "type": "child_of"
+    },
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОснованииСмТакже",
+    "kind": "element",
+    "name": "ПодменюСоздатьНаОснованииСмТакже",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "rel": {
+     "depth": 1,
+     "to": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюСоздатьНаОсновании",
+     "type": "child_of"
+    },
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюПечать",
+    "kind": "element",
+    "name": "ПодменюПечать",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Popup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.КомандыЭДО",
+    "kind": "element",
+    "name": "КомандыЭДО",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Popup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ФормаГлобальныеКоманды",
+    "kind": "element",
+    "name": "ФормаГлобальныеКоманды",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчеты",
+    "kind": "element",
+    "name": "ПодменюОтчеты",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Popup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчетыВажное",
+    "kind": "element",
+    "name": "ПодменюОтчетыВажное",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "rel": {
+     "depth": 1,
+     "to": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчеты",
+     "type": "child_of"
+    },
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчетыОбычное",
+    "kind": "element",
+    "name": "ПодменюОтчетыОбычное",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "rel": {
+     "depth": 1,
+     "to": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчеты",
+     "type": "child_of"
+    },
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчетыСмТакже",
+    "kind": "element",
+    "name": "ПодменюОтчетыСмТакже",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "rel": {
+     "depth": 1,
+     "to": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюОтчеты",
+     "type": "child_of"
+    },
+    "sig": "ButtonGroup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ПодменюЗаполнить",
+    "kind": "element",
+    "name": "ПодменюЗаполнить",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Popup",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ФормаИзменитьФорму",
+    "kind": "element",
+    "name": "ФормаИзменитьФорму",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Button",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента.ФормаСправка",
+    "kind": "element",
+    "name": "ФормаСправка",
+    "owner": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "sig": "Button",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "inspect_form_layout"
+    }
+   }
+  ],
+  "resolved_id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+  "sections": {
+   "attributes": {
+    "declared": -1,
+    "parsed": 0
+   },
+   "commands": {
+    "declared": -1,
+    "parsed": 0
+   },
+   "elements": {
+    "declared": -1,
+    "parsed": 16
+   },
+   "handlers": {
+    "declared": -1,
+    "parsed": 0
    }
   },
   "status": "ok"
@@ -472,6 +837,278 @@
     "parsed": 19
    }
   },
+  "status": "ok"
+ },
+ "code_metadatasearch__empty": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": null,
+  "sections": {},
+  "status": "empty"
+ },
+ "code_metadatasearch__names": {
+  "count": 1,
+  "declared": null,
+  "records": [
+   {
+    "id": "Справочники.ДоговорыКонтрагентов",
+    "kind": "metadata",
+    "name": "ДоговорыКонтрагентов",
+    "owner": "Справочники",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "metadatasearch"
+    }
+   }
+  ],
+  "resolved_id": null,
+  "sections": {},
+  "status": "ok"
+ },
+ "code_metadatasearch__ok": {
+  "count": 5,
+  "declared": null,
+  "records": [
+   {
+    "id": "ОтчетПоКонфигурации.txt:2308",
+    "kind": "snippet",
+    "loc": {
+     "line": 2308,
+     "path": "ОтчетПоКонфигурации.txt"
+    },
+    "name": "ОтчетПоКонфигурации.txt",
+    "src": {
+     "backend": "code",
+     "tier": "grep",
+     "tool": "metadatasearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ОтчетПоКонфигурации.txt:2580",
+    "kind": "snippet",
+    "loc": {
+     "line": 2580,
+     "path": "ОтчетПоКонфигурации.txt"
+    },
+    "name": "ОтчетПоКонфигурации.txt",
+    "src": {
+     "backend": "code",
+     "tier": "grep",
+     "tool": "metadatasearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ОтчетПоКонфигурации.txt:6622",
+    "kind": "snippet",
+    "loc": {
+     "line": 6622,
+     "path": "ОтчетПоКонфигурации.txt"
+    },
+    "name": "ОтчетПоКонфигурации.txt",
+    "src": {
+     "backend": "code",
+     "tier": "grep",
+     "tool": "metadatasearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ОтчетПоКонфигурации.txt:6623",
+    "kind": "snippet",
+    "loc": {
+     "line": 6623,
+     "path": "ОтчетПоКонфигурации.txt"
+    },
+    "name": "ОтчетПоКонфигурации.txt",
+    "src": {
+     "backend": "code",
+     "tier": "grep",
+     "tool": "metadatasearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   },
+   {
+    "id": "ОтчетПоКонфигурации.txt:6650",
+    "kind": "snippet",
+    "loc": {
+     "line": 6650,
+     "path": "ОтчетПоКонфигурации.txt"
+    },
+    "name": "ОтчетПоКонфигурации.txt",
+    "src": {
+     "backend": "code",
+     "tier": "grep",
+     "tool": "metadatasearch"
+    },
+    "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
+   }
+  ],
+  "resolved_id": null,
+  "sections": {},
+  "status": "ok"
+ },
+ "code_module_structure__missing": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": null,
+  "sections": {},
+  "status": "not_found"
+ },
+ "code_module_structure__ok": {
+  "count": 3,
+  "declared": 3,
+  "records": [
+   {
+    "id": "СчетФактураВыданный.ФормаСписка.ДЕМО_ПриСозданииНаСервереПосле",
+    "kind": "routine",
+    "loc": {
+     "end": 18,
+     "line": 3,
+     "path": "Documents/СчетФактураВыданный/Forms/ФормаСписка/Ext/Form/Module.bsl"
+    },
+    "name": "ДЕМО_ПриСозданииНаСервереПосле",
+    "owner": "СчетФактураВыданный.ФормаСписка",
+    "sig": "НаСервере",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_module_structure"
+    }
+   },
+   {
+    "id": "СчетФактураВыданный.ФормаСписка.ДЕМО_ОтправитьПоЭлПочтеКоманда",
+    "kind": "routine",
+    "loc": {
+     "end": 25,
+     "line": 21,
+     "path": "Documents/СчетФактураВыданный/Forms/ФормаСписка/Ext/Form/Module.bsl"
+    },
+    "name": "ДЕМО_ОтправитьПоЭлПочтеКоманда",
+    "owner": "СчетФактураВыданный.ФормаСписка",
+    "sig": "НаКлиенте",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_module_structure"
+    }
+   },
+   {
+    "id": "СчетФактураВыданный.ФормаСписка.ДЕМО_СписокВыбор",
+    "kind": "routine",
+    "loc": {
+     "end": 32,
+     "line": 28,
+     "path": "Documents/СчетФактураВыданный/Forms/ФормаСписка/Ext/Form/Module.bsl"
+    },
+    "name": "ДЕМО_СписокВыбор",
+    "owner": "СчетФактураВыданный.ФормаСписка",
+    "sig": "НаКлиенте",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_module_structure"
+    }
+   }
+  ],
+  "resolved_id": "СчетФактураВыданный.ФормаСписка",
+  "sections": {},
+  "status": "ok"
+ },
+ "code_search_forms__empty": {
+  "count": 0,
+  "declared": null,
+  "records": [],
+  "resolved_id": null,
+  "sections": {},
+  "status": "empty"
+ },
+ "code_search_forms__ok": {
+  "count": 5,
+  "declared": null,
+  "records": [
+   {
+    "id": "Обработки.ДЕМО_СохранениеПечатныхФорм.Форма.Форма",
+    "kind": "form",
+    "loc": {
+     "path": "DataProcessors/ДЕМО_СохранениеПечатныхФорм/Forms/Форма/Ext/Form.xml"
+    },
+    "name": "Форма",
+    "owner": "Обработки.ДЕМО_СохранениеПечатныхФорм",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_forms"
+    },
+    "text": "Форма"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.Форма.ФормаЭлемента",
+    "kind": "form",
+    "loc": {
+     "path": "Catalogs/ДоговорыКонтрагентов/Forms/ФормаЭлемента/Ext/Form.xml"
+    },
+    "name": "ФормаЭлемента",
+    "owner": "Справочники.ДоговорыКонтрагентов",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_forms"
+    },
+    "text": "ФормаЭлемента"
+   },
+   {
+    "id": "Обработки.ДЕМО_АРМРеализацияТоваровКупленноеИмущество.Форма.Форма",
+    "kind": "form",
+    "loc": {
+     "path": "DataProcessors/ДЕМО_АРМРеализацияТоваровКупленноеИмущество/Forms/Форма/Ext/Form.xml"
+    },
+    "name": "Форма",
+    "owner": "Обработки.ДЕМО_АРМРеализацияТоваровКупленноеИмущество",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_forms"
+    },
+    "text": "Форма"
+   },
+   {
+    "id": "Документы.ПервичныйДокумент.Форма.ФормаВыбора",
+    "kind": "form",
+    "loc": {
+     "path": "Documents/ПервичныйДокумент/Forms/ФормаВыбора/Ext/Form.xml"
+    },
+    "name": "ФормаВыбора",
+    "owner": "Документы.ПервичныйДокумент",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_forms"
+    },
+    "text": "ФормаВыбора"
+   },
+   {
+    "id": "Обработки.ДЕМО_ЗагрузкаРеализацииТоплива.Форма.Форма",
+    "kind": "form",
+    "loc": {
+     "path": "DataProcessors/ДЕМО_ЗагрузкаРеализацииТоплива/Forms/Форма/Ext/Form.xml"
+    },
+    "name": "Форма",
+    "owner": "Обработки.ДЕМО_ЗагрузкаРеализацииТоплива",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "search_forms"
+    },
+    "text": "Форма"
+   }
+  ],
+  "resolved_id": null,
+  "sections": {},
   "status": "ok"
  },
  "code_search_function__ok": {

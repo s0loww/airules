@@ -72,6 +72,13 @@ class Envelope(object):
             self.coverage.note("unparsed reply from %s: %s"
                                % (backend_name or "backend", parse_result.note or "?"))
             self.coverage.degraded = True
+        elif parse_result.note and (parse_result.status == "not_found"
+                                    or "in progress" in parse_result.note):
+            # a refusal ("Module not found") or a fallback layer answering while
+            # the index builds: both change how an empty answer must be read.
+            # Other parser notes are trivia (which ranker ran) and stay out.
+            self.coverage.note("%s: %s" % (backend_name or "backend", parse_result.note))
+            self.coverage.degraded = True
         if parse_result.drift:
             self.coverage.note("format drift: " + "; ".join(parse_result.drift))
             self.coverage.degraded = True

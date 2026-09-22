@@ -18,6 +18,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 import time
 
 STATE_PATH = os.environ.get(
@@ -219,6 +220,20 @@ class Health(object):
         # client_factory(url) -> object with .call(tool, args) -> (s, status, text)
         self.client_factory = client_factory
         self.state_path = state_path
+        # Calls now run concurrently. Two of them finding the same backend cold
+        # would both `docker start` it and both wait out the warm-up; one lock per
+        # container makes the second wait for the first instead. The state file
+        # is read-modify-write, so it gets its own lock too.
+        self._guard = threading.Lock()
+        self._starting = {}
+        self._state_lock = threading.Lock()
+
+    def _lock_for(self, backend):
+        key = backend.container or backend.url
+        with self._guard:
+            if key not in self._starting:
+                self._starting[key] = threading.Lock()
+            return self._starting[key]
 
     # -- probing ----------------------------------------------------------
 
@@ -265,6 +280,14 @@ class Health(object):
         status = self.probe(backend)
         if status.usable or status.state != COLD:
             return status
+        with self._lock_for(backend):
+            # whoever held the lock may have brought it up meanwhile
+            status = self.probe(backend)
+            if status.usable or status.state != COLD:
+                return status
+            return self._start(backend, status, wait_s, poll_s)
+
+    def _start(self, backend, status, wait_s, poll_s):
         if not (backend.cold_ok and backend.container):
             status.detail = "container stopped; cold_ok not set for this backend"
             return status
@@ -314,13 +337,14 @@ class Health(object):
     def touch(self, container):
         if not container:
             return
-        state = self._load_state()
-        state.setdefault("last_used", {})[container] = time.time()
-        try:
-            with io.open(self.state_path, "w", encoding="utf-8", newline="\n") as handle:
-                json.dump(state, handle, ensure_ascii=False, indent=1, sort_keys=True)
-        except OSError:
-            pass
+        with self._state_lock:
+            state = self._load_state()
+            state.setdefault("last_used", {})[container] = time.time()
+            try:
+                with io.open(self.state_path, "w", encoding="utf-8", newline="\n") as handle:
+                    json.dump(state, handle, ensure_ascii=False, indent=1, sort_keys=True)
+            except OSError:
+                pass
 
     def _load_state(self):
         try:

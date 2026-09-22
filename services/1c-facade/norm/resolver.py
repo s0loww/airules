@@ -368,6 +368,18 @@ class Resolver(object):
                 "SELECT path, line, text, prefix FROM refs WHERE name = ? "
                 "ORDER BY path, line LIMIT ?", (bare, limit)).fetchall()
 
+    def modules(self, owner):
+        """Module paths of a canonical owner (`Справочники.X`, a common module's
+        bare name, `Справочники.X.Форма.Y`). Only modules that declare at least
+        one routine are known -- an empty module has nothing to describe anyway."""
+        owner = (owner or "").strip()
+        if not owner:
+            return []
+        with self._lock:
+            return [row[0] for row in self.db.execute(
+                "SELECT DISTINCT path FROM symbols WHERE owner = ? ORDER BY path",
+                (owner,))]
+
     def stats(self):
         with self._lock:
             files = self.db.execute("SELECT COUNT(*) FROM files").fetchone()[0]
