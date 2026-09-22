@@ -29,9 +29,23 @@
     "code_root — где бэкенд монтирует выгрузку (по умолчанию /app/code):",
     "            get_module_structure принимает только абсолютный путь.",
     "aliases   — как проект можно назвать в вызове помимо основного имени.",
-    "default   — проект, который берётся, когда в вызове он не указан."
+    "default   — проект, который берётся, когда в вызове он не указан.",
+    "",
+    "expose (верхний уровень) — инструменты бэкендов, публикуемые пробросом:",
+    "          {\"code\": [\"verify_xml\", ...]}; у бэкенда можно задать свой список.",
+    "shared  — серверы платформы (документация, синтаксис, проверка кода,",
+    "          шаблоны): url, timeout, свой expose. Не проект, по имени не",
+    "          адресуется."
   ],
   "default": "erp_bl",
+  "expose": {
+    "code": [
+      "verify_xml",
+      "get_xsd_schema",
+      "bsl_scope_members",
+      "helpsearch"
+    ]
+  },
   "projects": {
     "erp_bl": {
       "source": "/srv/sources/erp_bl",
@@ -51,6 +65,30 @@
           "cold_ok": false
         }
       }
+    }
+  },
+  "shared": {
+    "docs": {
+      "url": "http://<хост-платформы>:8003/mcp",
+      "timeout": 60
+    },
+    "syntax": {
+      "url": "http://<хост-платформы>:8002/mcp",
+      "timeout": 30
+    },
+    "codecheck": {
+      "url": "http://<хост-платформы>:8007/mcp",
+      "timeout": 180,
+      "expose": [
+        "ask_1c_ai",
+        "fetch_its",
+        "config_help",
+        "diff_1c_documentation_versions"
+      ]
+    },
+    "templates": {
+      "url": "http://<хост-платформы>:8004/mcp/",
+      "timeout": 60
     }
   }
 }

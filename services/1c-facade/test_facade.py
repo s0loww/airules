@@ -55,14 +55,42 @@ REPLAY = {
 CALLS = []
 
 
+PLATFORM_PORTS = {"8003": "docs", "8002": "syntax", "8007": "codecheck", "8004": "templates"}
+PLATFORM_REPLAY = {
+    ("docs", "docinfo"): "platform_docinfo__ok",
+    ("docs", "docsearch"): "platform_docsearch__ok",
+    ("codecheck", "its_help"): "platform_its__ok",
+    ("syntax", "syntaxcheck"): "platform_syntax__issues",
+    ("templates", "templatesearch"): "platform_templates__ok",
+    ("templates", "get_template"): "platform_template__one",
+}
+
+
 class ReplayClient(object):
     def __init__(self, url):
         self.kind = "graph" if "8013" in url else "code"
+        for port, kind in PLATFORM_PORTS.items():
+            if ":" + port + "/" in url:
+                self.kind = kind
         self.calls = []
+
+    def tools(self):
+        if self.kind != "code":
+            return []
+        return [{"name": "verify_xml", "description": "Validate XML against XSD.",
+                 "inputSchema": {"type": "object",
+                                 "properties": {"xml": {"type": "string"}},
+                                 "required": ["xml"]}}]
 
     def call(self, tool, args):
         self.calls.append(tool)
         CALLS.append((self.kind, tool, dict(args)))
+        if (self.kind, tool) in PLATFORM_REPLAY:
+            name = PLATFORM_REPLAY[(self.kind, tool)]
+            if tool == "docinfo" and args.get("name") == "НетТакогоМетодаВообще":
+                name = "platform_docinfo__missing"
+            with io.open(os.path.join(FX, name + ".txt"), encoding="utf-8") as handle:
+                return 0.01, "OK", handle.read()
         name = REPLAY.get((self.kind, tool))
         if name is None:
             return 0.0, "EMPTY", ""
@@ -88,8 +116,11 @@ def build_facade(health=None, graph=True, resolver_factory=None):
     backends = {"code": registry_mod.Backend("code", "http://127.0.0.1:8012/mcp")}
     if graph:
         backends["graph"] = registry_mod.Backend("graph", "http://127.0.0.1:8013/mcp/")
+    shared = registry_mod.Project(name=registry_mod.SHARED, source=None, backends={
+        kind: registry_mod.Backend(kind, "http://127.0.0.1:%s/mcp" % port)
+        for port, kind in PLATFORM_PORTS.items()})
     reg = registry_mod.Registry([registry_mod.Project(
-        name="demo", source=SOURCE, aliases=("дем",), backends=backends)])
+        name="demo", source=SOURCE, aliases=("дем",), backends=backends)], shared=shared)
     if resolver_factory is None:
         resolver = Resolver(SOURCE)
         resolver.build()
@@ -282,6 +313,71 @@ def checks():
     facade.status(reindex=True)
     ok("reindex reaches the code backend",
        ("code", "reindex") in [(c[0], c[1]) for c in CALLS], str(CALLS))
+
+    # -- 0.2: pass-through of single-source backend tools --------------
+    facade.registry.expose = {"code": ["verify_xml", "get_xsd_schema"]}
+    listed = {t["name"]: t for t in facade.exposed_tools()}
+    eq("a published tool with a known schema is listed", sorted(listed), ["code_verify_xml"])
+    schema = listed["code_verify_xml"]["inputSchema"]
+    ok("the backend schema is kept and gains a project argument",
+       "xml" in schema["properties"] and "project" in schema["properties"],
+       str(sorted(schema["properties"])))
+    eq("the backend's required list survives", schema.get("required"), ["xml"])
+    del CALLS[:]
+    text, notes = facade.call_exposed("code_verify_xml", {"xml": "<a/>", "project": "дем"})
+    eq("the call reaches the backend with the project argument stripped",
+       CALLS[-1], ("code", "verify_xml", {"xml": "<a/>"}))
+    try:
+        facade.call_exposed("code_nope", {})
+        out.append((False, "an unpublished tool must be refused"))
+    except KeyError:
+        out.append((True, "an unpublished tool is refused"))
+    facade.registry.expose = {}
+
+    # -- 0.2: platform verbs --------------------------------------------
+    del CALLS[:]
+    env = facade.docs("ТаблицаЗначений.Найти")
+    eq("a name-shaped query goes to the exact lookup", [c[1] for c in CALLS], ["docinfo"])
+    eq("and comes back as that article", [r.id for r in env.records],
+       ["doc:ТаблицаЗначений.Найти"])
+    del CALLS[:]
+    env = facade.docs("НетТакогоМетодаВообще")
+    eq("an unknown name falls back to the search",
+       [c[1] for c in CALLS], ["docinfo", "docsearch"])
+    ok("the fallback is said", any("no article named" in n for n in env.coverage.notes),
+       str(env.coverage.notes))
+    del CALLS[:]
+    env = facade.docs("как найти строку в таблице", scope="any")
+    eq("scope=any asks documentation and ITS at once",
+       sorted(c[1] for c in CALLS), ["docsearch", "its_help"])
+    ok("the missing relevance threshold is flagged",
+       any("threshold" in n for n in env.coverage.notes), str(env.coverage.notes))
+
+    env = facade.lint(code="Процедура А()\nКонецПроцедуры")
+    ok("lint(syntax) returns located diagnostics",
+       env.records and all(r.loc and r.loc.line for r in env.records),
+       str(len(env.records)))
+    env = facade.lint(path="../../outside.bsl", project="demo")
+    ok("lint refuses a path outside the export",
+       any("inside the project" in n for n in env.coverage.notes), str(env.coverage.notes))
+    del CALLS[:]
+    env = facade.lint(path="CommonModules/ДЕМО_ОбменДанными/Ext/Module.bsl", project="demo")
+    eq("lint reads a module of the export and sends its code",
+       [c[1] for c in CALLS], ["syntaxcheck"])
+    ok("diagnostics carry the module path",
+       all(r.loc.path == "CommonModules/ДЕМО_ОбменДанными/Ext/Module.bsl"
+           for r in env.records if r.loc), str([r.loc.path for r in env.records][:2]))
+
+    env = facade.template(query="остатки регистра")
+    ok("template search returns templates",
+       env.records and all(r.id.startswith("template:") for r in env.records))
+    eq("one template by id", [r.id for r in facade.template(id="1").records], ["template:1"])
+
+    env = facade.status()
+    ok("status lists the platform servers",
+       {"shared/docs", "shared/syntax", "shared/codecheck", "shared/templates"}
+       <= {b["name"] for b in env.coverage.backends},
+       str([b["name"] for b in env.coverage.backends]))
 
     # -- 0.2: concurrent first use builds the resolver once ------------
     built = []

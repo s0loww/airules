@@ -22,13 +22,13 @@ EXAMPLE_PATH = os.path.join(HERE, "registry.example.json")
 class Backend(object):
     """One MCP endpoint plus the container that serves it, if any."""
 
-    __slots__ = ("kind", "url", "container", "cold_ok", "timeout", "code_root")
+    __slots__ = ("kind", "url", "container", "cold_ok", "timeout", "code_root", "expose")
 
     DEFAULT_TIMEOUT = 120.0
     DEFAULT_CODE_ROOT = "/app/code"
 
     def __init__(self, kind, url, container=None, cold_ok=False, timeout=None,
-                 code_root=None):
+                 code_root=None, expose=None):
         self.kind = kind                # "code" | "graph"
         self.url = url
         self.container = container      # docker name, or None if not managed
@@ -40,6 +40,10 @@ class Backend(object):
         # Where the backend mounts the export. Tools that take a module path
         # (get_module_structure) want it absolute inside the container.
         self.code_root = (code_root or self.DEFAULT_CODE_ROOT).rstrip("/")
+        # Tools of this backend published through the facade one to one. None
+        # means "whatever the registry-wide default for this kind says"; an
+        # explicit empty list switches publication off for this backend.
+        self.expose = list(expose) if expose is not None else None
 
     def __repr__(self):
         return "Backend(%s, %s)" % (self.kind, self.url)
@@ -66,9 +70,20 @@ class Project(object):
         return "Project(%s)" % self.name
 
 
+SHARED = "shared"
+
+
 class Registry(object):
-    def __init__(self, projects, default=None):
+    def __init__(self, projects, default=None, expose=None, shared=None):
         self._projects = {p.name: p for p in projects}
+        # Platform servers -- documentation, syntax, code check, templates --
+        # belong to no configuration. They sit in one pseudo-project so the
+        # same backend plumbing (health, sessions, coverage) serves them, but
+        # it is not addressable by name: `get("shared")` is not a project.
+        self.shared = shared or Project(name=SHARED, source=None, backends={})
+        # {"code": ["verify_xml", ...]} -- published for every backend of that
+        # kind unless the backend names its own list
+        self.expose = dict(expose or {})
         self._by_alias = {}
         for project in projects:
             for alias in project.aliases:
@@ -94,6 +109,13 @@ class Registry(object):
                        % (name, ", ".join(self.names()) or "<none>"))
 
 
+def _backend_from_dict(kind, spec):
+    return Backend(kind=kind, url=spec["url"], container=spec.get("container"),
+                   cold_ok=bool(spec.get("cold_ok", False)),
+                   timeout=spec.get("timeout"), code_root=spec.get("code_root"),
+                   expose=spec.get("expose"))
+
+
 def _project_from_dict(name, raw):
     backends = {}
     for kind, spec in (raw.get("backends") or {}).items():
@@ -101,7 +123,8 @@ def _project_from_dict(name, raw):
                                  container=spec.get("container"),
                                  cold_ok=bool(spec.get("cold_ok", False)),
                                  timeout=spec.get("timeout"),
-                                 code_root=spec.get("code_root"))
+                                 code_root=spec.get("code_root"),
+                                 expose=spec.get("expose"))
     return Project(name=name, source=raw.get("source"), backends=backends,
                    aliases=raw.get("aliases"), frozen=raw.get("frozen", False))
 
@@ -115,4 +138,8 @@ def load(path=None):
         raw = json.load(handle)
     projects = [_project_from_dict(name, spec)
                 for name, spec in sorted((raw.get("projects") or {}).items())]
-    return Registry(projects, default=raw.get("default"))
+    shared = Project(name=SHARED, source=None, backends={
+        kind: _backend_from_dict(kind, spec)
+        for kind, spec in (raw.get("shared") or {}).items()})
+    return Registry(projects, default=raw.get("default"), expose=raw.get("expose"),
+                    shared=shared)

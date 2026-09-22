@@ -26,6 +26,13 @@ from mcp_client import Client                       # noqa: E402
 OUT = os.path.join(HERE, "fixtures.local")
 CODE_URL = os.environ.get("FACADE_CODE_URL")
 GRAPH_URL = os.environ.get("FACADE_GRAPH_URL")
+# Platform servers (optional): cases for a server whose URL is not set are skipped.
+PLATFORM_URLS = {
+    "docs": os.environ.get("FACADE_DOCS_URL"),
+    "syntax": os.environ.get("FACADE_SYNTAX_URL"),
+    "codecheck": os.environ.get("FACADE_CODECHECK_URL"),
+    "templates": os.environ.get("FACADE_TEMPLATES_URL"),
+}
 
 # A routine with several callers, an object with several typed references, and
 # names that exist in no configuration -- pick equivalents for your own corpus.
@@ -80,6 +87,16 @@ CASES = (
     ("code_metadatasearch__empty", "code", "metadatasearch",
      {"query": ABSENT_OBJECT, "limit": 5}),
     ("code_codesearch__ok", "code", "codesearch", {"query": PHRASE, "limit": 5}),
+    # platform servers: public documentation, ITS titles, analyzer output
+    ("platform_docsearch__ok", "docs", "docsearch", {"query": "найти строку в таблице значений"}),
+    ("platform_docinfo__ok", "docs", "docinfo", {"name": "ТаблицаЗначений.Найти"}),
+    ("platform_docinfo__missing", "docs", "docinfo", {"name": "НетТакогоМетодаВообще"}),
+    ("platform_its__ok", "codecheck", "its_help", {"query": "управляемые блокировки"}),
+    ("platform_syntax__issues", "syntax", "syntaxcheck",
+     {"code": "Процедура Проверка()\n\tА = 1\nКонецПроцедуры"}),
+    ("platform_templates__ok", "templates", "templatesearch",
+     {"query": "запрос к регистру остатков"}),
+    ("platform_template__one", "templates", "get_template", {"template_id": "1"}),
 )
 
 
@@ -95,9 +112,15 @@ def main(argv=None):
         return 2
     os.makedirs(OUT, exist_ok=True)
     clients = {"code": Client(CODE_URL), "graph": Client(GRAPH_URL)}
+    for kind, url in PLATFORM_URLS.items():
+        if url:
+            clients[kind] = Client(url)
     failed = 0
     for name, backend, tool, args in CASES:
         if only is not None and name not in only:
+            continue
+        if backend not in clients:
+            print("  %-30s skip  (FACADE_%s_URL not set)" % (name, backend.upper()))
             continue
         elapsed, status, text = clients[backend].call(tool, args)
         extension = "json" if name.startswith("code_") else "txt"

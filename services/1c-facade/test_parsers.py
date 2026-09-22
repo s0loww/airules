@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(HERE, "norm"))
 from record import prune                      # noqa: E402
 import graph_parsers as G                     # noqa: E402
 import code_parsers as C                      # noqa: E402
+import platform_parsers as P                  # noqa: E402
 
 FX = os.path.join(HERE, "fixtures")
 EXPECTED = os.path.join(FX, "expected.json")
@@ -60,6 +61,13 @@ CASES = {
     "code_metadatasearch__names": C.parse_metadatasearch,
     "code_metadatasearch__empty": C.parse_metadatasearch,
     "code_codesearch__ok":       C.parse_codesearch,
+    "platform_docsearch__ok":    P.parse_docs,
+    "platform_docinfo__ok":      lambda t: P.parse_docs(t, "docinfo"),
+    "platform_docinfo__missing": lambda t: P.parse_docs(t, "docinfo"),
+    "platform_its__ok":          P.parse_its,
+    "platform_syntax__issues":   P.parse_syntax,
+    "platform_templates__ok":    P.parse_templates,
+    "platform_template__one":    lambda t: P.parse_templates(t, "get_template"),
 }
 
 
@@ -174,6 +182,29 @@ def invariants(res):
        [r.id for r in cs.records if r.id.startswith("Module_")], [])
     eq("codesearch: every chunk is located",
        sum(1 for r in cs.records if r.loc and r.loc.path), len(cs.records))
+
+    # -- platform servers ---------------------------------------------
+    eq("docinfo: an exact name gives one article",
+       [r.id for r in res["platform_docinfo__ok"].records], ["doc:ТаблицаЗначений.Найти"])
+    eq("docinfo: an unknown name is not_found — the only honest empty answer",
+       res["platform_docinfo__missing"].status, "not_found")
+    ok_ds = res["platform_docsearch__ok"]
+    eq("docsearch: one record per article heading",
+       len(ok_ds.records),
+       sum(1 for chunk in load("platform_docsearch__ok").split("\n---\n")
+           if chunk.strip().startswith("# ")))
+    its = res["platform_its__ok"]
+    eq("its: every link becomes a record",
+       len(its.records), load("platform_its__ok").count("](http"))
+    syntax = res["platform_syntax__issues"]
+    eq("syntax: every diagnostic is 1-based and located",
+       sum(1 for r in syntax.records if r.loc and r.loc.line and r.loc.line >= 1),
+       len(syntax.records))
+    tpl = res["platform_templates__ok"]
+    eq("templates: every template is found",
+       len(tpl.records), load("platform_templates__ok").count("**Template:**"))
+    eq("templates: get_template JSON parses too",
+       [r.id for r in res["platform_template__one"].records], ["template:1"])
 
     # every record must validate against the schema
     bad = []

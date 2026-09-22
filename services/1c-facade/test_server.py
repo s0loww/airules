@@ -46,8 +46,9 @@ def checks(url):
     ok("initialize completes", True)
 
     tools = client.tools()
-    eq("six verbs are published", sorted(t["name"] for t in tools),
-       ["calls", "check", "describe", "find", "status", "usages"])
+    eq("nine verbs are published", sorted(t["name"] for t in tools),
+       ["calls", "check", "describe", "docs", "find", "lint", "status", "template",
+        "usages"])
     ok("every verb documents itself",
        all(t.get("description") and t.get("inputSchema") for t in tools))
 

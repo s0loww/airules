@@ -132,6 +132,55 @@ TOOLS = [
         },
     },
     {
+        "name": "docs",
+        "description": (
+            "Документация платформы 1С и база знаний ИТС. Имя вида "
+            "ТаблицаЗначений.Найти ищется точно, описание — поиском; scope=its — "
+            "методические статьи ИТС, any — оба источника сразу. version — "
+            "документация конкретной версии платформы."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "scope": {"type": "string", "enum": ["platform", "its", "any"],
+                          "default": "platform"},
+                "version": {"type": "string",
+                            "description": "Версия документации, например v8.3.27."},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "lint",
+        "description": (
+            "Проверить код BSL: mode=syntax — быстрый анализатор (диагностики со "
+            "строками), check — корректность и производительность, review — стиль "
+            "и стандарты (check и review работают через модель, десятки секунд). "
+            "Код передаётся строкой или путём модуля в выгрузке проекта."),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+                "path": {"type": "string",
+                         "description": "Путь модуля относительно выгрузки проекта."},
+                "project": _PROJECT,
+                "mode": {"type": "string", "enum": ["syntax", "check", "review"],
+                         "default": "syntax"},
+            },
+        },
+    },
+    {
+        "name": "template",
+        "description": "Шаблоны кода 1С: поиск по описанию задачи или один шаблон по id.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "id": {"type": "string"},
+            },
+        },
+    },
+    {
         "name": "status",
         "description": (
             "Состояние парка: отвечает ли бэкенд, поднят ли контейнер, возраст "
@@ -173,16 +222,24 @@ class Dispatcher(object):
         if method == "ping":
             return self._ok(message_id, {})
         if method == "tools/list":
-            return self._ok(message_id, {"tools": TOOLS})
+            return self._ok(message_id, {"tools": TOOLS + self._exposed()})
         if method == "tools/call":
             return self._call(message_id, message.get("params") or {})
         return self._error(message_id, -32601, "method not found: %s" % method)
 
+    def _exposed(self):
+        try:
+            return self.facade.exposed_tools()
+        except Exception:                     # noqa: BLE001 - never break the listing
+            return []
+
     def _call(self, message_id, params):
         name = params.get("name")
         arguments = dict(params.get("arguments") or {})
+        if name not in {tool["name"] for tool in TOOLS}:
+            return self._pass_through(message_id, name, arguments)
         verb = getattr(self.facade, name, None)
-        if name not in {tool["name"] for tool in TOOLS} or verb is None:
+        if verb is None:
             return self._error(message_id, -32602, "unknown tool: %s" % name)
         try:
             envelope = verb(**arguments)
@@ -194,6 +251,21 @@ class Dispatcher(object):
             return self._tool_error(message_id, "bad arguments: %s" % exc)
         except Exception as exc:              # noqa: BLE001 - never kill the server
             return self._tool_error(message_id, "%s: %s" % (type(exc).__name__, exc))
+
+    def _pass_through(self, message_id, name, arguments):
+        """A published backend tool: the reply goes back verbatim, unnormalised --
+        these tools have a single source, so there is nothing to merge."""
+        try:
+            text, notes = self.facade.call_exposed(name, arguments)
+        except KeyError as exc:
+            if "unknown tool" in str(exc):
+                return self._error(message_id, -32602, "unknown tool: %s" % name)
+            return self._tool_error(message_id, str(exc).strip("'\""))
+        except Exception as exc:              # noqa: BLE001 - never kill the server
+            return self._tool_error(message_id, "%s: %s" % (type(exc).__name__, exc))
+        if text is None:
+            return self._tool_error(message_id, "; ".join(notes) or "backend gave no answer")
+        return self._ok(message_id, {"content": [{"type": "text", "text": text}]})
 
     @staticmethod
     def _ok(message_id, result):

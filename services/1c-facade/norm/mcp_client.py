@@ -62,4 +62,9 @@ class Client(object):
             return elapsed, "ERR", json.dumps(reply["error"], ensure_ascii=False)
         text = "\n".join(part.get("text", "")
                          for part in reply.get("result", {}).get("content", []))
+        # A tool-level failure (bad arguments, a raised exception) comes back as
+        # a normal result flagged isError; reading it as OK hands the error text
+        # to a parser as if it were data.
+        if reply.get("result", {}).get("isError"):
+            return elapsed, "ERR", text
         return elapsed, ("EMPTY" if not text.strip() else "OK"), text

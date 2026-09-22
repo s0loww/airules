@@ -1,4 +1,4 @@
-"""The six verbs.
+"""The verbs: six over a configuration, three over the platform.
 
 Everything measured about the backends is encoded here as routing, so the
 choice stops being something a model makes from prose descriptions:
@@ -14,6 +14,10 @@ choice stops being something a model makes from prose descriptions:
     usages(where=metadata) both, union       they answer different questions
     usages(where=code)     grep              no index covers it at all
     check                  external CLI      rules live in the distribution
+    docs                   docs / codecheck  exact name -> docinfo, prose -> docsearch,
+                                             ITS -> its_help; search has no threshold
+    lint                   syntax / codecheck analyzer fast; check and review are models
+    template               templates         one server, one verb
 
 Fan-out is selective on purpose. On `find(kind=text)` it nearly doubles recall
 for free, because the two rankers barely agree and run concurrently. On `calls`
@@ -29,8 +33,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 import code_parsers
 import graph_parsers
+import platform_parsers
 from envelope import Envelope
 from record import Loc, Record, Src
+from registry import SHARED
 from resolver import Resolver, read_source
 
 
@@ -48,6 +54,7 @@ class Facade(object):
         # callers arriving together must not both pay for it.
         self._lock = threading.Lock()
         self._building = {}
+        self._schemas = {}                   # exposed tool name -> tools/list entry
 
     # -- plumbing ---------------------------------------------------------
 
@@ -147,7 +154,7 @@ class Facade(object):
                            "«ещё нет», а не «нет такого»" % kind))
             events.append(("degraded",))
         if outcome in ("ERR", "FAIL"):
-            events.append(("note", "%s.%s failed: %s" % (kind, tool, text[:120])))
+            events.append(("note", "%s.%s failed: %s" % (kind, tool, text[:400])))
             events.append(("degraded",))
             return None, events
         return text, events
@@ -482,6 +489,12 @@ class Facade(object):
                     if text:
                         envelope.coverage.note(
                             "%s: code-бэкенд запустил переиндексацию в фоне" % entry.name)
+        if not project:
+            for kind, backend in sorted(self.registry.shared.backends.items()):
+                state = self.health.probe(backend)
+                envelope.coverage.add_backend(
+                    "%s/%s" % (SHARED, kind), state.state, ms=state.ms,
+                    detail=state.detail)
         for name in names:
             entry = self.registry.get(name)
             if not entry.backends:
@@ -498,6 +511,231 @@ class Facade(object):
                     "%s/%s" % (entry.name, kind), state.state, ms=state.ms,
                     index_age_s=state.index_age_s, detail=state.detail)
         return envelope
+
+
+    # -- platform verbs -------------------------------------------------
+
+    def docs(self, query, scope="platform", version=None):
+        """Platform documentation and ITS.
+
+        The documentation search ranks without a threshold -- it answers any
+        query with *something* -- so emptiness cannot drive the routing. What
+        can: a query shaped like a name (`ТаблицаЗначений.Найти`) goes to the
+        exact lookup first, which does say "not found", and only then to the
+        search. A version pins the lookup to that platform version's docs.
+        ITS is a different corpus (methodology, not syntax); `any` asks both
+        at once.
+        """
+        envelope = Envelope("docs(%r, scope=%s)" % (query, scope))
+        shared = self.registry.shared
+        platform = scope in ("platform", "any")
+        its = scope in ("its", "any")
+        requests = []
+        if platform:
+            if version:
+                requests.append(("codecheck", "search_1c_documentation",
+                                 {"query": query, "version": version}))
+            elif _NAME_LIKE.match(query or ""):
+                requests.append(("docs", "docinfo", {"name": query}))
+            else:
+                requests.append(("docs", "docsearch", {"query": query}))
+        if its:
+            requests.append(("codecheck", "its_help", {"query": query}))
+        if not requests:
+            envelope.coverage.note("scope must be platform, its or any")
+            return envelope
+        texts = self._ask_many(envelope, shared, requests)
+        for (kind, tool, _args), text in zip(requests, texts):
+            if text is None:
+                continue
+            if tool == "its_help":
+                envelope.merge(platform_parsers.parse_its(text), kind)
+            elif tool == "search_1c_documentation":
+                envelope.merge(platform_parsers.as_text(text, kind, tool, query), kind)
+            else:
+                parsed = platform_parsers.parse_docs(text, tool, kind)
+                if tool == "docinfo" and parsed.status == "not_found":
+                    # the name was not a documented one: fall back to the search
+                    envelope.coverage.note("no article named %r; answered by search" % query)
+                    again = self._ask(envelope, shared, "docs", "docsearch", {"query": query})
+                    if again:
+                        envelope.merge(platform_parsers.parse_docs(again), "docs")
+                    continue
+                envelope.merge(parsed, kind)
+        if any(r.src and r.src.tool == "docsearch" for r in envelope.records):
+            envelope.coverage.note(
+                "documentation search has no relevance threshold — check that "
+                "the articles are about the question")
+        return envelope.dedupe()
+
+    def lint(self, code=None, path=None, project=None, mode="syntax"):
+        """Check BSL code: `syntax` is the fast analyzer gate, `check` a
+        correctness pass, `review` a style and standards pass. The modes are
+        not mixed in one call: the first answers in a tenth of a second, the
+        other two are model-backed and take tens of seconds."""
+        envelope = Envelope("lint(mode=%s)" % mode)
+        if path and not code:
+            code = self._read_project_file(envelope, project, path)
+            if code is None:
+                return envelope
+        if not code:
+            envelope.coverage.note("pass code, or path to a module in the project")
+            return envelope
+        route = {"syntax": ("syntax", "syntaxcheck"),
+                 "check": ("codecheck", "check_1c_code"),
+                 "review": ("codecheck", "review_1c_code")}.get(mode)
+        if route is None:
+            envelope.coverage.note("mode must be syntax, check or review")
+            return envelope
+        kind, tool = route
+        text = self._ask(envelope, self.registry.shared, kind, tool, {"code": code})
+        if text is None:
+            return envelope
+        if mode == "syntax":
+            envelope.merge(platform_parsers.parse_syntax(text), kind)
+            if path:
+                for record in envelope.records:
+                    if record.loc:
+                        record.loc.path = path
+        else:
+            envelope.merge(platform_parsers.as_text(text, kind, tool, mode), kind)
+        return envelope
+
+    def template(self, query=None, id=None):
+        """Code templates: search by description, or one template by id."""
+        envelope = Envelope("template(%r)" % (id or query))
+        if id:
+            text = self._ask(envelope, self.registry.shared, "templates",
+                             "get_template", {"template_id": str(id)})
+            tool = "get_template"
+        elif query:
+            text = self._ask(envelope, self.registry.shared, "templates",
+                             "templatesearch", {"query": query})
+            tool = "templatesearch"
+        else:
+            envelope.coverage.note("pass query or id")
+            return envelope
+        if text:
+            envelope.merge(platform_parsers.parse_templates(text, tool), "templates")
+        return envelope.dedupe()
+
+    def _read_project_file(self, envelope, project, path):
+        entry = self.registry.get(project)
+        root = os.path.realpath(entry.source or "")
+        full = os.path.realpath(os.path.join(root, path))
+        if not entry.source or not full.startswith(root + os.sep):
+            envelope.coverage.note("path must lie inside the project export")
+            return None
+        try:
+            return read_source(full)
+        except OSError as exc:
+            envelope.coverage.note("cannot read %s: %s" % (path, type(exc).__name__))
+            return None
+
+    # -- pass-through ---------------------------------------------------
+
+    def exposure(self):
+        """Which backend tools are published one to one, and where they live.
+
+        Returns {public name: (kind, tool, [project names, default first])}.
+        The route is data -- the registry's `expose` lists -- not code: a tool
+        joins or leaves the facade by editing the registry. The public name is
+        `<kind>_<tool>`: Claude accepts tool names matching [a-zA-Z0-9_-] only,
+        so the `code.verify_xml` spelling of the design is not an option.
+        """
+        plan = {}
+        names = self.registry.names()
+        default = self.registry.default
+        ordered = ([default] if default in names else []) + [n for n in names if n != default]
+        for project_name in ordered:
+            project = self.registry.get(project_name)
+            for kind in sorted(project.backends):
+                backend = project.backend(kind)
+                tools = backend.expose if backend.expose is not None \
+                    else self.registry.expose.get(kind, [])
+                for tool in tools:
+                    entry = plan.setdefault(_public_name(kind, tool), (kind, tool, []))
+                    entry[2].append(project.name)
+        # platform servers publish under their own name and take no project
+        for kind, backend in sorted(self.registry.shared.backends.items()):
+            for tool in backend.expose or []:
+                plan.setdefault(_public_name(kind, tool), (kind, tool, [SHARED]))
+        return plan
+
+    def _holder(self, name):
+        return self.registry.shared if name == SHARED else self.registry.get(name)
+
+    def exposed_tools(self):
+        """tools/list entries for the pass-through tools whose schema is known.
+
+        The schema is the backend's own, fetched once and cached. A backend that
+        is down at that moment simply leaves its tools out of this listing; the
+        next listing tries again, so they appear as soon as it answers.
+        """
+        out = []
+        for name, (kind, tool, projects) in sorted(self.exposure().items()):
+            with self._lock:
+                cached = self._schemas.get(name)
+            if cached is None:
+                cached = self._fetch_schema(name, kind, tool, projects)
+            if cached is not None:
+                out.append(cached)
+        return out
+
+    def _fetch_schema(self, name, kind, tool, projects):
+        for project_name in projects:
+            backend = self._holder(project_name).backend(kind)
+            try:
+                listing = self.client(backend).tools()
+            except Exception:                        # noqa: BLE001 - try the next
+                continue
+            for item in listing or []:
+                if item.get("name") != tool:
+                    continue
+                schema = dict(item.get("inputSchema") or {"type": "object"})
+                if projects != [SHARED]:
+                    props = dict(schema.get("properties") or {})
+                    props["project"] = {
+                        "type": "string",
+                        "description": "Проект из реестра, чей %s-бэкенд ответит; "
+                                       "опущен — %s." % (kind, projects[0])}
+                    schema["properties"] = props
+                entry = {"name": name,
+                         "description": "[проброс %s.%s, ответ без нормализации] %s"
+                                        % (kind, tool, item.get("description") or ""),
+                         "inputSchema": schema}
+                with self._lock:
+                    self._schemas[name] = entry
+                return entry
+        return None
+
+    def call_exposed(self, name, arguments):
+        """Proxy one pass-through call. Returns (text or None, coverage notes)."""
+        plan = self.exposure()
+        if name not in plan:
+            raise KeyError("unknown tool: %s" % name)
+        kind, tool, projects = plan[name]
+        arguments = dict(arguments or {})
+        wanted = arguments.pop("project", None)
+        if projects == [SHARED]:
+            text, events = self._query(self.registry.shared, kind, tool, arguments)
+            return text, [e[1] for e in events if e[0] == "note"]
+        project = self.registry.get(wanted or projects[0])
+        if project.name not in projects:
+            raise KeyError("%s is not published for project %r; published for: %s"
+                           % (name, project.name, ", ".join(projects)))
+        text, events = self._query(project, kind, tool, arguments)
+        notes = [e[1] for e in events if e[0] == "note"]
+        return text, notes
+
+
+def _public_name(kind, tool):
+    return re.sub(r"[^A-Za-z0-9_-]", "_", "%s_%s" % (kind, tool))[:64]
+
+
+# A query that looks like a platform name: `ТаблицаЗначений`, `Массив.Найти`,
+# `Запрос.Выполнить` -- one or two identifiers, no spaces.
+_NAME_LIKE = re.compile(r"^[A-Za-zА-Яа-яЁё_][\wА-Яа-яЁё]*(?:\.[A-Za-zА-Яа-яЁё_][\wА-Яа-яЁё]*)?$")
 
 
 # Sections the facade handles itself rather than passing to the graph dossier.
