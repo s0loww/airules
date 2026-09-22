@@ -20,8 +20,33 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/agent-1c/agent-1c.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/agent-1c/agent-1c.ps1 test      -Profile agent-1c.json
 ```
 
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/agent-1c/agent-1c.ps1 unit      -Profile agent-1c.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/agent-1c/agent-1c.ps1 serve     -Profile agent-1c.json
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/agent-1c/agent-1c.ps1 stop      -Profile agent-1c.json
+```
+
 - `deploy` всегда DryRun; мутация — только с `-Apply` и только для цели
   `test`/`development`. `environment: production` блокируется до запуска платформы.
+- **Движок `deploy`** (`platform.engine`, по умолчанию `auto`): для файловой ИБ —
+  `ibcmd` (create / import / apply без конфигуратора, база создаётся, если её нет),
+  если он есть в выбранной сборке; иначе конфигуратор. Серверная ИБ — всегда
+  конфигуратор через кластер: `ibcmd` в СУБД базы под кластером не ходит.
+  ibcmd/ibsrv берутся из каталога **той же сборки**, что `1cv8.exe`; клиентская
+  установка их не содержит — `doctor` это покажет.
+- Перед загрузкой `deploy` сам останавливает `ibsrv` этой базы и службы из
+  `suspendServices` (веб-публикация, мост) и поднимает службы обратно.
+- **Проба после деплоя** (`probe.checkModules`): `/CheckModules` по контекстам;
+  с `probe.baseline` гейтятся только **новые** ошибки (первый прогон создаёт
+  baseline — закоммитьте его). Код `5` — новые ошибки модулей.
+- `unit` — прогон тестового расширения без интерфейса: `1cv8 ENTERPRISE /C
+  <unit.launchParameter>`, `{report}` → путь JUnit. Коды: `0` зелёный, `1` есть
+  провалы, `2` отчёта нет или в нём 0 тестов (набор не найден — это не зелёный),
+  `3` юнит-контур не настроен.
+- `serve` — `ibsrv` над файловой ИБ: веб-клиент `http://127.0.0.1:<порт>/ru_RU/`,
+  HTTP-сервисы `http://127.0.0.1:<порт>/hs/<rootUrl>/...`. Пока он работает,
+  базу не открыть ничем другим — `deploy` и `unit` останавливают его сами;
+  `stop` — штатно закрыть сеансы и остановить. Подробнее — скилл `ibcmd-ibsrv`.
 - `analyze` возвращает код `4`, если BSL LS нашёл диагностики уровня `Error` —
   это не сбой установки, а состояние исходников (см. baseline-политику в DEPLOYMENT).
 - `test` возвращает код `3`, если тест-стек (vanessa-runner / Vanessa-Automation)

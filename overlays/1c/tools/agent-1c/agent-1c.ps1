@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('bootstrap', 'doctor', 'analyze', 'deploy', 'test')]
+    [ValidateSet('bootstrap', 'doctor', 'analyze', 'deploy', 'test', 'unit', 'serve', 'stop')]
     [string]$Command = 'doctor',
 
     [string]$Profile = (Join-Path (Get-Location) 'agent-1c.json'),
@@ -190,6 +190,16 @@ function Invoke-Doctor {
         [void]$script:Warnings.Add('BSL LS недоступен')
     }
 
+    if ($platform) {
+        foreach ($tool in @('ibcmd.exe', 'ibsrv.exe')) {
+            $found = Get-PlatformBinTool $platform $tool
+            if ($found) { Add-Step "doctor.$tool" 'ok' $found }
+            else { Add-Step "doctor.$tool" 'optional' "Нет в сборке $($platform.Directory.Parent.Name): установлен только клиент. Для deploy через ibcmd и serve нужен компонент сервера той же сборки." }
+        }
+        $target = $script:ProfileData.testTarget
+        if ($target -and $target.kind -and $target.kind -ne 'none') { Add-Step 'doctor.engine' 'ok' ("deploy пойдёт через: " + (Get-DeployEngine $target $platform)) }
+    }
+
     $vrunner = Get-VrunnerPath
     if ($vrunner) { Add-Step 'doctor.vanessa-runner' 'ok' $vrunner } else { Add-Step 'doctor.vanessa-runner' 'optional' 'Не установлен' }
 }
@@ -230,6 +240,362 @@ function Invoke-Analyze {
     }
 }
 
+function Get-PlatformBinTool {
+    <# ibcmd.exe / ibsrv.exe из каталога ТОЙ ЖЕ сборки, что выбранный 1cv8.exe.
+       Клиентская установка их не содержит — тогда $null. #>
+    param($Platform, [string]$Name)
+    if (-not $Platform) { return $null }
+    $candidate = Join-Path $Platform.Directory.FullName $Name
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    return $null
+}
+
+function Get-DeployEngine {
+    <# designer | ibcmd. auto: ibcmd для файловой ИБ, если он есть в выбранной сборке.
+       База под кластером — только конфигуратор: ibcmd в её СУБД мимо кластера не ходит. #>
+    param($Target, $Platform)
+    $engine = 'auto'
+    if ($script:ProfileData.platform -and $script:ProfileData.platform.engine) { $engine = [string]$script:ProfileData.platform.engine }
+    if ($Target.kind -eq 'server') {
+        if ($engine -eq 'ibcmd') { throw 'engine=ibcmd для серверной ИБ запрещён: база под кластером обслуживается только через кластер (rules/test-model.md). Уберите platform.engine или поставьте designer.' }
+        return 'designer'
+    }
+    if ($engine -eq 'designer') { return 'designer' }
+    $ibcmd = Get-PlatformBinTool $Platform 'ibcmd.exe'
+    if ($engine -eq 'ibcmd' -and -not $ibcmd) { throw "engine=ibcmd, но в сборке $($Platform.Directory.Parent.Name) нет ibcmd.exe (установлен только клиент; нужен компонент сервера)." }
+    if ($ibcmd) { return 'ibcmd' }
+    return 'designer'
+}
+
+function Get-ServerDataDir {
+    <# Каталог состояния автономного сервера — рядом с базой, НЕ внутри неё:
+       его можно стереть, не тронув саму ИБ. #>
+    param($Target, [string]$ResolvedPath)
+    if ($Target.dataDir) { return Resolve-ProjectPath $Target.dataDir $script:ProjectRoot }
+    return ($ResolvedPath.TrimEnd('\', '/') + '_ServerData')
+}
+
+function Get-IbcmdBaseArgs {
+    param([string]$DbPath, [string]$DataDir, $Credentials)
+    $list = @(('--db-path="' + $DbPath + '"'), ('--data="' + $DataDir + '"'))
+    if ($Credentials.user) { $list += ('--user=' + (Quote-IfNeeded $Credentials.user)) }
+    if ($Credentials.password) { $list += ('--password=' + (Quote-IfNeeded $Credentials.password)) }  # airules:allow creds-password (value from resolved credentials, redacted in reports)
+    return $list
+}
+
+function Get-ServedIbsrv {
+    <# Процессы ibsrv, обслуживающие ЭТУ базу, — по командной строке, а не по
+       файлу состояния: файл мог пережить перезагрузку, процесс — нет. #>
+    param([string]$DbPath)
+    $needle = $DbPath.TrimEnd('\').ToLowerInvariant()
+    return @(Get-CimInstance Win32_Process -Filter "Name='ibsrv.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine.ToLowerInvariant().Contains($needle) })
+}
+
+function Wait-1CProcessExit {
+    param([int]$ProcessId, [int]$Seconds)
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return $false
+}
+
+function Stop-ServedIbsrv {
+    <# Штатно закрыть сеансы (ibcmd --pid session terminate) и остановить ibsrv
+       этой базы. Возвращает число остановленных процессов. #>
+    param([string]$DbPath, [string]$Ibcmd)
+    $stopped = 0
+    foreach ($proc in (Get-ServedIbsrv $DbPath)) {
+        $procId = [int]$proc.ProcessId
+        if ($Ibcmd) {
+            try {
+                $listing = & $Ibcmd "--pid=$procId" 'session' 'list' 2>$null
+                foreach ($line in @($listing)) {
+                    if ([string]$line -match '^\s*session\s*:\s*([0-9a-fA-F-]{36})') {
+                        & $Ibcmd "--pid=$procId" 'session' 'terminate' "--session=$($Matches[1])" '--error-message=agent-1c maintenance' 2>$null | Out-Null
+                    }
+                }
+            } catch { }
+        }
+        Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+        [void](Wait-1CProcessExit $procId 15)
+        $stopped++
+    }
+    return $stopped
+}
+
+function Suspend-TargetServices {
+    <# Службы, держащие сеансы базы (веб-публикация, мост), останавливает сам
+       скрипт, а не человек. Возвращает список реально остановленных. #>
+    $stopped = @()
+    if (-not $script:ProfileData.suspendServices) { return $stopped }
+    foreach ($name in @($script:ProfileData.suspendServices)) {
+        $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+        if (-not $svc) { Add-Step "services.suspend.$name" 'warning' 'Служба не найдена'; continue }
+        if ($svc.Status -ne 'Running') { continue }
+        try { Stop-Service -Name $name -Force -ErrorAction Stop }
+        catch { throw "Не удалось остановить службу $name (нужны права администратора?): $($_.Exception.Message)" }
+        $stopped += $name
+        Add-Step "services.suspend.$name" 'ok' 'Остановлена на время операции'
+    }
+    return $stopped
+}
+
+function Resume-TargetServices {
+    param($Names)
+    foreach ($name in @($Names)) {
+        if (-not $name) { continue }
+        try { Start-Service -Name $name -ErrorAction Stop; Add-Step "services.resume.$name" 'ok' 'Запущена' }
+        catch { Add-Step "services.resume.$name" 'error' "Не запустилась: $($_.Exception.Message)"; $script:ExitCode = 1 }
+    }
+}
+
+function Invoke-GuardedRun {
+    <# Один запуск под сторожем с проверкой кода; общий для DESIGNER и ibcmd. #>
+    param([string]$Exe, $Run, [string]$GuardLog, [string]$Prefix)
+    $params = @{ FilePath = $Exe; ArgumentList = ([string[]]$Run.args); Label = "$Prefix/$($Run.name)"; LogPath = $GuardLog }
+    if ($Run.stdout) { $params['RedirectStandardOutput'] = $Run.stdout; $params['RedirectStandardError'] = $Run.stderr }
+    $guard = Invoke-Guarded1C @params
+    if ($Run.log) { [void]$script:Artifacts.Add($Run.log) }
+    if ($Run.stdout) { [void]$script:Artifacts.Add($Run.stdout); [void]$script:Artifacts.Add($Run.stderr) }
+    if ($guard.Killed) {
+        $hint = ''
+        if ($guard.DialogSeen) { $hint = ' У процесса было окно — вероятен модальный диалог платформы.' }
+        Add-Step "$Prefix.$($Run.name)" 'error' "Сторож снял процесс: $($guard.Reason).$hint"
+        throw "$Prefix ($($Run.name)) снят сторожем: $($guard.Reason).$hint См. $GuardLog"
+    }
+    if ($guard.ExitCode -ne 0) {
+        $where = if ($Run.stdout) { $Run.stdout } else { $Run.log }
+        throw "$Prefix ($($Run.name)) завершился с кодом $($guard.ExitCode). См. $where"
+    }
+    Add-Step "$Prefix.$($Run.name)" 'ok' "Шаг выполнен за $($guard.DurationSec) с, пик памяти $($guard.PeakPrivateGb) ГБ"
+}
+
+function Get-IbcmdDeployRuns {
+    param([string]$Source, [string]$ExtensionName, [string[]]$BaseArgs)
+    $ext = @()
+    if ($ExtensionName) { $ext = @('--extension=' + (Quote-IfNeeded $ExtensionName)) }
+    $steps = @()
+    $steps += @{ name = 'import'; args = (@('infobase', 'config', 'import') + $BaseArgs + $ext + @('"' + $Source + '"')) }
+    if ($ExtensionName -and $script:ProfileData.extension.scope) {
+        # Расширение, меняющее общую структуру данных, требует области infobase ДО apply.
+        $steps += @{ name = 'scope'; args = (@('infobase', 'config', 'extension', 'update') + $BaseArgs + @('--name=' + (Quote-IfNeeded $ExtensionName), '--scope=' + [string]$script:ProfileData.extension.scope)) }
+    }
+    $steps += @{ name = 'apply'; args = (@('infobase', 'config', 'apply') + $BaseArgs + $ext + @('--force')) }
+    if ($ExtensionName -and ($script:ProfileData.extension.PSObject.Properties.Name -contains 'safeMode') -and ($script:ProfileData.extension.safeMode -eq $false)) {
+        $steps += @{ name = 'safe-mode'; args = (@('infobase', 'config', 'extension', 'update') + $BaseArgs + @('--name=' + (Quote-IfNeeded $ExtensionName), '--safe-mode=no', '--unsafe-action-protection=no')) }
+    }
+    foreach ($step in $steps) {
+        $step['stdout'] = Join-Path $script:RunDir ("ibcmd-" + $step.name + ".log")
+        $step['stderr'] = Join-Path $script:RunDir ("ibcmd-" + $step.name + ".err.log")
+    }
+    return $steps
+}
+
+function Invoke-PostDeployProbe {
+    <# Exit 0 загрузки — не доказательство. Проба: /CheckModules по контекстам
+       из профиля (probe.checkModules). Лог /Out 8.3.27 — UTF-8 с BOM. #>
+    param($Platform, $Target, $Credentials, [string]$GuardLog)
+    if (-not $script:ProfileData.probe -or -not $script:ProfileData.probe.checkModules) {
+        Add-Step 'deploy.probe' 'skipped' 'probe.checkModules не задан в профиле — проба после деплоя не выполнялась'
+        return
+    }
+    $log = Join-Path $script:RunDir 'probe-checkmodules.log'
+    $probeArgs = New-Object System.Collections.ArrayList
+    [void]$probeArgs.Add('DESIGNER')
+    foreach ($a in (Get-TargetArguments $Target $Credentials.path)) { [void]$probeArgs.Add($a) }
+    Add-Credentials $probeArgs $Credentials
+    [void]$probeArgs.Add('/DisableStartupDialogs')
+    [void]$probeArgs.Add('/CheckModules')
+    foreach ($ctx in @($script:ProfileData.probe.checkModules)) { [void]$probeArgs.Add('-' + [string]$ctx) }
+    if ($script:ProfileData.extension -and $script:ProfileData.extension.name) {
+        [void]$probeArgs.Add('-Extension'); [void]$probeArgs.Add((Quote-IfNeeded ([string]$script:ProfileData.extension.name)))
+    }
+    [void]$probeArgs.Add('/Out'); [void]$probeArgs.Add(('"' + $log + '"'))
+    $guard = Invoke-Guarded1C -FilePath $Platform.FullName -ArgumentList ([string[]]$probeArgs) -Label 'probe/checkmodules' -LogPath $GuardLog
+    [void]$script:Artifacts.Add($log)
+    $contexts = (@($script:ProfileData.probe.checkModules) -join ', ')
+    if ($guard.Killed) { Add-Step 'deploy.probe' 'error' "Сторож снял /CheckModules: $($guard.Reason)"; $script:ExitCode = 5; return }
+    if ($guard.ExitCode -eq 0) { Add-Step 'deploy.probe' 'ok' "/CheckModules чист по контекстам: $contexts"; return }
+
+    # Зрелый проект почти всегда несёт исторические ошибки модулей. Гейт — только
+    # НОВЫЕ относительно baseline (та же политика, что у analyze). Ошибка — строка
+    # вида {Модуль(стр,кол)}: текст; номера строк и колонок из ключа убираются,
+    # иначе любая правка выше по модулю "создаёт" новую ошибку.
+    $found = @()
+    if (Test-Path -LiteralPath $log) {
+        $found = @([IO.File]::ReadAllLines($log, [Text.Encoding]::UTF8) |
+            Where-Object { $_ -match '^\{[^}]+\}:' } |
+            ForEach-Object { ($_ -replace '\(\d+,\d+\)', '').Trim() } | Sort-Object -Unique)
+    }
+    if ($found.Count -eq 0) { Add-Step 'deploy.probe' 'error' "/CheckModules: код $($guard.ExitCode), ошибок в логе не разобрано — смотрите $log"; $script:ExitCode = 5; return }
+    $baselineRel = [string]$script:ProfileData.probe.baseline
+    if (-not $baselineRel) {
+        Add-Step 'deploy.probe' 'error' "/CheckModules: $($found.Count) ошибок ($contexts). Baseline не задан (probe.baseline) — гейт по абсолютному нулю. Лог: $log"
+        $script:ExitCode = 5; return
+    }
+    $baselinePath = Resolve-ProjectPath $baselineRel $script:ProjectRoot
+    if (-not (Test-Path -LiteralPath $baselinePath)) {
+        [IO.File]::WriteAllLines($baselinePath, [string[]]$found, (New-Object Text.UTF8Encoding($true)))
+        Add-Step 'deploy.probe' 'warning' "Baseline создан: $($found.Count) исторических ошибок записаны в $baselinePath. Закоммитьте его; следующие деплои гейтятся только по новым."
+        [void]$script:Warnings.Add('probe baseline создан этим прогоном')
+        return
+    }
+    $known = @([IO.File]::ReadAllLines($baselinePath, [Text.Encoding]::UTF8))
+    $new = @($found | Where-Object { $known -notcontains $_ })
+    $gone = @($known | Where-Object { $_ -and ($found -notcontains $_) }).Count
+    if ($new.Count -gt 0) {
+        $newLog = Join-Path $script:RunDir 'probe-new-errors.txt'
+        [IO.File]::WriteAllLines($newLog, [string[]]$new, (New-Object Text.UTF8Encoding($true)))
+        [void]$script:Artifacts.Add($newLog)
+        Add-Step 'deploy.probe' 'error' "/CheckModules: $($new.Count) НОВЫХ ошибок относительно baseline (всего $($found.Count), ушло $gone). Новые: $newLog"
+        $script:ExitCode = 5
+    } else {
+        Add-Step 'deploy.probe' 'ok' "/CheckModules: новых ошибок нет (исторических $($found.Count), ушло $gone) по контекстам: $contexts"
+    }
+}
+
+function Invoke-Serve {
+    <# Поднять ibsrv над локальной файловой ИБ: веб-клиент и HTTP-сервисы на
+       127.0.0.1:<порт>. Только файловая база — серверная обслуживается кластером. #>
+    $target = $script:ProfileData.testTarget
+    if (-not $target -or $target.kind -ne 'file') { throw 'serve работает только с файловой тестовой ИБ (testTarget.kind = file).' }
+    if ($target.environment -eq 'production') { throw 'serve в production запрещён политикой agent-1c.' }
+    $platform = Get-Platform $script:ProfileData
+    $ibsrv = Get-PlatformBinTool $platform 'ibsrv.exe'
+    $ibcmd = Get-PlatformBinTool $platform 'ibcmd.exe'
+    if (-not $ibsrv) { throw "В сборке $($platform.Directory.Parent.Name) нет ibsrv.exe (нужен компонент сервера)." }
+    $credentials = Resolve-TargetCredentials $target
+    $dbPath = $credentials.path
+    $dataDir = Get-ServerDataDir $target $dbPath
+    $address = '127.0.0.1'; $port = 18085
+    if ($script:ProfileData.serve) {
+        if ($script:ProfileData.serve.address) { $address = [string]$script:ProfileData.serve.address }
+        if ($script:ProfileData.serve.port) { $port = [int]$script:ProfileData.serve.port }
+    }
+
+    $already = Stop-ServedIbsrv $dbPath $ibcmd
+    if ($already -gt 0) { Add-Step 'serve.restart' 'ok' "Остановлен прежний ibsrv этой базы: $already" }
+
+    # БЕЗ -RedirectStandard*: с перенаправлением Start-Process создаёт процесс с
+    # наследованием дескрипторов, ibsrv уносит пайп вызывающего шелла, и тот
+    # висит, пока сервер жив (живой случай: агентский инструмент не вернулся).
+    # Без перенаправления запуск идёт через ShellExecute — дескрипторы не
+    # наследуются. Журнал сервера живёт в его каталоге данных.
+    $srvArgs = @(('--db-path="' + $dbPath + '"'), ('--data="' + $dataDir + '"'), "--address=$address", "--port=$port")
+    $proc = Start-Process -FilePath $ibsrv -ArgumentList $srvArgs -WindowStyle Hidden -PassThru
+
+    $url = "http://${address}:$port/"
+    $ready = $false
+    for ($i = 0; $i -lt 60; $i++) {
+        Start-Sleep -Seconds 1
+        if ($proc.HasExited) { break }
+        try {
+            $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 3 -MaximumRedirection 0 -ErrorAction Stop
+            if ($resp.StatusCode -lt 500) { $ready = $true; break }
+        } catch {
+            $code = 0
+            try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+            if ($code -ge 300 -and $code -lt 500) { $ready = $true; break }
+        }
+    }
+    if (-not $ready) {
+        if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+        throw "ibsrv не ответил на $url за 60 с (порт занят? другой ibsrv держит каталог данных $dataDir?)."
+    }
+    $state = [ordered]@{ pid = $proc.Id; url = $url; dbPath = $dbPath; dataDir = $dataDir; build = $platform.Directory.Parent.Name }
+    $state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RunDir 'ibsrv.state.json') -Encoding UTF8
+    Add-Step 'serve' 'ok' "ibsrv PID $($proc.Id) обслуживает $dbPath на $url (веб-клиент: ${url}ru_RU/, HTTP-сервисы: ${url}hs/<rootUrl>/). Пока он работает, файловую базу не открыть ничем другим: deploy/unit остановят его сами."
+}
+
+function Invoke-Stop {
+    $target = $script:ProfileData.testTarget
+    if (-not $target -or $target.kind -ne 'file') { Add-Step 'stop' 'skipped' 'Нет файловой тестовой ИБ'; return }
+    $platform = Get-Platform $script:ProfileData
+    $credentials = Resolve-TargetCredentials $target
+    $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe')
+    Add-Step 'stop' 'ok' "Остановлено процессов ibsrv этой базы: $n"
+}
+
+function Invoke-Unit {
+    <# Юнит-контур без интерфейса: 1cv8 ENTERPRISE /C "<launchParameter>" →
+       отчёт JUnit. Плейсхолдер {report} в launchParameter — путь отчёта прогона.
+       Коды: 0 зелёный, 1 есть провалы, 2 отчёта нет (движок не стартовал). #>
+    $target = $script:ProfileData.testTarget
+    if (-not $target -or $target.kind -eq 'none') { Add-Step 'unit' 'planned' 'Тестовая ИБ не настроена'; return }
+    if ($target.environment -eq 'production') { throw 'Тесты в production запрещены политикой agent-1c.' }
+    if (-not $script:ProfileData.unit -or -not $script:ProfileData.unit.launchParameter) {
+        Add-Step 'unit' 'unavailable' 'В профиле нет unit.launchParameter — юнит-контур не настроен'; $script:ExitCode = 3; return
+    }
+    $platform = Get-Platform $script:ProfileData
+    if (-not $platform) { throw '1cv8.exe не найден.' }
+    $credentials = Resolve-TargetCredentials $target
+    $report = Join-Path $script:RunDir 'junit.xml'
+    $launch = ([string]$script:ProfileData.unit.launchParameter).Replace('{report}', $report)
+    $outLog = Join-Path $script:RunDir 'unit-out.log'
+
+    $runArgs = New-Object System.Collections.ArrayList
+    [void]$runArgs.Add('ENTERPRISE')
+    foreach ($a in (Get-TargetArguments $target $credentials.path)) { [void]$runArgs.Add($a) }
+    Add-Credentials $runArgs $credentials
+    [void]$runArgs.Add('/C'); [void]$runArgs.Add(('"' + $launch + '"'))
+    [void]$runArgs.Add('/DisableStartupMessages'); [void]$runArgs.Add('/DisableStartupDialogs')
+    foreach ($extra in @($script:ProfileData.unit.extraArgs)) { if ($extra) { [void]$runArgs.Add([string]$extra) } }
+    [void]$runArgs.Add('/Out'); [void]$runArgs.Add(('"' + $outLog + '"'))
+    Add-Step 'unit.command' 'planned' (Format-DeployCommandLine $platform.FullName $runArgs $credentials.password)
+
+    $guardLog = Join-Path $script:RunDir 'guard.log'
+    $baseId = Get-1CBaseIdentity $target $credentials.path
+    $lock = $null
+    if ($baseId) { $lock = Enter-1CBaseLock -Target $baseId -LogPath $guardLog }
+    try {
+        if ($target.kind -eq 'file') {
+            $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe')
+            if ($n -gt 0) { Add-Step 'unit.ibsrv' 'ok' "Остановлен ibsrv этой базы ($n): пока он работает, ENTERPRISE базу не откроет" }
+        }
+        $before = @(Get-Process -Name 1cv8 -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        $timeout = 30
+        if ($script:ProfileData.unit.timeoutMinutes) { $timeout = [int]$script:ProfileData.unit.timeoutMinutes }
+        $guard = Invoke-Guarded1C -FilePath $platform.FullName -ArgumentList ([string[]]$runArgs) -Label 'unit/enterprise' -LogPath $guardLog -TimeoutMinutes $timeout
+        # ENTERPRISE может отцепить дочерний процесс и выйти раньше, чем тесты
+        # допишут отчёт: ждём новые 1cv8, появившиеся после старта.
+        $deadline = (Get-Date).AddMinutes($timeout)
+        while ((Get-Date) -lt $deadline) {
+            $fresh = @(Get-Process -Name 1cv8 -ErrorAction SilentlyContinue | Where-Object { $before -notcontains $_.Id })
+            if ($fresh.Count -eq 0) { break }
+            Start-Sleep -Seconds 2
+        }
+    }
+    finally {
+        Exit-1CBaseLock $lock
+        [void]$script:Artifacts.Add($guardLog)
+        [void]$script:Artifacts.Add($outLog)
+    }
+    if ($guard.Killed) { Add-Step 'unit' 'error' "Сторож снял прогон: $($guard.Reason). См. $guardLog"; $script:ExitCode = 1; return }
+    if (-not (Test-Path -LiteralPath $report)) {
+        Add-Step 'unit' 'error' "Отчёта нет: движок тестов не стартовал или упал до записи (обработчик параметра запуска в тестовом расширении?). Лог: $outLog; журнал регистрации — ibcmd eventlog export."
+        $script:ExitCode = 2; return
+    }
+    [void]$script:Artifacts.Add($report)
+    [xml]$xml = [IO.File]::ReadAllText($report, [Text.Encoding]::UTF8)
+    $tests = 0; $failed = 0
+    foreach ($suite in @($xml.SelectNodes('//testsuite'))) {
+        $tests += [int]$suite.GetAttribute('tests')
+        $f = $suite.GetAttribute('failures'); if ($f) { $failed += [int]$f }
+        $e = $suite.GetAttribute('errors'); if ($e) { $failed += [int]$e }
+    }
+    if ($tests -eq 0) { Add-Step 'unit' 'error' "Отчёт пуст (0 тестов): набор не обнаружен — это не зелёный прогон. $report"; $script:ExitCode = 2; return }
+    if ($failed -gt 0) {
+        $names = @($xml.SelectNodes('//testcase[failure or error]') | ForEach-Object { $_.GetAttribute('name') }) -join ', '
+        Add-Step 'unit' 'error' "Провалено $failed из $tests`: $names. Отчёт: $report"
+        $script:ExitCode = 1
+    } else {
+        Add-Step 'unit' 'ok' "Все $tests тестов прошли. Отчёт: $report"
+    }
+}
+
 function Invoke-Deploy {
     $target = $script:ProfileData.testTarget
     if (-not $target -or $target.kind -eq 'none') { Add-Step 'deploy' 'planned' 'Тестовая ИБ не настроена; мутации отсутствуют'; return }
@@ -242,82 +608,97 @@ function Invoke-Deploy {
     if ($script:ProfileData.extension -and $script:ProfileData.extension.name) { $extensionName = [string]$script:ProfileData.extension.name }
 
     $credentials = Resolve-TargetCredentials $target
-    $planMessage = "Загрузить XML из $source и обновить тестовую ИБ ($($target.kind))"
-    if ($extensionName) { $planMessage += "; расширение $extensionName (-Extension)" }
+    $engine = Get-DeployEngine $target $platform
+    $planMessage = "Загрузить XML из $source и обновить тестовую ИБ ($($target.kind)); движок: $engine, сборка $($platform.Directory.Parent.Name)"
+    if ($extensionName) { $planMessage += "; расширение $extensionName" }
     Add-Step 'deploy.plan' 'ok' $planMessage
 
-    # Общая часть командной строки DESIGNER — переиспользуется каждым запуском.
-    $common = New-Object System.Collections.ArrayList
-    [void]$common.Add('DESIGNER')
-    foreach ($arg in (Get-TargetArguments $target $credentials.path)) { [void]$common.Add($arg) }
-    Add-Credentials $common $credentials
-    [void]$common.Add('/DisableStartupDialogs')
-
     $runs = New-Object System.Collections.ArrayList
-    if ($extensionName) {
-        # Платформа (проверено на 8.3.27) отвергает /LoadConfigFromFiles -Extension и
-        # /UpdateDBCfg -Extension в ОДНОМ запуске DESIGNER. Для расширения деплой
-        # выполняется двумя последовательными запусками с теми же флагами; для основной
-        # конфигурации совмещённый запуск работает и остаётся одним.
-        $loadLog = Join-Path $script:RunDir 'deploy-load.log'
-        $load = New-Object System.Collections.ArrayList
-        [void]$load.AddRange($common)
-        [void]$load.Add('/LoadConfigFromFiles'); [void]$load.Add(('"' + $source + '"'))
-        [void]$load.Add('-Extension'); [void]$load.Add((Quote-IfNeeded $extensionName))
-        [void]$load.Add('-Format'); [void]$load.Add('Hierarchical')
-        [void]$load.Add('/Out'); [void]$load.Add(('"' + $loadLog + '"'))
-        [void]$runs.Add(@{ name = 'load'; args = $load; log = $loadLog })
-
-        $updateLog = Join-Path $script:RunDir 'deploy-update.log'
-        $update = New-Object System.Collections.ArrayList
-        [void]$update.AddRange($common)
-        [void]$update.Add('/UpdateDBCfg'); [void]$update.Add('-Extension'); [void]$update.Add((Quote-IfNeeded $extensionName))
-        [void]$update.Add('/Out'); [void]$update.Add(('"' + $updateLog + '"'))
-        [void]$runs.Add(@{ name = 'update'; args = $update; log = $updateLog })
+    $exe = $platform.FullName
+    if ($engine -eq 'ibcmd') {
+        $exe = Get-PlatformBinTool $platform 'ibcmd.exe'
+        if (-not (Test-Path -LiteralPath (Join-Path $credentials.path '1Cv8.1CD'))) {
+            Add-Step 'deploy.create' 'planned' "ИБ по пути $($credentials.path) нет — будет создана (ibcmd infobase create)"
+        }
+        $dataDir = Get-ServerDataDir $target $credentials.path
+        $baseArgs = Get-IbcmdBaseArgs $credentials.path $dataDir $credentials
+        foreach ($r in (Get-IbcmdDeployRuns $source $extensionName $baseArgs)) { [void]$runs.Add($r) }
     }
     else {
-        $log = Join-Path $script:RunDir 'deploy.log'
-        $single = New-Object System.Collections.ArrayList
-        [void]$single.AddRange($common)
-        [void]$single.Add('/LoadConfigFromFiles'); [void]$single.Add(('"' + $source + '"'))
-        [void]$single.Add('/UpdateDBCfg')
-        [void]$single.Add('/Out'); [void]$single.Add(('"' + $log + '"'))
-        [void]$runs.Add(@{ name = 'load+update'; args = $single; log = $log })
+        # Общая часть командной строки DESIGNER — переиспользуется каждым запуском.
+        $common = New-Object System.Collections.ArrayList
+        [void]$common.Add('DESIGNER')
+        foreach ($arg in (Get-TargetArguments $target $credentials.path)) { [void]$common.Add($arg) }
+        Add-Credentials $common $credentials
+        [void]$common.Add('/DisableStartupDialogs')
+
+        if ($extensionName) {
+            # Платформа (проверено на 8.3.27) отвергает /LoadConfigFromFiles -Extension и
+            # /UpdateDBCfg -Extension в ОДНОМ запуске DESIGNER. Для расширения деплой
+            # выполняется двумя последовательными запусками с теми же флагами; для основной
+            # конфигурации совмещённый запуск работает и остаётся одним.
+            $loadLog = Join-Path $script:RunDir 'deploy-load.log'
+            $load = New-Object System.Collections.ArrayList
+            [void]$load.AddRange($common)
+            [void]$load.Add('/LoadConfigFromFiles'); [void]$load.Add(('"' + $source + '"'))
+            [void]$load.Add('-Extension'); [void]$load.Add((Quote-IfNeeded $extensionName))
+            [void]$load.Add('-Format'); [void]$load.Add('Hierarchical')
+            [void]$load.Add('/Out'); [void]$load.Add(('"' + $loadLog + '"'))
+            [void]$runs.Add(@{ name = 'load'; args = $load; log = $loadLog })
+
+            $updateLog = Join-Path $script:RunDir 'deploy-update.log'
+            $update = New-Object System.Collections.ArrayList
+            [void]$update.AddRange($common)
+            [void]$update.Add('/UpdateDBCfg'); [void]$update.Add('-Extension'); [void]$update.Add((Quote-IfNeeded $extensionName))
+            [void]$update.Add('/Out'); [void]$update.Add(('"' + $updateLog + '"'))
+            [void]$runs.Add(@{ name = 'update'; args = $update; log = $updateLog })
+        }
+        else {
+            $log = Join-Path $script:RunDir 'deploy.log'
+            $single = New-Object System.Collections.ArrayList
+            [void]$single.AddRange($common)
+            [void]$single.Add('/LoadConfigFromFiles'); [void]$single.Add(('"' + $source + '"'))
+            [void]$single.Add('/UpdateDBCfg')
+            [void]$single.Add('/Out'); [void]$single.Add(('"' + $log + '"'))
+            [void]$runs.Add(@{ name = 'load+update'; args = $single; log = $log })
+        }
     }
 
     foreach ($run in $runs) {
-        $redactedCommand = Format-DeployCommandLine $platform.FullName $run.args $credentials.password
+        $redactedCommand = Format-DeployCommandLine $exe $run.args $credentials.password
         Add-Step "deploy.command.$($run.name)" 'planned' $redactedCommand
     }
 
     if (-not $Apply) { Add-Step 'deploy.apply' 'dry-run' 'Для применения требуется -Apply'; return }
 
-    # Лок держится на ОБА запуска: между load и update конфигурация в базе уже
-    # изменена, но не применена — чужой деплой в этот промежуток ломает обе стороны.
+    # Лок держится на ВСЕ запуски: между загрузкой и применением конфигурация в
+    # базе уже изменена, но не применена — чужой деплой в этот промежуток ломает обе стороны.
     $guardLog = Join-Path $script:RunDir 'guard.log'
     $baseId = Get-1CBaseIdentity $target $credentials.path
     $lock = $null
     if ($baseId) { $lock = Enter-1CBaseLock -Target $baseId -LogPath $guardLog }
+    $suspended = @()
     try {
-        foreach ($run in $runs) {
-            $guard = Invoke-Guarded1C -FilePath $platform.FullName -ArgumentList ([string[]]$run.args) `
-                -Label "deploy/$($run.name)" -LogPath $guardLog
-            [void]$script:Artifacts.Add($run.log)
-            if ($guard.Killed) {
-                $hint = ''
-                if ($guard.DialogSeen) { $hint = ' У процесса было окно — вероятен модальный диалог платформы.' }
-                Add-Step "deploy.apply.$($run.name)" 'error' "Сторож снял процесс: $($guard.Reason).$hint"
-                throw "Deploy ($($run.name)) снят сторожем: $($guard.Reason).$hint См. $guardLog"
-            }
-            if ($guard.ExitCode -ne 0) { throw "Deploy ($($run.name)) завершился с кодом $($guard.ExitCode). См. $($run.log)" }
-            Add-Step "deploy.apply.$($run.name)" 'ok' "Шаг выполнен за $($guard.DurationSec) с, пик памяти $($guard.PeakPrivateGb) ГБ; лог: $($run.log)"
+        # Сеансы держат ibsrv этой базы и службы из профиля — их гасит сам деплой.
+        if ($target.kind -eq 'file') {
+            $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe')
+            if ($n -gt 0) { Add-Step 'deploy.ibsrv' 'ok' "Остановлен ibsrv этой базы ($n); поднимите заново командой serve" }
         }
+        $suspended = Suspend-TargetServices
+        if ($engine -eq 'ibcmd' -and -not (Test-Path -LiteralPath (Join-Path $credentials.path '1Cv8.1CD'))) {
+            New-Item -ItemType Directory -Path $credentials.path -Force | Out-Null
+            $createRun = @{ name = 'create'; args = (@('infobase', 'create') + (Get-IbcmdBaseArgs $credentials.path (Get-ServerDataDir $target $credentials.path) @{})); stdout = (Join-Path $script:RunDir 'ibcmd-create.log'); stderr = (Join-Path $script:RunDir 'ibcmd-create.err.log') }
+            Invoke-GuardedRun $exe $createRun $guardLog 'deploy.apply'
+        }
+        foreach ($run in $runs) { Invoke-GuardedRun $exe $run $guardLog 'deploy.apply' }
+        Invoke-PostDeployProbe $platform $target $credentials $guardLog
     }
     finally {
+        Resume-TargetServices $suspended
         Exit-1CBaseLock $lock
         [void]$script:Artifacts.Add($guardLog)
     }
-    Add-Step 'deploy.apply' 'ok' ("Тестовая ИБ обновлена; запусков: " + $runs.Count)
+    Add-Step 'deploy.apply' 'ok' ("Тестовая ИБ обновлена ($engine); запусков: " + $runs.Count)
 }
 
 function Get-OneScriptBin {
@@ -547,6 +928,9 @@ try {
         'analyze' { Invoke-Analyze }
         'deploy' { Invoke-Deploy }
         'test' { Invoke-Test }
+        'unit' { Invoke-Unit }
+        'serve' { Invoke-Serve }
+        'stop' { Invoke-Stop }
     }
 } catch {
     $script:ExitCode = 1

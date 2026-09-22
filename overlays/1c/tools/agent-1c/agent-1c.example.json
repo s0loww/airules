@@ -5,7 +5,8 @@
   "resultDir": "var/agent-1c",
   "platform": {
     "executable": null,
-    "versionPrefix": "8.3.27"
+    "versionPrefix": "8.3.27",
+    "engine": "auto"
   },
   "extension": {
     "name": null
@@ -19,7 +20,25 @@
     "userEnv": "AGENT_1C_USER",
     "passwordEnv": "AGENT_1C_PASSWORD",
     "envFile": null,
-    "envSection": null
+    "envSection": null,
+    "dataDir": null
+  },
+  "suspendServices": [],
+  "probe": {
+    "checkModules": [
+      "ThinClient",
+      "Server"
+    ],
+    "baseline": "agent-1c.checkmodules-baseline.txt"
+  },
+  "serve": {
+    "address": "127.0.0.1",
+    "port": 18085
+  },
+  "unit": {
+    "launchParameter": null,
+    "extraArgs": [],
+    "timeoutMinutes": 30
   },
   "vanessa": {
     "featuresDir": "tools/agent-1c/vanessa-suite/features",
