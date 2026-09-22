@@ -17,13 +17,13 @@ python ci/simulate_install.py --emit-inventory
 <!-- generated:stats -->
 | | |
 |---|---|
-| версия | 0.8.1 |
-| правил | 48 |
-| скиллов | 9 |
+| версия | 0.9.0 |
+| правил | 51 |
+| скиллов | 10 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 209 |
+| файлов в цели | 213 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -47,11 +47,11 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 <!-- generated:tree-counts -->
 | Каталог | Файлов |
 |---|---|
-| `rules/` | 48 |
+| `rules/` | 51 |
 | `openspec/` | 5 |
 | `tools/` | 38 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 95 |
+| `.claude/skills/` | 96 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -69,18 +69,18 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | Жанр | Всего | Что это |
 |---|---|---|
 | `invariant` | 21 | что всегда верно про код такого вида; привязано к файлу |
-| `case` | 1 | симптом → фикс |
+| `case` | 2 | симптом → фикс |
 | `recipe` | 8 | задача → процедура |
-| `process` | 17 | как вести работу: делегирование, память, верификация |
+| `process` | 19 | как вести работу: делегирование, память, верификация |
 | `router` | 1 | навигация к соседним правилам |
 <!-- /generated:genres -->
 
 <!-- generated:rules-core -->
-**Ядро** (17): `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `orchestrator-economy`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `tool-output-economy`, `verification-matrix`.
+**Ядро** (19): `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `intent-testing`, `orchestrator-economy`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `test-model`, `tool-output-economy`, `verification-matrix`.
 <!-- /generated:rules-core -->
 
 <!-- generated:rules-overlay -->
-**Оверлей 1c** (31): `access-rights-bsp`, `anti-patterns`, `async-methods`, `clean-architecture-1c`, `com-powershell-1c`, `dcs-composition-recipes`, `dcs-design`, `ddd-1c`, `dev-standards-architecture`, `dev-standards-core`, `dev-standards-forms`, `extension-patterns`, `form-module`, `form-reserved-names`, `forms`, `forms-add`, `forms-events-add`, `getconfigfiles`, `integrations-add`, `kd2-exchange-rules`, `kd31-exchange-rules`, `locks-and-transactions`, `logging-strategy`, `metadata-xml-workarounds`, `platform-solutions`, `refactor-add`, `registers-design`, `systematic-debugging`, `tooling-playbooks`, `unit-tests-1c`, `v8unpack-source-structure`.
+**Оверлей 1c** (32): `access-rights-bsp`, `anti-patterns`, `async-methods`, `clean-architecture-1c`, `com-powershell-1c`, `dcs-composition-recipes`, `dcs-design`, `ddd-1c`, `dev-standards-architecture`, `dev-standards-core`, `dev-standards-forms`, `extension-patterns`, `form-module`, `form-reserved-names`, `forms`, `forms-add`, `forms-events-add`, `getconfigfiles`, `integrations-add`, `kd2-exchange-rules`, `kd31-exchange-rules`, `locks-and-transactions`, `logging-strategy`, `metadata-xml-workarounds`, `platform-solutions`, `refactor-add`, `registers-design`, `systematic-debugging`, `testing-1c`, `tooling-playbooks`, `unit-tests-1c`, `v8unpack-source-structure`.
 <!-- /generated:rules-overlay -->
 
 <!-- generated:hook-coverage -->
@@ -147,6 +147,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `powershell-windows` | core | Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7 |
 | `1c-metadata-manage` | 1c | 1C metadata management — create, edit, validate, and remove configuration objects (catalogs, doc |
 | `1c-tj-analysis` | 1c | Analyse a 1C technological log (ТЖ): what the log actually recorded, the slowest server calls an |
+| `ibcmd-ibsrv` | 1c | Build, update and serve local 1C test infobases without Designer: ibcmd for create / import / ap |
 | `img-grid-analysis` | 1c | Overlay a numbered grid on an image to determine column proportions for layout generation |
 <!-- /generated:skills -->
 
