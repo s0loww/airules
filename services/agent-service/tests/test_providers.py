@@ -74,3 +74,40 @@ def test_health_reports_the_retrieval_actually_serving():
                  skills_dir=str(fix / "agent-skills"), profile=str(fix / "assistant-profile.md"))
     with TestClient(create_app(settings=s)) as client:
         assert client.get("/health").json()["retrieval"] == "lexical"
+
+
+class _Scripted:
+    """A chat client that replays canned contents and records whether JSON mode was asked."""
+
+    def __init__(self, contents):
+        self.contents = list(contents)
+        self.json_mode = []
+        self.chat = self
+        self.completions = self
+
+    def create(self, messages, response_format=None, **_kw):
+        from types import SimpleNamespace as NS
+
+        self.json_mode.append(response_format is not None)
+        content = self.contents.pop(0)
+        return NS(choices=[NS(finish_reason="stop", message=NS(content=content))])
+
+
+def _answer(contents):
+    llm = LLM(Settings(chat_model="deepseek-v4-flash", deepseek_api_key="k"))
+    scripted = _Scripted(contents)
+    llm._client_for = lambda _model: scripted
+    return llm.answer_message("sys", [{"role": "user", "content": "q"}], "ctx"), scripted
+
+
+def test_blank_json_answer_is_asked_again():
+    """DeepSeek's JSON mode sometimes returns only whitespace: that must not reach the user."""
+    result, s = _answer(["   \n  ", '{"text": "Sí.", "used_topics": ["a"]}'])
+    assert result == {"text": "Sí.", "used_topics": ["a"]}
+    assert s.json_mode == [True, True]
+
+
+def test_persistent_blank_falls_back_to_plain_text():
+    result, s = _answer([" ", "", '{"text": ""}', "Respuesta en texto."])
+    assert result == {"text": "Respuesta en texto.", "used_topics": []}
+    assert s.json_mode == [True, True, True, False]

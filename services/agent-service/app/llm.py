@@ -256,20 +256,41 @@ class LLM:
             messages.append({"role": "system", "content": context_block})
         messages.extend(to_openai_messages(history))
         model = self.routed_model(history)
-        resp = self._client_for(model).chat.completions.create(
-            messages=messages,
-            response_format={"type": "json_object"},
+        client = self._client_for(model)
+        # DeepSeek's JSON mode now and then answers with nothing but whitespace, finish_reason
+        # "stop" (caught by the QA sweep: 2 of 3 tries on one follow-up question). Parsed as
+        # JSON that is an empty answer shipped to the user as if it were one. Ask again; if the
+        # model keeps producing nothing in JSON mode, ask once more without it and take the
+        # prose as the answer -- citations are lost for that turn, the answer is not.
+        for _attempt in range(self.JSON_RETRIES):
+            resp = client.chat.completions.create(
+                messages=messages,
+                response_format={"type": "json_object"},
+                **self._chat_kwargs(model),
+            )
+            content = (resp.choices[0].message.content or "").strip()
+            if not content:
+                continue
+            try:
+                data = json.loads(content)
+            except (json.JSONDecodeError, TypeError):
+                return {"text": content, "used_topics": []}
+            text = str(data.get("text", "")).strip() if isinstance(data, dict) else ""
+            if not text:
+                continue
+            used = data.get("used_topics") or []
+            if not isinstance(used, list):
+                used = []
+            return {"text": text, "used_topics": [str(u) for u in used]}
+        resp = client.chat.completions.create(
+            messages=messages + [{"role": "system", "content":
+                                  "Answer the last question in plain text (no JSON)."}],
             **self._chat_kwargs(model),
         )
-        content = resp.choices[0].message.content or "{}"
-        try:
-            data = json.loads(content)
-        except (json.JSONDecodeError, TypeError):
-            return {"text": content.strip(), "used_topics": []}
-        used = data.get("used_topics") or []
-        if not isinstance(used, list):
-            used = []
-        return {"text": str(data.get("text", "")).strip(), "used_topics": [str(u) for u in used]}
+        return {"text": (resp.choices[0].message.content or "").strip(), "used_topics": []}
+
+    # JSON-mode attempts before falling back to plain text.
+    JSON_RETRIES = 3
 
     # --- Topic-change router: a focused, cheap call (no answer, no retrieved docs) that decides
     # whether the LAST user message continues the chat or starts a new one. Returns True for a new
