@@ -20,8 +20,8 @@ tenants:
     skills_dir: /tenants/ec/agent-skills
     profile: /tenants/ec/assistant-profile.md
     settings:
-      chat_model: deepseek-v4-flash
-      chat_model_hard: deepseek-v4-pro
+      # имена OpenRouter; «голые» deepseek-v4-* ушли бы на прямой endpoint DeepSeek
+      chat_model: deepseek/deepseek-v4-flash
+      chat_model_hard: deepseek/deepseek-v4-pro
       model_router_enabled: true
-      # у DeepSeek нет эмбеддингов: без EMBED_* в .env поиск лексический
-      retrieval: lexical
+      retrieval: embeddings

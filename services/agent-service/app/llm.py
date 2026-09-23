@@ -20,18 +20,34 @@ from typing import Any, Dict, List
 from .config import Settings
 
 
+def _family(model: str) -> str:
+    """The model's own name without a router's vendor prefix: aggregators such as OpenRouter
+    spell models `vendor/name` (`deepseek/deepseek-v4-flash`, `openai/gpt-5-mini`), and
+    what a model accepts depends on the name, not on who routes it."""
+    return (model or "").lower().rsplit("/", 1)[-1]
+
+
 def _is_openai_reasoning(model: str) -> bool:
     """OpenAI reasoning models (GPT-5 family, o-series). They take `reasoning_effort`,
     reject `temperature` other than the default, and cap output with
     `max_completion_tokens` (not `max_tokens`). Non-reasoning OpenAI models and
     OpenAI-compatible providers (e.g. DeepSeek) keep the classic params instead."""
-    m = (model or "").lower()
-    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+    return _family(model).startswith(("gpt-5", "o1", "o3", "o4"))
 
 
 def _is_deepseek(model: str) -> bool:
-    """DeepSeek (OpenAI-compatible) chat models route to the DeepSeek endpoint/key."""
-    return (model or "").lower().startswith("deepseek")
+    """A DeepSeek model, wherever it is served: it reasons before answering, so short JSON
+    calls need room (see _classifier_cap)."""
+    return _family(model).startswith("deepseek")
+
+
+def _uses_deepseek_endpoint(model: str) -> bool:
+    """Only a bare DeepSeek id (`deepseek-v4-flash`) goes to DeepSeek's own endpoint and
+    key. A vendor-prefixed id (`deepseek/deepseek-v4-flash`) is an aggregator's name for it
+    and goes to OPENAI_BASE_URL -- sending it to DeepSeek directly would fail on the name
+    and on the key."""
+    m = (model or "").lower()
+    return "/" not in m and m.startswith("deepseek")
 
 
 def to_openai_messages(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -105,11 +121,12 @@ class LLM:
 
     @property
     def _chat_is_deepseek(self) -> bool:
-        return _is_deepseek(self.settings.chat_model)
+        return _uses_deepseek_endpoint(self.settings.chat_model)
 
     @property
     def available(self) -> bool:
-        # The default CHAT provider's key gates availability (embeddings always need OpenAI).
+        # The default CHAT provider's key gates availability. OPENAI_API_KEY is the key of
+        # whatever OPENAI_BASE_URL points at -- OpenAI itself, Azure, or an aggregator.
         # The two-tier router keeps both tiers on the same provider (flash+pro = DeepSeek), so
         # this single check covers them; a mixed-provider router would also need the other key.
         if self._chat_is_deepseek:
@@ -125,9 +142,9 @@ class LLM:
         return OpenAI(**kwargs)
 
     def _client_for(self, model: str):
-        """Provider-aware, cached per provider: the DeepSeek endpoint for deepseek-* chat
-        models, OpenAI for everything else (including all embeddings)."""
-        if _is_deepseek(model):
+        """Provider-aware, cached per provider: DeepSeek's own endpoint for bare deepseek-*
+        ids, the OPENAI_BASE_URL endpoint (OpenAI, Azure, OpenRouter...) for everything else."""
+        if _uses_deepseek_endpoint(model):
             if self._deepseek_client is None:
                 self._deepseek_client = self._make_client(
                     self.settings.deepseek_api_key, self.settings.deepseek_base_url)
