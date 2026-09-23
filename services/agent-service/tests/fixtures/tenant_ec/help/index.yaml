@@ -1,0 +1,46 @@
+# Help knowledge base — index for the in-app AI assistant.
+#
+# The Agent Service (../agent-service) reads this file, then loads each topic's markdown
+# body and indexes it for retrieval. The `id` of each topic is what the assistant returns
+# as a citation, so keep ids stable.
+#
+# This file is the SINGLE source of truth for topic metadata (title, subsystem, tags).
+# Bodies live in the referenced files, split into Spanish/English by the markers
+# `<!-- lang:es -->` and `<!-- lang:en -->`.
+#
+# STATUS: these starter topics are DRAFT — distilled from intents/ and openspec/specs and
+# NOT yet verified field-by-field against the running app. Verify menu paths and field
+# names live before treating them as ratified help. See README.md for the authoring rules.
+version: 1
+languages: [es, en]
+topics:
+  - id: procesos/cierre-de-mes
+    file: procesos/cierre-de-mes.md
+    subsystem: contabilidad
+    title_es: "Cierre de mes"
+    title_en: "Month-end close"
+    tags: [cierre, periodo, período, fin de mes, mensual, contabilidad, asientos, mes]
+
+  - id: compras/orden-de-compra
+    file: compras/orden-de-compra.md
+    subsystem: compras
+    title_es: "Orden de compra"
+    title_en: "Purchase order"
+    tags: [compra, comprar, proveedor, orden, pedido, abastecimiento, bienes, "generar compra", "fecha prevista"]
+    # source confluence:5290800 2026-06-10 (merged)
+
+  - id: bodegas/toma-de-inventarios
+    file: bodegas/toma-de-inventarios.md
+    subsystem: bodegas
+    title_es: "Toma de inventarios"
+    title_en: "Physical inventory count"
+    tags: [inventario, conteo, contar, toma, bodega, existencias, ajuste, diferencia, caducidad, "pérdida", "daño", kardex]
+    # source confluence:5289461+5290307 2026-06-10 (merged)
+
+  - id: faq/primeros-pasos
+    file: faq/primeros-pasos.md
+    subsystem: general
+    title_es: "Primeros pasos y preguntas frecuentes"
+    title_en: "Getting started & FAQ"
+    tags: [ayuda, faq, inicio, asistente, general, empezar, qué es, "puesta en marcha", "primeros pasos", "implementación", "ingresar al sistema", "iniciar sesión", "login"]
+    # source confluence:5289159+5290565+5288665 2026-06-10 (onboarding order + quick guide + login merged)

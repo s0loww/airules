@@ -1,0 +1,18 @@
+agent-service — the "brain" of the 1C in-app AI assistant.
+
+Original work: Alexey Gerasimov <alexey@abaco.com.ec>, 2026, developed as `agent-service/`
+of the 1C configuration "Contabilidad" (repository github.com/al-gerasimov/1c-contabilidad-ec,
+first commit ba4d41e, 2026-06-07). Included here with the author's permission.
+
+Changes in this copy (services/agent-service, 2026-09):
+- several tenants (1C bases) behind one service, told apart by bearer token (app/tenants.py);
+- the system prompt split into a generic template and per-tenant profiles (app/prompt.py);
+  the original product's prompts are kept byte for byte by its profile, pinned by a golden
+  master (tests/test_profile.py);
+- a configurable embeddings endpoint, independent of the chat provider (app/config.py, app/llm.py);
+- Cyrillic in lexical retrieval (app/rag.py);
+- QA sweep parametrised by tenant directory (qa/sweep.py).
+
+Not included: the ranking harness (qa/rank) and the MCP bridge to the in-base assistant
+(qa/bridge) — both are bound to that configuration's test extension and HTTP service and stay
+in the original repository.

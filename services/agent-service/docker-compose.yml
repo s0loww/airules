@@ -1,21 +1,25 @@
-# Local Agent Service for the 1C in-app assistant.
-#   1. Copy .env.example to .env and fill in OPENAI_API_KEY + ASSISTANT_BEARER_TOKEN.
-#   2. docker compose up --build
-#   3. In 1C set Constant.DireccionServicioAsistente = http://localhost:8080
-#      and Constant.TokenServicioAsistente = the same token as ASSISTANT_BEARER_TOKEN.
+# agent-service — «мозг» встроенного ИИ-ассистента 1С, один на хост, тенант на базу.
+#   cp .env.example .env && cp tenants.example.yaml tenants.yaml   # заполнить
+#   docker compose -f services/agent-service/docker-compose.yml up -d --build
+# 1С ходит сюда исходящим вызовом: константа DireccionServicioAsistente = http://127.0.0.1:8080
 services:
-  agent:
+  assistant:
     build: .
-    container_name: contabilidad-assistant
+    image: 1c-assistant:local
+    container_name: 1c_assistant
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"          # только loopback: 1С на этой же машине
     env_file:
       - .env
-    environment:
-      HELP_DIR: /app/help
-      SKILLS_DIR: /app/agent-skills
-    # Mount the in-repo KB + playbooks read-only; POST /reload re-indexes after you edit them.
     volumes:
-      - ../help:/app/help:ro
-      - ../agent-skills:/app/agent-skills:ro
+      - ./tenants.yaml:/config/tenants.yaml:ro
+      # Каталоги тенантов — только чтение; после правки справки: POST /reload с токеном тенанта.
+      - D:/AI_Projects/Эквадор/help:/tenants/ec/help:ro
+      - D:/AI_Projects/Эквадор/agent-skills:/tenants/ec/agent-skills:ro
+      - D:/AI_Projects/Эквадор/assistant-profile.md:/tenants/ec/assistant-profile.md:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped

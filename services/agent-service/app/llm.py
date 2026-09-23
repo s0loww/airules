@@ -94,10 +94,14 @@ def text_only(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 class LLM:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, profile=None) -> None:
         self.settings = settings
+        # The tenant's profile supplies the classifier prompts (they name the product's
+        # domain); None = the generic template.
+        self.profile = profile
         self._openai_client = None
         self._deepseek_client = None
+        self._embed_client = None
 
     @property
     def _chat_is_deepseek(self) -> bool:
@@ -134,9 +138,21 @@ class LLM:
         return self._openai_client
 
     @property
+    def embed_available(self) -> bool:
+        return self.settings.embed_available
+
+    @property
     def embed_client(self):
-        # Embeddings ALWAYS use OpenAI: the KB index vectors are text-embedding-3-small, so
-        # query embeddings must come from the same provider/model to be comparable.
+        # Index and query vectors must come from the same provider and model to be
+        # comparable, so embeddings have one client of their own: an explicit
+        # OpenAI-compatible endpoint when configured, the OpenAI key otherwise --
+        # never the chat provider by accident.
+        if self.settings.embed_base_url or self.settings.embed_api_key:
+            if self._embed_client is None:
+                self._embed_client = self._make_client(
+                    self.settings.embed_api_key or self.settings.openai_api_key,
+                    self.settings.embed_base_url)
+            return self._embed_client
         return self._client_for(self.settings.embed_model)
 
     def _chat_kwargs(self, model: str, *, classifier: bool = False,
@@ -187,7 +203,7 @@ class LLM:
         """Cheap pre-classifier (runs on the light chat_model): is the latest user turn HARD
         enough to deserve the strong model? Looks only at the user/assistant text, never the
         tool plumbing, so the verdict is stable across the sub-turns of one agent loop."""
-        from .prompt import DIFFICULTY_CLASSIFIER_SYSTEM
+        from .prompt import difficulty_classifier
 
         exchanges = text_only(history)
         convo = "\n".join(f"{m['role']}: {m['content']}" for m in exchanges[-6:])
@@ -196,7 +212,7 @@ class LLM:
         kwargs.update(self._classifier_cap(model))
         resp = self._client_for(model).chat.completions.create(
             messages=[
-                {"role": "system", "content": DIFFICULTY_CLASSIFIER_SYSTEM},
+                {"role": "system", "content": difficulty_classifier(self.profile)},
                 {"role": "user",
                  "content": f"Conversación:\n{convo}\n\n¿La ÚLTIMA pregunta del usuario es DIFÍCIL?"},
             ],
@@ -242,7 +258,7 @@ class LLM:
     # whether the LAST user message continues the chat or starts a new one. Returns True for a new
     # topic. The conversation is passed as plain text so the model reasons about it as data. ---
     def classify_new_topic(self, history: List[Dict[str, Any]]) -> bool:
-        from .prompt import TOPIC_CLASSIFIER_SYSTEM
+        from .prompt import topic_classifier
 
         exchanges = text_only(history)
         convo = "\n".join(f"{m['role']}: {m['content']}" for m in exchanges[-8:])
@@ -251,7 +267,7 @@ class LLM:
         kwargs.update(self._classifier_cap(model))
         resp = self._client_for(model).chat.completions.create(
             messages=[
-                {"role": "system", "content": TOPIC_CLASSIFIER_SYSTEM},
+                {"role": "system", "content": topic_classifier(self.profile)},
                 {"role": "user", "content": f"Conversation:\n{convo}\n\nDoes the LAST user message start a new topic?"},
             ],
             response_format={"type": "json_object"},

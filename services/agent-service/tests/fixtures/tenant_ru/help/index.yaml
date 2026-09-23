@@ -1,0 +1,9 @@
+# Второй тенант для тестов: одна тема без языковых маркеров — тело на основном языке профиля.
+version: 1
+languages: [ru]
+topics:
+  - id: sklad/postuplenie
+    file: sklad/postuplenie.md
+    subsystem: sklad
+    title_ru: "Поступление товаров"
+    tags: [поступление, приход, склад, товар]

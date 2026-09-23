@@ -19,9 +19,11 @@ from typing import Callable, List, Protocol
 
 from .kb import Chunk
 
-_TOKEN = re.compile(r"[a-z0-9]+")
+# Latin and Cyrillic: a knowledge base in Russian must be searchable too (accent folding
+# turns й into и and ё into е on both sides, so matching stays consistent).
+_TOKEN = re.compile(r"[a-z0-9а-я]+")
 
-# Common function words (es + en), accent-folded. Removing them keeps lexical retrieval from
+# Common function words (es + en + ru), accent-folded. Removing them keeps lexical retrieval from
 # matching on "how/do/the/de/la/que…", so a genuinely off-topic question retrieves nothing and
 # the model is told there is no supporting context (rather than answering from a weak match).
 _STOPWORDS = frozenset(
@@ -31,6 +33,8 @@ _STOPWORDS = frozenset(
     cual cuales cuando donde quien sobre entre desde hasta cada
     the a an of to in on for with is are was were be been do does did how what when where who
     why which this that these those my me you your it its can could would should will i and or
+    и в во на не что как по для с со к ко от из за о об у же ли бы то это эта этот эти или но
+    а я мы вы он она они его ее их мне меня нам вам когда где кто чем при до после над под
     """.split()
 )
 
@@ -64,7 +68,9 @@ class LexicalRetriever:
 
         self.chunks = chunks
         self.floor = floor
-        corpus = [tokenize(c.search_text) for c in chunks] or [[""]]
+        # BM25 divides by the average document length: a corpus whose documents all
+        # tokenize to nothing (a language the tokenizer does not cover) must not crash it
+        corpus = [tokenize(c.search_text) or ["_"] for c in chunks] or [["_"]]
         self._bm25 = BM25Okapi(corpus)
 
     def retrieve(self, query: str, lang: str, k: int) -> List[Chunk]:

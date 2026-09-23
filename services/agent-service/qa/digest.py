@@ -14,7 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.kb import load_chunks  # noqa: E402
 
-HELP_DIR = str(Path(__file__).resolve().parents[2] / "help")
+# The tenant's knowledge base: first argument, else the historical sibling layout.
+HELP_DIR = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parents[2] / "help")
 
 
 def main() -> None:

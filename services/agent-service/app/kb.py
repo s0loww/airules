@@ -31,17 +31,18 @@ class Chunk:
         return f"{self.title}\n{' '.join(self.tags)}\n{self.text}"
 
 
-def _split_by_lang(body: str) -> Dict[str, str]:
+def _split_by_lang(body: str, primary_lang: str = "es") -> Dict[str, str]:
     """Split a markdown body into {lang: text} using the lang markers.
 
     Anything before the first marker (e.g. a shared `# Title`) is ignored for retrieval.
+    A body without markers is in the tenant's primary language.
     """
     sections: Dict[str, str] = {}
     matches = list(_LANG_MARKER.finditer(body))
     if not matches:
-        # No markers — treat the whole body as Spanish (the primary language).
+        # No markers — the whole body is in the primary language.
         text = body.strip()
-        return {"es": text} if text else {}
+        return {primary_lang: text} if text else {}
     for i, m in enumerate(matches):
         lang = m.group(1).lower()
         start = m.end()
@@ -52,7 +53,7 @@ def _split_by_lang(body: str) -> Dict[str, str]:
     return sections
 
 
-def load_chunks(help_dir: str) -> List[Chunk]:
+def load_chunks(help_dir: str, primary_lang: str = "es") -> List[Chunk]:
     index_path = os.path.join(help_dir, "index.yaml")
     with open(index_path, "r", encoding="utf-8") as fh:
         index = yaml.safe_load(fh) or {}
@@ -69,11 +70,12 @@ def load_chunks(help_dir: str) -> List[Chunk]:
                 body = fh.read()
         except FileNotFoundError:
             continue
-        sections = _split_by_lang(body)
+        sections = _split_by_lang(body, primary_lang)
         tags = [str(t) for t in topic.get("tags", [])]
         subsystem = topic.get("subsystem", "")
         for lang, text in sections.items():
-            title = topic.get(f"title_{lang}") or topic.get("title_es") or topic_id
+            title = (topic.get(f"title_{lang}") or topic.get(f"title_{primary_lang}")
+                     or topic.get("title") or topic_id)
             chunks.append(
                 Chunk(
                     topic_id=topic_id,

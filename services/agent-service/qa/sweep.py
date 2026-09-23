@@ -1,5 +1,8 @@
 """KB QA sweep — runs the curated question sets against the LIVE agent service and scores
-the answers. Reads the bearer token from agent-service/.env itself (never printed).
+the answers. The question bank, tool catalogue and knowledge base belong to a tenant, so
+they are read from the tenant's directory (--tenant-dir): help/, qa/questions/*.yaml and
+qa/tools_catalog.json. The bearer token comes from the environment variable named by
+--token-env (default ASSISTANT_BEARER_TOKEN), then from the service's .env; never printed.
 
 Usage (from agent-service/):
   .venv/Scripts/python.exe qa/sweep.py                # everything
@@ -40,8 +43,13 @@ SERVICE_DIR = ROOT.parent
 sys.path.insert(0, str(SERVICE_DIR))
 from app.kb import load_chunks  # noqa: E402
 
+# Set from the command line in main(); module-level so the helpers stay unchanged.
 BASE_URL = "http://127.0.0.1:8080"
-HELP_DIR = str(SERVICE_DIR.parent / "help")
+TENANT_DIR = SERVICE_DIR.parent
+HELP_DIR = str(TENANT_DIR / "help")
+QA_DIR = ROOT
+PRIMARY_LANG = "es"
+TOKEN_ENV = "ASSISTANT_BEARER_TOKEN"
 TODAY = "2026-06-11"
 OUT_DIR = ROOT / "out"
 
@@ -55,11 +63,15 @@ def fold(text: str) -> str:
 
 
 def read_token() -> str:
+    import os
+
+    if os.environ.get(TOKEN_ENV):
+        return os.environ[TOKEN_ENV]
     env = SERVICE_DIR / ".env"
     if not env.exists():
         return ""
     for line in env.read_text(encoding="utf-8").splitlines():
-        if line.startswith("ASSISTANT_BEARER_TOKEN="):
+        if line.startswith(TOKEN_ENV + "="):
             return line.split("=", 1)[1].strip()
     return ""
 
@@ -93,7 +105,7 @@ def post_turn(payload: dict, token: str, timeout: float = 120.0) -> dict:
 
 def load_cases(only: set[str] | None) -> list[dict]:
     cases = []
-    for path in sorted((ROOT / "questions").glob("*.yaml")):
+    for path in sorted((QA_DIR / "questions").glob("*.yaml")):
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         defaults = doc.get("defaults", {})
         for case in doc.get("cases", []):
@@ -256,8 +268,8 @@ def run_case_mode(case: dict, mode: str, tools: list[dict], token: str) -> dict:
 
 
 def lint(cases: list[dict]) -> tuple[list[str], list[str]]:
-    chunks = load_chunks(HELP_DIR)
-    es_topics = {c.topic_id for c in chunks if c.lang == "es"}
+    chunks = load_chunks(HELP_DIR, PRIMARY_LANG)
+    es_topics = {c.topic_id for c in chunks if c.lang == PRIMARY_LANG}
     covered = {c.get("topic") for c in cases if c.get("topic")}
     missing = sorted(es_topics - covered)
 
@@ -332,12 +344,28 @@ def write_report(results: list[dict], missing: list[str], warnings: list[str]) -
 
 
 def main() -> int:
+    global BASE_URL, TENANT_DIR, HELP_DIR, QA_DIR, PRIMARY_LANG, TOKEN_ENV, OUT_DIR
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", default="", help="comma-separated case ids")
     parser.add_argument("--mode", default="", choices=["", "kb", "tools"])
     parser.add_argument("--check", action="store_true", help="offline lint only")
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--tenant-dir", default=str(TENANT_DIR),
+                        help="tenant directory with help/ and qa/ (questions, tools_catalog.json)")
+    parser.add_argument("--url", default=BASE_URL, help="service base URL")
+    parser.add_argument("--token-env", default=TOKEN_ENV,
+                        help="environment variable holding the tenant's bearer token")
+    parser.add_argument("--lang", default=PRIMARY_LANG,
+                        help="the tenant's primary language (coverage is checked in it)")
     args = parser.parse_args()
+
+    BASE_URL = args.url.rstrip("/")
+    TENANT_DIR = Path(args.tenant_dir).resolve()
+    HELP_DIR = str(TENANT_DIR / "help")
+    QA_DIR = TENANT_DIR / "qa" if (TENANT_DIR / "qa" / "questions").is_dir() else ROOT
+    PRIMARY_LANG = args.lang
+    TOKEN_ENV = args.token_env
+    OUT_DIR = QA_DIR / "out"
 
     only = {s.strip() for s in args.only.split(",") if s.strip()} or None
     cases = load_cases(only)
@@ -354,7 +382,7 @@ def main() -> int:
         return 0 if not missing else 1
 
     token = read_token()
-    tools = json.loads((ROOT / "tools_catalog.json").read_text(encoding="utf-8"))["tools"]
+    tools = json.loads((QA_DIR / "tools_catalog.json").read_text(encoding="utf-8"))["tools"]
 
     jobs = []
     for case in cases:

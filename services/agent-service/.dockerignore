@@ -6,3 +6,5 @@ __pycache__/
 tests/
 README.md
 requirements-dev.txt
+qa/
+tenants*.yaml

@@ -1,0 +1,27 @@
+# Реестр тенантов agent-service. Скопировать в tenants.yaml (он в .gitignore — пути
+# машинные) и поправить. Один тенант — одна база 1С: своя справка, плейбуки, профиль,
+# токен. Тенант определяется по bearer-токену, который 1С и так шлёт (константа
+# TokenServicioAsistente) — на стороне 1С менять ничего не нужно.
+#
+# Пути — ВНУТРИ контейнера: каталоги тенанта монтируются в docker-compose.yml под
+# /tenants/<имя>, только чтение.
+#
+# token_env — имя переменной окружения с токеном; сам токен живёт в .env. Тенант без
+# токена отклоняется: в общем сервисе открытый тенант отвечал бы любому, кто достучался
+# до порта. Два тенанта с одним токеном — тоже ошибка.
+#
+# settings — переопределения на тенанта: модели, роутер, поиск. Ключи провайдеров и
+# адреса — только в .env, реестр их не принимает.
+
+tenants:
+  ec:
+    token_env: EC_ASSISTANT_TOKEN
+    help_dir: /tenants/ec/help
+    skills_dir: /tenants/ec/agent-skills
+    profile: /tenants/ec/assistant-profile.md
+    settings:
+      chat_model: deepseek-v4-flash
+      chat_model_hard: deepseek-v4-pro
+      model_router_enabled: true
+      # у DeepSeek нет эмбеддингов: без EMBED_* в .env поиск лексический
+      retrieval: lexical

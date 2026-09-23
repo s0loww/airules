@@ -1,154 +1,107 @@
-# Agent Service — the assistant's "brain"
+# agent-service — «мозг» встроенного ИИ-ассистента 1С
 
-The external service the 1C in-app assistant calls. It receives a turn from 1C
-(`POST /agent/turn`), retrieves the relevant help topics from `../help`, asks an LLM to answer
-**grounded in that help**, and returns the answer. 1C only ever makes an outbound call to it.
-
-```
-1C client (CommonModule.AsistenteIAServer)  ──POST /agent/turn──▶  this service  ──▶  OpenAI
-        ▲                                                                 │
-        └───────────────  {type:"message", text, citations}  ◀───────────┘
-                                                                  grounded in ../help/*.md
-```
-
-Phase 1 is **help only**: the service explains and guides. It cannot act on the database — that
-arrives in later phases via the tool catalogue (the request already carries a `tools[]` array).
-
----
-
-## Run it (3 steps)
-
-Prerequisites: Docker Desktop running, and an OpenAI API key.
-
-1. **Configure.** Copy the example env file and fill it in:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-   Edit `.env`:
-   - `OPENAI_API_KEY` — your key.
-   - `ASSISTANT_BEARER_TOKEN` — a shared secret you invent. Generate one with:
-     ```powershell
-     python -c "import secrets; print(secrets.token_urlsafe(24))"
-     ```
-
-2. **Start.**
-   ```powershell
-   docker compose up --build
-   ```
-   The KB in `../help` is mounted read-only; the service indexes it on startup.
-
-3. **Point 1C at it.** Set two constants in your infobase (Main menu → All functions →
-   Constants, or a settings form):
-   - `DireccionServicioAsistente` = `http://localhost:8080`
-   - `TokenServicioAsistente` = the same value as `ASSISTANT_BEARER_TOKEN`
-
-   Ask the home-page assistant a question — it now answers for real.
-
-> The 1C client is the only consumer, and it calls outbound over `http://localhost`. Nothing is
-> exposed to the network. For a remote deployment, put it behind TLS and set the 1C constant to
-> the `https://…` URL — `ParseServiceURL` in `AsistenteIAServer` already handles both.
-
----
-
-## Verify without 1C
-
-Once it's up, you can smoke-test the brain directly:
-
-```powershell
-# health
-curl http://localhost:8080/health
-
-# a turn (replace TOKEN)
-curl -X POST http://localhost:8080/agent/turn `
-  -H "Authorization: Bearer TOKEN" -H "Content-Type: application/json" `
-  -d '{\"context\":{\"lang\":\"es\",\"user\":\"yo\"},\"messages\":[{\"role\":\"user\",\"content\":\"¿cómo registro una compra?\"}],\"tools\":[]}'
-```
-
-You should get `{"type":"message","text":"…","citations":["compras/orden-de-compra"]}`.
-
----
-
-## Configuration (`.env`)
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `OPENAI_API_KEY` | — | OpenAI key. Required to generate answers. |
-| `OPENAI_BASE_URL` | (blank) | Set to an **Azure OpenAI** or proxy endpoint to switch providers. Blank = OpenAI. |
-| `CHAT_MODEL` | `gpt-4o-mini` | Chat model (or Azure deployment name). |
-| `EMBED_MODEL` | `text-embedding-3-small` | Embedding model for retrieval. |
-| `RETRIEVAL` | `embeddings` | `embeddings` (semantic) or `lexical` (BM25, no embedding calls). |
-| `TOP_K` | `4` | How many help chunks to ground each answer on. |
-| `ASSISTANT_BEARER_TOKEN` | (blank) | Shared secret; must equal the 1C `TokenServicioAsistente`. Blank disables auth. |
-| `APPEND_SOURCES_TO_TEXT` | `true` | Append a "Fuente: …" line to answers (Phase-1 UI doesn't render citations yet). |
-
-### Switching to Azure OpenAI later
-
-No code change — set `OPENAI_BASE_URL` to your Azure endpoint, `CHAT_MODEL`/`EMBED_MODEL` to your
-deployment names, and `OPENAI_API_KEY` to the Azure key. Restart.
-
----
-
-## The contract (must match the 1C client)
-
-`POST /agent/turn`, header `Authorization: Bearer <token>` (sent only when the token is set).
-
-```jsonc
-// request
-{ "context": { "lang": "es", "user": "jdoe" },
-  "messages": [ { "role": "user", "content": "¿cómo cierro el mes?" } ],
-  "tools": [ { "name": "find_documents", "description": "…", "risk": "read" } ] }
-
-// response — message
-{ "type": "message", "text": "…", "citations": ["procesos/cierre-de-mes"] }
-// response — tool calls (Phase 2+)
-{ "type": "tool_calls", "calls": [ { "id": "c1", "name": "find_documents", "arguments": { } } ] }
-```
-
-`citations` are topic ids from `../help/index.yaml`. They are stringified by the 1C parser, so
-they must stay plain strings.
-
----
-
-## Editing the help
-
-Content lives in `../help` (see `../help/README.md`). After editing topics, re-index without a
-rebuild:
-
-```powershell
-curl -X POST http://localhost:8080/reload -H "Authorization: Bearer TOKEN"
-```
-
----
-
-## Develop / test
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-$env:PYTHONPATH = (Get-Location)
-.\.venv\Scripts\python.exe -m pytest tests -q
-```
-
-The contract tests mock the LLM and use lexical retrieval, so they need **no API key and no
-network** — they assert wire-compatibility with the 1C client and bearer auth.
-
----
-
-## Layout
+Внешний сервис, который вызывает ассистент внутри базы 1С. База шлёт ход диалога
+(`POST /agent/turn`), сервис находит нужные темы в справке тенанта, подмешивает
+подходящие плейбуки, спрашивает модель и возвращает ответ или вызовы
+инструментов. Инструменты исполняет сама 1С: у неё данные и права, сервис в базу не
+ходит никогда. Вызов всегда исходящий из 1С.
 
 ```
-agent-service/
-  app/
-    main.py       # FastAPI app + routes (create_app factory for tests)
-    schemas.py    # the wire contract (Pydantic)
-    config.py     # env-driven settings
-    kb.py         # load ../help into bilingual chunks
-    rag.py        # lexical (BM25) and embedding retrievers
-    llm.py        # provider-agnostic LLM seam (OpenAI impl)
-    prompt.py     # system prompt + localized strings
-  tests/test_contract.py
-  Dockerfile  docker-compose.yml  requirements*.txt  .env.example
+1С (общий модуль ассистента) ──POST /agent/turn──▶ agent-service ──▶ модель (DeepSeek / OpenAI)
+      ▲         Bearer <токен тенанта>                  │ справка, плейбуки, профиль тенанта
+      └──── {type:"message"} | {type:"tool_calls"} ◀────┘
 ```
 
-This service is intentionally self-contained — it can be lifted into its own repository later;
-only the `../help` volume mount in `docker-compose.yml` ties it to this tree.
+Происхождение — `NOTICE`: сервис написан Alexey Gerasimov для конфигурации
+«Contabilidad» и перенесён сюда с разрешения автора. Здесь он стал сервисом хоста:
+один экземпляр обслуживает несколько баз.
+
+## Тенанты
+
+Тенант — одна база 1С: её справка (`help/`), плейбуки (`agent-skills/`), профиль
+ассистента и токен. **Тенант определяется по bearer-токену**, который 1С и так шлёт
+(константа `TokenServicioAsistente`), — чтобы подключить ещё одну базу, в 1С ничего
+менять не нужно, только выдать ей свой токен.
+
+Реестр — `tenants.yaml` (шаблон `tenants.example.yaml`; сам файл в `.gitignore`, пути
+машинные). Правила, которые реестр проверяет при старте:
+
+- у каждого тенанта есть токен — открытый тенант в общем сервисе отвечал бы любому;
+- токены не совпадают — иначе тенанты неразличимы;
+- переопределять на тенанта можно модели, роутер, поиск; ключи провайдеров — только
+  в `.env`.
+
+Без реестра (`TENANTS_FILE` пуст) сервис работает одним тенантом из переменных
+окружения — так, как работала копия внутри проекта.
+
+## Профиль ассистента
+
+Всё, что делает ассистента ассистентом *этого* продукта, — в профиле тенанта
+(`assistant-profile.md` рядом с его `help/`): название продукта, языки и основной
+язык, локализованные строки и любые секции системного промпта. Секции идут между
+маркерами `<!-- section:имя -->` и берутся дословно; чего в профиле нет, берётся из
+общего шаблона `app/prompt.py`, нейтрального для любой базы на 1С.
+
+Секции: `intro`, `job`, `grounding`, `style`, `language` (общая часть);
+`capabilities_help`, `output_help` (режим справки); `capabilities_tools`,
+`tool_results`, `arithmetic`, `filling`, `output_tools` (режим инструментов);
+`topic_classifier`, `difficulty_classifier` (служебные вызовы). Плейсхолдеры —
+`{product}` и `{lang_name}`.
+
+Профиль исходного продукта нарезан из его промпта автоматически, и **золотой эталон**
+(`tests/test_profile.py`) держит все собранные промпты, оба классификатора и строки
+побайтово равными исходным: QA-прогон тенанта откалиброван именно на этом тексте.
+
+## Модели и поиск
+
+- Чат — OpenAI (или Azure / прокси через `OPENAI_BASE_URL`) либо DeepSeek для моделей
+  `deepseek-*`. Двухуровневый роутер: дешёвый классификатор отправляет трудные ходы на
+  `chat_model_hard` (задумано под `deepseek-v4-flash` + `deepseek-v4-pro`).
+- Эмбеддинги — отдельный OpenAI-совместимый endpoint (`EMBED_BASE_URL`,
+  `EMBED_API_KEY`), независимо от провайдера чата: векторы индекса и запроса должны быть
+  из одной модели. У DeepSeek эмбеддингов нет — без `EMBED_*` и ключа OpenAI тенант
+  работает на лексическом поиске (BM25, латиница и кириллица).
+
+## Запуск
+
+```bash
+cp services/agent-service/.env.example services/agent-service/.env
+cp services/agent-service/tenants.example.yaml services/agent-service/tenants.yaml
+docker compose -f services/agent-service/docker-compose.yml up -d --build
+```
+
+В `.env` — ключ провайдера и токены тенантов; каталоги тенантов монтируются в
+`docker-compose.yml` только на чтение. В базе 1С: `DireccionServicioAsistente` =
+`http://127.0.0.1:8080`, `TokenServicioAsistente` = токен тенанта.
+
+| Эндпоинт | Что |
+|---|---|
+| `GET /health` | тенанты: фрагменты справки, плейбуки, режим поиска, есть ли ключ модели |
+| `POST /agent/turn` | ход диалога (контракт — `app/schemas.py`) |
+| `POST /reload` | переиндексировать справку и плейбуки **своего** тенанта после правки |
+
+## Проверки
+
+```bash
+cd services/agent-service
+python -m venv .venv && .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+.venv/Scripts/python.exe -m pytest tests -q
+```
+
+- `tests/test_contract.py` — совместимость с клиентом 1С по проводу, авторизация
+  (тесты автора; гоняются на маленьком фиксированном тенанте `tests/fixtures/tenant_ec`);
+- `tests/test_profile.py` — золотой эталон промптов;
+- `tests/test_tenants.py` — выбор тенанта по токену, изоляция баз знаний, профили,
+  переопределения, отказы реестра.
+
+Живой прогон качества — `qa/sweep.py` против работающего сервиса; банк вопросов и
+каталог инструментов принадлежат тенанту и лежат в его каталоге:
+
+```bash
+.venv/Scripts/python.exe qa/sweep.py --check --tenant-dir <каталог тенанта>   # офлайн-линт
+EC_ASSISTANT_TOKEN=... .venv/Scripts/python.exe qa/sweep.py --tenant-dir <каталог> --token-env EC_ASSISTANT_TOKEN
+```
+
+Каталог тенанта для прогона: `help/`, `qa/questions/*.yaml`, `qa/tools_catalog.json`.
+Рейтинговый харнесс (`qa/rank`) и MCP-мост к ассистенту в базе сюда не перенесены: они
+завязаны на тестовое расширение и HTTP-сервис конкретной конфигурации.

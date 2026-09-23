@@ -14,8 +14,15 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from app.prompt import load_profile
 
-HELP_DIR = str(Path(__file__).resolve().parents[2] / "help")
+# The tests run against a small fixed tenant (four topics, three playbooks and the product
+# profile of the base the service was built for), not against a live project's knowledge base.
+TENANT = Path(__file__).resolve().parent / "fixtures" / "tenant_ec"
+HELP_DIR = str(TENANT / "help")
+SKILLS_DIR = str(TENANT / "agent-skills")
+PROFILE = str(TENANT / "assistant-profile.md")
+EC = load_profile(PROFILE)
 
 
 class FakeLLM:
@@ -41,6 +48,8 @@ def _settings(**overrides) -> Settings:
     base = dict(
         retrieval="lexical",
         help_dir=HELP_DIR,
+        skills_dir=SKILLS_DIR,
+        profile=PROFILE,
         assistant_bearer_token="secret",
         append_sources_to_text=False,
         openai_api_key="",
@@ -76,7 +85,7 @@ def test_load_skills_parses_frontmatter():
 
     from app.kb import load_skills
 
-    skills = load_skills(str(Path(__file__).resolve().parents[2] / "agent-skills"))
+    skills = load_skills(SKILLS_DIR)
     by_name = {s.topic_id: s for s in skills}
     assert "data-map" in by_name and "document-search" in by_name
     data_map = by_name["data-map"]
@@ -219,16 +228,16 @@ def test_not_configured_message_when_no_key():
 def test_system_prompt_includes_today_when_provided():
     from app.prompt import build_system_prompt
 
-    with_today = build_system_prompt("es", with_tools=True, today="2026-06-08")
+    with_today = build_system_prompt("es", with_tools=True, today="2026-06-08", profile=EC)
     assert "2026-06-08" in with_today
-    without = build_system_prompt("es", with_tools=True)
+    without = build_system_prompt("es", with_tools=True, profile=EC)
     assert "2026-06-08" not in without
 
 
 def test_tool_prompt_is_generic_not_per_tool():
     from app.prompt import build_system_prompt
 
-    with_tools = build_system_prompt("es", with_tools=True)
+    with_tools = build_system_prompt("es", with_tools=True, profile=EC)
     # Teaches the generic result statuses every tool reports through...
     assert "ambiguous_counterparty" in with_tools
     assert "counterparty_code" in with_tools
@@ -244,7 +253,7 @@ def test_tool_prompt_is_generic_not_per_tool():
     assert "financial_snapshot" not in with_tools
 
     # Help-only mode stays lean: no tool mechanics leak in.
-    help_only = build_system_prompt("es", with_tools=False)
+    help_only = build_system_prompt("es", with_tools=False, profile=EC)
     assert "ambiguous_counterparty" not in help_only
 
 
