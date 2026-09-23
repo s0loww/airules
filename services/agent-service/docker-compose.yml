@@ -1,0 +1,21 @@
+# Local Agent Service for the 1C in-app assistant.
+#   1. Copy .env.example to .env and fill in OPENAI_API_KEY + ASSISTANT_BEARER_TOKEN.
+#   2. docker compose up --build
+#   3. In 1C set Constant.DireccionServicioAsistente = http://localhost:8080
+#      and Constant.TokenServicioAsistente = the same token as ASSISTANT_BEARER_TOKEN.
+services:
+  agent:
+    build: .
+    container_name: contabilidad-assistant
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      HELP_DIR: /app/help
+      SKILLS_DIR: /app/agent-skills
+    # Mount the in-repo KB + playbooks read-only; POST /reload re-indexes after you edit them.
+    volumes:
+      - ../help:/app/help:ro
+      - ../agent-skills:/app/agent-skills:ro
+    restart: unless-stopped
