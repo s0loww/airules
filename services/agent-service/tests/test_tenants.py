@@ -127,6 +127,7 @@ def test_health_lists_tenants_and_reload_is_scoped(client):
     body = c.get("/health").json()
     assert set(body["tenants"]) == {"ec", "ru"}
     assert body["tenants"]["ec"]["product"] == "Contabilidad"
+    assert body["tenants"]["ec"]["retrieval"] == "lexical"
     r = c.post("/reload", headers={"Authorization": "Bearer tok-ru"})
     assert r.json()["tenant"] == "ru"
     assert c.post("/reload").status_code == 401

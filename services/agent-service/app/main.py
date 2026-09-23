@@ -24,7 +24,7 @@ from .prompt import (
     normalize_lang,
     sources_footer,
 )
-from .rag import Retriever
+from .rag import EmbeddingRetriever, Retriever
 from .schemas import MessageResponse, ToolCall, ToolCallsResponse, TurnRequest
 from .tenants import Tenant, load_registry, pick, single_tenant
 
@@ -66,7 +66,10 @@ def create_app(
             name: {
                 "chunks": len(t.chunks),
                 "skills": len(t.skills),
-                "retrieval": t.settings.retrieval,
+                # what actually serves, not what was asked for: without an embeddings key a
+                # tenant configured for embeddings runs lexical, and the status must say so
+                "retrieval": ("embeddings" if isinstance(t.retriever, EmbeddingRetriever)
+                              else "lexical"),
                 "llm_available": t.llm.available,
                 "product": t.profile.product,
             }

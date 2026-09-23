@@ -58,3 +58,19 @@ def test_explicit_embeddings_endpoint_wins():
 def test_classifier_cap_by_family_not_by_router(model, cap):
     llm, _ = _llm()
     assert llm._classifier_cap(model) == cap
+
+
+def test_health_reports_the_retrieval_actually_serving():
+    """Configured for embeddings but no key to compute them: the tenant runs lexical and
+    /health must say lexical -- a status that echoes the wish instead of the fact is how a
+    degraded service looks healthy."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+    from pathlib import Path
+
+    fix = Path(__file__).resolve().parent / "fixtures" / "tenant_ec"
+    s = Settings(retrieval="embeddings", openai_api_key="", help_dir=str(fix / "help"),
+                 skills_dir=str(fix / "agent-skills"), profile=str(fix / "assistant-profile.md"))
+    with TestClient(create_app(settings=s)) as client:
+        assert client.get("/health").json()["retrieval"] == "lexical"
