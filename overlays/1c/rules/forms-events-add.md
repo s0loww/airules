@@ -24,13 +24,22 @@ Common form events (this is a **non-exhaustive subset** — the platform exposes
 | `OnOpen` | `ПриОткрытии` | Client, when form opens |
 | `OnClose` | `ПриЗакрытии` | Client, when form closes |
 | `BeforeWrite` | `ПередЗаписью` | Client, before write |
-| `AfterWrite` | `ПриЗаписи` | Client, after write |
+| `AfterWrite` | `ПослеЗаписи` | Client, after write |
 | `OnCreateAtServer` | `ПриСозданииНаСервере` | Server, form creation |
 | `BeforeWriteAtServer` | `ПередЗаписьюНаСервере` | Server, before write |
-| `AfterWriteAtServer` | `ПриЗаписиНаСервере` | Server, after write |
+| `OnWriteAtServer` | `ПриЗаписиНаСервере` | Server, during write (inside the transaction) |
+| `AfterWriteAtServer` | `ПослеЗаписиНаСервере` | Server, after write |
 | `OnReadAtServer` | `ПриЧтенииНаСервере` | Server, when reading object |
 
+Do not confuse the form's client event `AfterWrite` / `ПослеЗаписи` with the
+object-module event `ПриЗаписи` — they live in different modules and fire at
+different moments.
+
 The value inside the `<Event>` tag is the name of the handler procedure in the form module.
+Every handler named in `Form.xml` must exist in the module exactly once, with
+the compilation directive of its event (`&НаКлиенте` for client events,
+`&НаСервере` for `…AtServer`): a missing procedure fails when the event fires,
+a duplicate fails compilation.
 
 ## Getting the full event list
 

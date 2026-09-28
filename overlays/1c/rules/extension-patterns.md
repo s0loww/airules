@@ -150,7 +150,10 @@ donor's. New commands go into the extension's `Commands` block, before
 ## Getting a real error list out of a silent apply
 
 `/UpdateDBCfg -Extension` can exit with code 101, an **empty** `/Out` log and
-nothing in the event log: it fails silently on apply errors.
+nothing in the event log: it fails silently on apply errors. The opposite also
+happens — exit code `0` on a failed apply (a broken `&Вместо` interceptor
+reports `Не найден метод` with code `0`). Always add `/DumpResult` and require
+`0` there too; see `getconfigfiles.md → Step 3` for the three-signal verdict.
 
 To see the actual problems, dump the extension to `.cfe` via
 `/DumpCfg -Extension` and call

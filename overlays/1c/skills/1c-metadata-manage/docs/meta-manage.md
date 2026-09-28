@@ -41,7 +41,9 @@ Constant, DefinedType, CommonModule, ScheduledJob, EventSubscription, DocumentJo
 
 ## JSON DSL — Quick Reference
 
-Full specification: `docs/meta-dsl-spec.md`.
+The quick reference below is the whole DSL documentation shipped with this
+version; for anything it does not cover, read the parser in
+`tools/1c-meta-compile/scripts/meta-compile.ps1` rather than guessing.
 
 ### Root Structure
 
@@ -229,7 +231,8 @@ Batch via `;;` in all operations. Detailed syntax in linked reference files.
 | `add-resource` | `Name: Type` | `"Сумма: Number(15,2)"` |
 | `add-enumValue` | `Name` | `"Value1 ;; Value2"` |
 | `add-column` | `Name: Type` | `"Тип: EnumRef.ТипыДокументов"` |
-| `add-form` / `add-template` / `add-command` | `Name` | `"ItemForm"` |
+| `add-command` | `Name` | `"ItemCommand"` |
+| `add-form` / `add-template` | — | refused (exit 1): use `form-add.ps1` / `add-template.ps1`, which create the files |
 | `add-ts-attribute` | `TS.Name: Type` | `"Товары.Скидка: Number(15,2)"` |
 | `remove-*` | `Name` | `"OldAttribute ;; AnotherOne"` |
 | `remove-ts-attribute` | `TS.Name` | `"Товары.ObsoleteAttr"` |

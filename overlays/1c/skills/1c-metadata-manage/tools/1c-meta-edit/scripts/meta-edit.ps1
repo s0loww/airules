@@ -1659,6 +1659,15 @@ function Process-Add($addDef) {
 			{ $_ -in @("forms","templates","commands") } {
 				$tagMap = @{ "forms" = "Form"; "templates" = "Template"; "commands" = "Command" }
 				$tag = $tagMap[$childType]
+				# A form or template is a registration PLUS its own files (Forms/<Name>.xml,
+				# Ext/Form.xml, Module.bsl / Templates/<Name>.xml, Ext/Template.*), and the
+				# object XML lists it by name only (<Form>Name</Form>). Registering it here
+				# would produce a dump the Designer refuses to load, reported as success.
+				if ($childType -ne "commands") {
+					$tool = if ($childType -eq "forms") { "1c-form-scaffold/scripts/form-add.ps1" } else { "1c-template-manage/scripts/add-template.ps1" }
+					Write-Host "[ERROR] meta-edit does not add $childType`: it would register a $($tag.ToLower()) without creating its files. Use $tool - it creates the files and registers them." -ForegroundColor Red
+					exit 1
+				}
 				foreach ($item in $items) {
 					$itemName = if ($item -is [string]) { "$item" } else { "$($item.name)" }
 					if ($existingNames.ContainsKey($itemName)) {
@@ -2286,16 +2295,22 @@ if (-not $Apply) {
 # Section 15: Auto-validate
 # ============================================================
 
+$script:validateExit = 0
 if ($Apply -and -not $NoValidate) {
-	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\meta-validate") "scripts\meta-validate.ps1"
-	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
+	$validateScript = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\1c-meta-validate\scripts\meta-validate.ps1"))
 	if (Test-Path $validateScript) {
 		Write-Host ""
-		Write-Host "--- Running meta-validate ---" -ForegroundColor DarkGray
+		Write-Host "--- Running meta-validate ---"
 		& powershell.exe -NoProfile -File $validateScript -ObjectPath $resolvedPath
+		if ($LASTEXITCODE -ne 0) {
+			Write-Host "[FAIL] meta-validate reported errors (exit $LASTEXITCODE) - the written result is not valid" -ForegroundColor Red
+			$script:validateExit = 1
+		}
 	} else {
+		# Silent skip here once hid a wrong path for months: say it, and fail.
 		Write-Host ""
-		Write-Host "[SKIP] meta-validate not found at: $validateScript" -ForegroundColor DarkGray
+		Write-Host "[FAIL] meta-validate not found at: $validateScript - the result was written but NOT validated" -ForegroundColor Red
+		$script:validateExit = 1
 	}
 }
 
@@ -2322,4 +2337,4 @@ if (-not $Apply) {
 	Write-Host "No changes made. Re-run with -Apply to save changes."
 }
 
-exit 0
+exit $script:validateExit

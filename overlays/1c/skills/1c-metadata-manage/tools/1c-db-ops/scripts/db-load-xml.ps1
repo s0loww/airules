@@ -219,6 +219,8 @@ try {
     # --- Output ---
     $outFile = Join-Path $tempDir "load_log.txt"
     $arguments += "/Out", "`"$outFile`""
+    $resultFile = Join-Path $tempDir "dump_result.txt"
+    $arguments += "/DumpResult", "`"$resultFile`""
     $arguments += "/DisableStartupDialogs"
 
     # --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
@@ -234,6 +236,21 @@ try {
     Write-Host "Running: 1cv8.exe $argDisplay"
     $process = Start-Process -FilePath $V8Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru
     $exitCode = $process.ExitCode
+
+    # Exit code 0 is not the verdict: batch Designer returns 0 for a failed
+    # operation too. The second signal is the number in /DumpResult
+    # (0 = success; no file = unknown, treated as failure).
+    if ($exitCode -eq 0) {
+        $dumpCode = 0
+        $dumpText = if (Test-Path $resultFile) { Get-Content $resultFile -Raw -ErrorAction SilentlyContinue } else { $null }
+        if (-not $dumpText -or -not [int]::TryParse($dumpText.Trim([char]0xFEFF).Trim(), [ref]$dumpCode)) {
+            Write-Host "Exit code 0, but /DumpResult was not written - the batch result is unknown" -ForegroundColor Red
+            $exitCode = 1
+        } elseif ($dumpCode -ne 0) {
+            Write-Host "Exit code 0, but /DumpResult = $dumpCode - the operation failed" -ForegroundColor Red
+            $exitCode = 1
+        }
+    }
 
     # --- Result ---
     if ($exitCode -eq 0) {

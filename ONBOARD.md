@@ -239,6 +239,16 @@ allowlist ro-ролей (layout §2).
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py", "--session-start"]
           }
         ]
+      },
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py", "--session-start"]
+          }
+        ]
       }
     ]
   }
@@ -246,9 +256,14 @@ allowlist ro-ролей (layout §2).
 ```
 
 Карта правил для этого режима не нужна — он ничего не знает о конкретных
-правилах и говорит лишь, что тела выгружены. Проверка: скормить скрипту
-`{"source":"compact"}` на stdin с ключом `--session-start` — должен напечатать
-абзац; с `{"source":"startup"}` — промолчать. Нет Python — пропустить и
+правилах и говорит лишь, что тела выгружены. Вторая запись (`startup|clear`) —
+тот же скрипт в другой роли: на свежем контексте он перечисляет незавершённые
+handoff-документы (`var/tmp/handoff-*.md`, не `Status: completed`, моложе 30
+дней) и велит спросить пользователя, продолжать ли, — сам ничего не
+подхватывает (`rules/session-handoff.md` → Receiving a handoff). Нет таких
+файлов — молчит. Проверка: скормить скрипту `{"source":"compact"}` на stdin с
+ключом `--session-start` — должен напечатать абзац; с `{"source":"startup"}` в
+проекте без `var/tmp/handoff-*.md` — промолчать. Нет Python — пропустить и
 написать в отчёт установки. Второй режим того же скрипта (напоминание по пути
 файла) ставится вместе с оверлеем, см. §5.1.
 

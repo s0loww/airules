@@ -283,10 +283,16 @@ def install_hook(target, problems):
         "PreToolUse": [{"matcher": "Edit|Write", "hooks": [{
             "type": "command", "command": "python",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py"]}]}],
-        "SessionStart": [{"matcher": "compact", "hooks": [{
-            "type": "command", "command": "python",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py",
-                     "--session-start"]}]}],
+        "SessionStart": [
+            {"matcher": "compact", "hooks": [{
+                "type": "command", "command": "python",
+                "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py",
+                         "--session-start"]}]},
+            {"matcher": "startup|clear", "hooks": [{
+                "type": "command", "command": "python",
+                "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py",
+                         "--session-start"]}]},
+        ],
     }}, ensure_ascii=False, indent=2) + "\n")
 
     hook = os.path.join(hooks, "rule-inject.py")
@@ -298,6 +304,27 @@ def install_hook(target, problems):
         if proc.returncode != 0 or not (proc.stdout or "").strip():
             problems.append(("BLOCK", "hook",
                              "{0} в целевой раскладке не отработал".format(label)))
+
+    # Handoff-режим SessionStart: без документов молчит, с открытым — предлагает.
+    def session_start(source):
+        env = dict(os.environ, CLAUDE_PROJECT_DIR=target)
+        proc = subprocess.run([sys.executable, hook, "--session-start"], cwd=target,
+                              input=json.dumps({"source": source}), env=env,
+                              capture_output=True, text=True, encoding="utf-8")
+        return proc.returncode, (proc.stdout or "").strip()
+
+    handoff = os.path.join(target, "var", "tmp", "handoff-2000-01-01-sim.md")
+    code, out = session_start("startup")
+    if code != 0 or out:
+        problems.append(("BLOCK", "hook", "startup без handoff-документов не молчит"))
+    os.makedirs(os.path.dirname(handoff), exist_ok=True)
+    write(handoff, "Status: active\n")
+    try:
+        code, out = session_start("startup")
+        if code != 0 or "handoff-2000-01-01-sim.md" not in out:
+            problems.append(("BLOCK", "hook", "startup не предложил открытый handoff"))
+    finally:
+        os.remove(handoff)
 
 
 # ------------------------------------------------------- проверочный лист §10

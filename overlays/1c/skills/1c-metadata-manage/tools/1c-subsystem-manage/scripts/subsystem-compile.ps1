@@ -345,13 +345,22 @@ if ($parentXmlPath -and (Test-Path $parentXmlPath)) {
 }
 
 # --- 7. Auto-validate ---
+$script:validateExit = 0
 if (-not $NoValidate) {
-	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\subsystem-validate") "scripts\subsystem-validate.ps1"
-	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
+	$validateScript = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "subsystem-validate.ps1"))
 	if (Test-Path $validateScript) {
 		Write-Host ""
 		Write-Host "--- Running subsystem-validate ---"
 		& powershell.exe -NoProfile -File $validateScript -SubsystemPath $targetXml
+		if ($LASTEXITCODE -ne 0) {
+			Write-Host "[FAIL] subsystem-validate reported errors (exit $LASTEXITCODE) - the written result is not valid" -ForegroundColor Red
+			$script:validateExit = 1
+		}
+	} else {
+		# Silent skip here once hid a wrong path for months: say it, and fail.
+		Write-Host ""
+		Write-Host "[FAIL] subsystem-validate not found at: $validateScript - the result was written but NOT validated" -ForegroundColor Red
+		$script:validateExit = 1
 	}
 }
 
@@ -362,4 +371,4 @@ Write-Host "  UUID:     $uuid"
 Write-Host "  Content:  $($contentItems.Count) objects"
 Write-Host "  Children: $($children.Count)"
 Write-Host "  File:     $targetXml"
-exit 0
+exit $script:validateExit

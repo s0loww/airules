@@ -223,6 +223,14 @@ Extract virtual table results to temporary table before joining:
 |	Товары.Код = &Код"
 ```
 
+**The split is not equivalent by default.** A row matching *both* conditions
+comes back twice under `ОБЪЕДИНИТЬ ВСЕ`, while `ИЛИ` returned it once. Make the
+branches disjoint (add `И НЕ Товары.Артикул = &Артикул` to the second one —
+mind `NULL` in nullable fields), or use `ОБЪЕДИНИТЬ` when the selected columns
+identify the row, or deduplicate downstream (`СГРУППИРОВАТЬ ПО` / `РАЗЛИЧНЫЕ`
+over a temporary table). Keep `ОБЪЕДИНИТЬ ВСЕ` as is only when the conditions
+cannot overlap.
+
 ## ОБЪЕДИНИТЬ vs ОБЪЕДИНИТЬ ВСЕ (ITS Standard)
 
 Prefer `ОБЪЕДИНИТЬ ВСЕ` when no duplicate rows expected:

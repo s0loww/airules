@@ -251,8 +251,9 @@ if ($Purpose -eq "List" -or $Purpose -eq "Choice") {
 </Form>
 "@
 } else {
-	# Object — форма объекта
-	$mainAttrName = "Объект"
+	# Object — форма объекта. У формы записи регистра сведений главный реквизит —
+	# «Запись» (RecordManager): с «Объект» форма теряет стандартные команды записи.
+	$mainAttrName = if ($objectType -eq "InformationRegister") { "Запись" } else { "Объект" }
 
 	# Маппинг типа объекта на тип реквизита
 	$attrTypeMap = @{

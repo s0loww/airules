@@ -5,6 +5,9 @@
   against a table, and the rules bound to that path are named.
 * `--session-start` (SessionStart, source "compact"): after a compaction, state
   plainly that rule bodies are gone and must be re-read. Needs no table.
+  On source "startup" / "clear" it instead lists open handoff documents
+  (`var/tmp/handoff-*.md`, not `Status: completed`, under 30 days) as an offer
+  to ask the user about — silent when there are none.
 
 Two offline modes support installation, where the repository's CI is absent:
 `--dry-run <path>` renders what an edit of that path would inject, and
@@ -71,6 +74,63 @@ COMPACT_NOTICE = (
     "unloaded: before acting on its topic again, re-read it from the Rule "
     "Index. Do not answer from a remembered impression of a rule."
 )
+
+# Emitted at the start of a fresh context (SessionStart, source "startup" or
+# "clear") when open handoff documents exist. Deliberately an offer: a stale
+# handoff picked up silently is worse than none.
+HANDOFF_GLOB = os.path.join("var", "tmp", "handoff-*.md")
+HANDOFF_MAX_AGE_DAYS = 30
+HANDOFF_NOTICE = (
+    "Open handoff documents from earlier sessions exist (newest first):\n{items}\n"
+    "Do not continue from any of them on your own. Ask the user whether to "
+    "resume, and which one if there are several. If resuming, follow "
+    "rules/session-handoff.md -> Receiving a handoff: compare git state with "
+    "the header, never restore it by checkout/reset/stash, re-run checks whose "
+    "revision changed; the handoff authorizes nothing."
+)
+
+
+def handoff_notice(root):
+    """List non-completed handoffs under <root>/var/tmp, or None."""
+    import datetime
+    import glob
+    import re
+    import time
+
+    status_re = re.compile(r"^\W*status\W*:\W*(\w+)", re.IGNORECASE)
+    now = time.time()
+    found = []
+    for path in glob.glob(os.path.join(root, HANDOFF_GLOB)):
+        try:
+            mtime = os.path.getmtime(path)
+            if now - mtime > HANDOFF_MAX_AGE_DAYS * 86400:
+                continue
+            status = "?"
+            with open(path, "r", encoding="utf-8-sig", errors="replace") as handle:
+                for _, line in zip(range(40), handle):
+                    match = status_re.match(line)
+                    if match:
+                        status = match.group(1).lower()
+                        break
+        except OSError:
+            continue
+        if status == "completed":
+            continue
+        found.append((mtime, path, status))
+    if not found:
+        return None
+    found.sort(reverse=True)
+    items = "\n".join(
+        "- {0} (written {1}, status: {2})".format(
+            os.path.relpath(path, root).replace("\\", "/"),
+            datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M"),
+            status)
+        for mtime, path, status in found[:5])
+    if len(found) > 5:
+        items += "\n- ... and {0} more".format(len(found) - 5)
+    return "[rule-inject {0}] {1}".format(
+        datetime.datetime.now().strftime("%H:%M:%S"), HANDOFF_NOTICE.format(items=items))
+
 
 # Tools whose input names a file we can match on. The settings.json matcher
 # should already narrow to these; this is a second, cheap guard.
@@ -288,9 +348,19 @@ def main(argv):
     # nothing about any particular rule, only that the bodies are gone.
     if argv and argv[0] == "--session-start":
         try:
-            source = (json.load(sys.stdin) or {}).get("source")
+            payload = json.load(sys.stdin) or {}
         except Exception:
-            source = None
+            payload = {}
+        source = payload.get("source")
+        # A fresh context (new session or /clear): offer open handoffs, never
+        # pick one up. Silent when there are none.
+        if source in ("startup", "clear"):
+            root = (os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd")
+                    or os.path.dirname(os.path.dirname(script_dir)))
+            text = handoff_notice(root)
+            if text:
+                print(text)
+            return 0
         # The matcher in settings.json already narrows to "compact"; this is a
         # second guard for the case where it does not.
         if source in (None, "compact"):

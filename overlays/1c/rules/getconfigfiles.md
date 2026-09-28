@@ -17,6 +17,7 @@ kind: recipe
 | `{EXPORT_PATH}` | Directory where object sources are exported |
 | `{EXTENSION_NAME}` | Extension name when exporting from an extension; otherwise omit the `-Extension` argument |
 | `{LOG_PATH}` | Designer log file |
+| `{RESULT_PATH}` | `/DumpResult` file — the batch result as a number |
 
 If a value is unknown — **ask the user**, do not guess. Project-stable values go into `.dev.env`.
 
@@ -39,16 +40,21 @@ $cliArgs = @(
     '/F', '{INFOBASE_PATH}',
     '/N', '{IB_USER}',
     '/P', '{IB_PASSWORD}',
-    '/DisableStartupMessages',
+    '/DisableStartupMessages', '/DisableStartupDialogs',
     '/DumpConfigToFiles', '{EXPORT_PATH}',
     '-listFile', 'repoobjects.txt',
     '-Extension', '{EXTENSION_NAME}',
-    '/Out', '{LOG_PATH}'
+    '/Out', '{LOG_PATH}',
+    '/DumpResult', '{RESULT_PATH}'
 )
+Remove-Item '{RESULT_PATH}' -ErrorAction SilentlyContinue  # a stale file reads as this run's verdict
 $proc = Start-Process -FilePath '{PLATFORM_PATH}\bin\1cv8.exe' `
     -ArgumentList $cliArgs -Wait -PassThru
 $proc.ExitCode
 ```
+
+`/DisableStartupDialogs` belongs next to `/DisableStartupMessages`: without it a
+modal dialog hangs the run until someone kills it.
 
 When exporting from the main configuration (not from an extension) — drop the `-Extension {EXTENSION_NAME}` argument.
 
@@ -57,9 +63,21 @@ When exporting from the main configuration (not from an extension) — drop the 
 > on over an empty export directory reporting success. Only `Start-Process -Wait`
 > actually waits, and only its `ExitCode` says whether the run failed.
 
-**Step 3.** Inspect `{LOG_PATH}` for errors before starting any edits. An empty
-log is not a pass on its own: confirm the exit code is `0` and that the expected
-files actually appeared under `{EXPORT_PATH}`.
+**Step 3.** Take the verdict from **three signals, all of which must agree** —
+batch Designer routinely exits with `0` on a failed operation:
+
+| Signal | Pass |
+|---|---|
+| `ExitCode` of the process | `0` |
+| `{RESULT_PATH}` (`/DumpResult`) | holds the number `0`; any other number **or no file** fails |
+| `{LOG_PATH}` (`/Out`, UTF-8 with BOM) | no diagnostic lines |
+
+Do not grep the log for `Ошибк*`: the success verdict itself reads
+`Ошибок не обнаружено` / `Ошибок: 0`. Neutralize those exact success phrases
+first, then treat any remaining `ошибк*` / `предупрежден*` / `не найден метод` /
+`error` fragment as a failure. Finally confirm the expected files actually
+appeared under `{EXPORT_PATH}` — an empty export with all three signals clean is
+still a failed run.
 
 ## Limits and pitfalls
 

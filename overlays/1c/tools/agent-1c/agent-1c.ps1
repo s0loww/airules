@@ -352,9 +352,30 @@ function Resume-TargetServices {
     }
 }
 
+function Add-DumpResult {
+    <# /DumpResult — третий сигнал вердикта DESIGNER рядом с кодом выхода и /Out:
+       1cv8 возвращает 0 и при проваленной пакетной операции (типично — «Не найден
+       метод» перехватчика расширения), а число в этом файле — нет (0 = успех). #>
+    param($ArgList, [string]$Path)
+    [void]$ArgList.Add('/DumpResult'); [void]$ArgList.Add(('"' + $Path + '"'))
+}
+
+function Read-DumpResult {
+    <# Число из файла /DumpResult; $null — файл не записан или не число. #>
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    $text = ([IO.File]::ReadAllText($Path)).Trim([char]0xFEFF, [char]0x20, [char]0x0D, [char]0x0A, [char]0x09)
+    $n = 0
+    if ([int]::TryParse($text, [ref]$n)) { return $n }
+    return $null
+}
+
 function Invoke-GuardedRun {
-    <# Один запуск под сторожем с проверкой кода; общий для DESIGNER и ibcmd. #>
+    <# Один запуск под сторожем с проверкой кода; общий для DESIGNER и ibcmd.
+       Для DESIGNER ($Run.result) вердикт — код выхода И /DumpResult. #>
     param([string]$Exe, $Run, [string]$GuardLog, [string]$Prefix)
+    # Устаревший файл результата прочитался бы как вердикт этого запуска.
+    if ($Run.result -and (Test-Path -LiteralPath $Run.result)) { Remove-Item -LiteralPath $Run.result -Force }
     $params = @{ FilePath = $Exe; ArgumentList = ([string[]]$Run.args); Label = "$Prefix/$($Run.name)"; LogPath = $GuardLog }
     if ($Run.stdout) { $params['RedirectStandardOutput'] = $Run.stdout; $params['RedirectStandardError'] = $Run.stderr }
     $guard = Invoke-Guarded1C @params
@@ -369,6 +390,11 @@ function Invoke-GuardedRun {
     if ($guard.ExitCode -ne 0) {
         $where = if ($Run.stdout) { $Run.stdout } else { $Run.log }
         throw "$Prefix ($($Run.name)) завершился с кодом $($guard.ExitCode). См. $where"
+    }
+    if ($Run.result) {
+        $dump = Read-DumpResult $Run.result
+        if ($null -eq $dump) { throw "$Prefix ($($Run.name)): код выхода 0, но /DumpResult не записан — результат пакетной операции неизвестен. См. $($Run.log)" }
+        if ($dump -ne 0) { throw "$Prefix ($($Run.name)): код выхода 0, но /DumpResult = $dump — операция не выполнена. См. $($Run.log)" }
     }
     Add-Step "$Prefix.$($Run.name)" 'ok' "Шаг выполнен за $($guard.DurationSec) с, пик памяти $($guard.PeakPrivateGb) ГБ"
 }
@@ -414,11 +440,15 @@ function Invoke-PostDeployProbe {
         [void]$probeArgs.Add('-Extension'); [void]$probeArgs.Add((Quote-IfNeeded ([string]$script:ProfileData.extension.name)))
     }
     [void]$probeArgs.Add('/Out'); [void]$probeArgs.Add(('"' + $log + '"'))
+    $resultPath = Join-Path $script:RunDir 'probe-checkmodules.result'
+    if (Test-Path -LiteralPath $resultPath) { Remove-Item -LiteralPath $resultPath -Force }
+    Add-DumpResult $probeArgs $resultPath
     $guard = Invoke-Guarded1C -FilePath $Platform.FullName -ArgumentList ([string[]]$probeArgs) -Label 'probe/checkmodules' -LogPath $GuardLog
     [void]$script:Artifacts.Add($log)
     $contexts = (@($script:ProfileData.probe.checkModules) -join ', ')
     if ($guard.Killed) { Add-Step 'deploy.probe' 'error' "Сторож снял /CheckModules: $($guard.Reason)"; $script:ExitCode = 5; return }
-    if ($guard.ExitCode -eq 0) { Add-Step 'deploy.probe' 'ok' "/CheckModules чист по контекстам: $contexts"; return }
+    $dump = Read-DumpResult $resultPath
+    $dumpText = if ($null -eq $dump) { 'не записан' } else { [string]$dump }
 
     # Зрелый проект почти всегда несёт исторические ошибки модулей. Гейт — только
     # НОВЫЕ относительно baseline (та же политика, что у analyze). Ошибка — строка
@@ -430,7 +460,10 @@ function Invoke-PostDeployProbe {
             Where-Object { $_ -match '^\{[^}]+\}:' } |
             ForEach-Object { ($_ -replace '\(\d+,\d+\)', '').Trim() } | Sort-Object -Unique)
     }
-    if ($found.Count -eq 0) { Add-Step 'deploy.probe' 'error' "/CheckModules: код $($guard.ExitCode), ошибок в логе не разобрано — смотрите $log"; $script:ExitCode = 5; return }
+    # Чисто — только когда сходятся все три сигнала: код выхода, /DumpResult и лог.
+    # Код 0 сам по себе не вердикт: провал проверки платформа отдаёт и с нулём.
+    if ($guard.ExitCode -eq 0 -and $dump -eq 0 -and $found.Count -eq 0) { Add-Step 'deploy.probe' 'ok' "/CheckModules чист по контекстам: $contexts"; return }
+    if ($found.Count -eq 0) { Add-Step 'deploy.probe' 'error' "/CheckModules: код $($guard.ExitCode), /DumpResult $dumpText, ошибок в логе не разобрано — смотрите $log"; $script:ExitCode = 5; return }
     $baselineRel = [string]$script:ProfileData.probe.baseline
     if (-not $baselineRel) {
         Add-Step 'deploy.probe' 'error' "/CheckModules: $($found.Count) ошибок ($contexts). Baseline не задан (probe.baseline) — гейт по абсолютному нулю. Лог: $log"
@@ -644,14 +677,18 @@ function Invoke-Deploy {
             [void]$load.Add('-Extension'); [void]$load.Add((Quote-IfNeeded $extensionName))
             [void]$load.Add('-Format'); [void]$load.Add('Hierarchical')
             [void]$load.Add('/Out'); [void]$load.Add(('"' + $loadLog + '"'))
-            [void]$runs.Add(@{ name = 'load'; args = $load; log = $loadLog })
+            $loadResult = Join-Path $script:RunDir 'deploy-load.result'
+            Add-DumpResult $load $loadResult
+            [void]$runs.Add(@{ name = 'load'; args = $load; log = $loadLog; result = $loadResult })
 
             $updateLog = Join-Path $script:RunDir 'deploy-update.log'
             $update = New-Object System.Collections.ArrayList
             [void]$update.AddRange($common)
             [void]$update.Add('/UpdateDBCfg'); [void]$update.Add('-Extension'); [void]$update.Add((Quote-IfNeeded $extensionName))
             [void]$update.Add('/Out'); [void]$update.Add(('"' + $updateLog + '"'))
-            [void]$runs.Add(@{ name = 'update'; args = $update; log = $updateLog })
+            $updateResult = Join-Path $script:RunDir 'deploy-update.result'
+            Add-DumpResult $update $updateResult
+            [void]$runs.Add(@{ name = 'update'; args = $update; log = $updateLog; result = $updateResult })
         }
         else {
             $log = Join-Path $script:RunDir 'deploy.log'
@@ -660,7 +697,9 @@ function Invoke-Deploy {
             [void]$single.Add('/LoadConfigFromFiles'); [void]$single.Add(('"' + $source + '"'))
             [void]$single.Add('/UpdateDBCfg')
             [void]$single.Add('/Out'); [void]$single.Add(('"' + $log + '"'))
-            [void]$runs.Add(@{ name = 'load+update'; args = $single; log = $log })
+            $singleResult = Join-Path $script:RunDir 'deploy.result'
+            Add-DumpResult $single $singleResult
+            [void]$runs.Add(@{ name = 'load+update'; args = $single; log = $log; result = $singleResult })
         }
     }
 

@@ -46,7 +46,7 @@ Implement tasks from an OpenSpec change.
 
    **Handle states:**
    - If `state: "blocked"` (missing artifacts): show message, then offer to generate the missing artifacts via the `openspec-propose` skill or the OpenSpec CLI directly (`openspec instructions <artifact-id> --change "<name>" --json`)
-   - If `state: "all_done"`: congratulate, suggest archive
+   - If `state: "all_done"`: every task is checked off — that is task tracking, **not** evidence that the change is done. Go to the closing verification (step 7) before suggesting archive
    - Otherwise: proceed to implementation
 
 4. **Read context files**
@@ -84,7 +84,7 @@ Implement tasks from an OpenSpec change.
    Display:
    - Tasks completed this session
    - Overall progress: "N/M tasks complete"
-   - If all done: suggest archive
+   - If all done: run the closing gate of `verification-matrix.md` and match every acceptance criterion / spec scenario of the change against actual check results. Suggest archive only when each one has evidence; a check that was not run is reported as not run — never as passed, and a skipped tool or missing environment is not a user waiver
    - If paused: explain why and wait for guidance
 
 **Output During Implementation**
@@ -115,7 +115,11 @@ Working on task 4/7: <task description>
 - [x] Task 2
 ...
 
-All tasks complete! Ready to archive this change.
+### Verification
+- <criterion / scenario> — <check that proves it, or "not run: reason">
+
+All tasks complete and every criterion has evidence — ready to archive.
+(If any line says "not run", say so instead and do not suggest archive.)
 ```
 
 **Output On Pause (Issue Encountered)**

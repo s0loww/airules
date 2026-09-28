@@ -70,15 +70,19 @@ Batch через `;;` — можно указать разные ТЧ: `"Тов�
 
 Формат аналогичен `modify-attribute`: `ИмяТЧ: ключ=значение, ключ=значение`.
 
-## add-enumValue / add-form / add-template / add-command
+## add-enumValue / add-command
 
 Просто имена (batch через `;;`):
 ```powershell
 -Operation add-enumValue -Value "Значение1 ;; Значение2 ;; Значение3"
--Operation add-form -Value "ФормаЭлемента ;; ФормаСписка"
--Operation add-template -Value "ПечатнаяФорма"
 -Operation add-command -Value "Команда1"
 ```
+
+`add-form` / `add-template` скрипт **отклоняет** (exit 1): форма и макет — это
+регистрация плюс собственные файлы, одна регистрация даёт выгрузку, которую
+Конфигуратор не загружает. Формы — `1c-form-scaffold/scripts/form-add.ps1`,
+макеты — `1c-template-manage/scripts/add-template.ps1`: они создают файлы и
+регистрируют.
 
 ## remove-*
 

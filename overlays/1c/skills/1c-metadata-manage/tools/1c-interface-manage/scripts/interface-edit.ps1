@@ -502,13 +502,22 @@ if (-not $Apply) {
 }
 
 # --- Auto-validate ---
+$script:validateExit = 0
 if ($Apply -and -not $NoValidate) {
-	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\interface-validate") "scripts\interface-validate.ps1"
-	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
+	$validateScript = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "interface-validate.ps1"))
 	if (Test-Path $validateScript) {
 		Write-Host ""
 		Write-Host "--- Running interface-validate ---"
 		& powershell.exe -NoProfile -File $validateScript -CIPath $resolvedPath
+		if ($LASTEXITCODE -ne 0) {
+			Write-Host "[FAIL] interface-validate reported errors (exit $LASTEXITCODE) - the written result is not valid" -ForegroundColor Red
+			$script:validateExit = 1
+		}
+	} else {
+		# Silent skip here once hid a wrong path for months: say it, and fail.
+		Write-Host ""
+		Write-Host "[FAIL] interface-validate not found at: $validateScript - the result was written but NOT validated" -ForegroundColor Red
+		$script:validateExit = 1
 	}
 }
 
@@ -521,4 +530,4 @@ Write-Host "  Modified: $($script:modifyCount)"
 if (-not $Apply) {
 	Write-Host "No changes made. Re-run with -Apply to save changes."
 }
-exit 0
+exit $script:validateExit

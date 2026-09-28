@@ -217,15 +217,15 @@ $script:eventSuffixMap = @{
 	"BeforeDeleteRow"      = "ПередУдалением"
 	"BeforeRowChange"      = "ПередНачаломИзменения"
 	"OnStartEdit"          = "ПриНачалеРедактирования"
-	"OnEndEdit"            = "ПриОкончанииРедактирования"
-	"Selection"            = "ВыборСтроки"
+	"OnEditEnd"            = "ПриОкончанииРедактирования"
+	"Selection"            = "Выбор"
 	"OnCurrentPageChange"  = "ПриСменеСтраницы"
 	"TextEditEnd"          = "ОкончаниеВводаТекста"
 	"URLProcessing"        = "ОбработкаНавигационнойСсылки"
 	"DragStart"            = "НачалоПеретаскивания"
 	"Drag"                 = "Перетаскивание"
 	"DragCheck"            = "ПроверкаПеретаскивания"
-	"Drop"                 = "Помещение"
+	"DragEnd"              = "ОкончаниеПеретаскивания"
 	"AfterDeleteRow"       = "ПослеУдаления"
 }
 
