@@ -1,5 +1,7 @@
 # 1C BSP Manage — Registration, Commands
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 BSP/SSL integration: add registration function (ExternalDataProcessorInfo) and manage commands for external data processors.
 
 ---
@@ -197,7 +199,7 @@ Result in `ObjectModule.bsl`:
 
 ### Next Steps
 
-- Add more commands: `1c-bsp-command` skill
+- Add more commands: section 2 «Command» of this doc (`1c-bsp-command` procedure)
 - Add a form: `1c-form-scaffold` skill
 - Add a template: `1c-template-manage` skill
 - Build EPF: `1c-epf-build` skill
@@ -208,7 +210,7 @@ Result in `ObjectModule.bsl`:
 
 Adds a command to an existing `СведенияОВнешнейОбработке()` function and generates the corresponding handler.
 
-The data processor must be initialized with BSP registration first (see `1c-bsp-registration` skill).
+The data processor must be initialized with BSP registration first (see section 1 «Registration» of this doc).
 
 ### Usage
 
@@ -365,7 +367,7 @@ If procedure already exists — add `ИначеЕсли` branch.
 ### Instructions
 
 1. Find and read `ObjectModule.bsl` via Glob: `src/{{ProcessorName}}/Ext/ObjectModule.bsl`
-2. Ensure `СведенияОВнешнейОбработке()` exists. If not — suggest using `1c-bsp-registration` skill first
+2. Ensure `СведенияОВнешнейОбработке()` exists. If not — run section 1 «Registration» of this doc first
 3. Determine processor kind from existing code (find the line with `ВидОбработки...()`)
 4. Insert command block **before** `Возврат ПараметрыРегистрации`
 5. Add handler:
@@ -378,7 +380,7 @@ If procedure already exists — add `ИначеЕсли` branch.
 
 ## Typical Workflow
 
-1. Create processor: `1c-epf-scaffold <Name> -Apply` (dry run without `-Apply`)
+1. Create processor: `1c-epf-scaffold <Name>`
 2. Register with BSP: `1c-bsp-registration <Name> <Kind> [TargetObjects]`
 3. Add commands: `1c-bsp-command <Name> <Identifier> [CommandType]`
 4. Add form/template as needed
@@ -386,15 +388,4 @@ If procedure already exists — add `ИначеЕсли` branch.
 
 ---
 
-## MCP Integration
-
-- **ssl_search** — Find SSL module methods for BSP registration and verify correct API method names.
-- **metadatasearch** — Verify target metadata object names.
-- **get_metadata_details** — Get full structure of target objects for registration.
-- **codesearch** — Find existing handler patterns in the codebase.
-
-## SDD Integration
-
-When registering processors with BSP as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Document BSP registration details and command placement in spec deltas under `openspec/changes/<change-id>/specs/`.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

@@ -1,6 +1,8 @@
 # /skd-info — полная справка по режимам
 
-Компактное описание — в [SKILL.md](SKILL.md).
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
+Компактное описание и workflow — в [`skd-manage.md`](../../docs/skd-manage.md).
 
 ## overview (по умолчанию) — карта схемы
 

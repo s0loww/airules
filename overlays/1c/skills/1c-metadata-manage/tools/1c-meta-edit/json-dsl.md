@@ -1,9 +1,11 @@
 # JSON DSL — режим определений
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Для сложных и комбинированных операций используйте JSON-файл вместо inline-режима.
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool meta-edit -DefinitionFile "<json>" -ObjectPath "<path>"
 ```
 
 ## add — добавить элементы
@@ -21,14 +23,14 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
         { "name": "Номенклатура", "type": "CatalogRef.Номенклатура" },
         { "name": "Количество", "type": "Число(15,3)" }
       ]
-    }],
-    "forms": ["ФормаЭлемента"],
-    "templates": ["ПечатнаяФорма"]
+    }]
   }
 }
 ```
 
 Реквизиты можно задавать shorthand-строками: `"Сумма: Число(15,2) | req, index"`.
+
+Adding `forms` or `templates` (including accepted aliases) is refused with exit `2` before any mutation of the whole definition. Use the dedicated form or template scaffold; see [child-operations.md](child-operations.md).
 
 ## remove — удалить элементы
 
@@ -119,6 +121,19 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 | templates | макеты |
 | commands | команды |
 | properties | свойства |
+
+## Составные типы
+
+Для полей с несколькими допустимыми типами — массив в `type`:
+
+```json
+{ "name": "Значение", "type": ["Строка", "Число(15,2)", "Дата", "CatalogRef.Контрагенты"] }
+```
+
+В inline-формате — через `+`:
+```
+"Значение: Строка + Число(15,2) + Дата + CatalogRef.Контрагенты"
+```
 
 ## Синонимы типов
 

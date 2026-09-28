@@ -1,28 +1,21 @@
-﻿# cf-edit v1.0 — Edit 1C configuration root (Configuration.xml)
+﻿# cf-edit v1.11 — Edit 1C configuration root (Configuration.xml)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
-<#
-.SYNOPSIS
-	Редактирование корня конфигурации 1С (Configuration.xml)
-
-.PARAMETER Apply
-	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
-	показывает план операций и завершается без записи файла.
-
-.EXAMPLE
-	.\cf-edit.ps1 -ConfigPath src -Operation modify-property -Value "Version=1.2.3"
-
-.EXAMPLE
-	.\cf-edit.ps1 -ConfigPath src -Operation modify-property -Value "Version=1.2.3" -Apply
-#>
 param(
-	[Parameter(Mandatory)][string]$ConfigPath,
+	[Parameter(Mandatory)][Alias('Path')][string]$ConfigPath,
 	[string]$DefinitionFile,
-	[ValidateSet("modify-property","add-childObject","remove-childObject","add-defaultRole","remove-defaultRole","set-defaultRoles")]
+	[ValidateSet("modify-property","add-childObject","remove-childObject","add-defaultRole","remove-defaultRole","set-defaultRoles","set-panels","set-home-page")]
 	[string]$Operation,
 	[string]$Value,
-	[switch]$NoValidate,
-	[switch]$Apply
+	[switch]$NoValidate
 )
+
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: cf-edit writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool cf-edit <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -42,11 +35,178 @@ if (Test-Path $ConfigPath -PathType Container) {
 }
 if (-not (Test-Path $ConfigPath)) { Write-Error "File not found: $ConfigPath"; exit 1 }
 $resolvedPath = (Resolve-Path $ConfigPath).Path
+$script:configDir = [System.IO.Path]::GetDirectoryName($resolvedPath)
+
+# --- Support guard (Ext/ParentConfigurations.bin) ---
+# Canon: docs/support-manage.md. Blocks edits of vendor objects "на замке" /
+# read-only configs unless allowed. Trigger = bin present; reaction from
+# .dev.env SUPPORT_GUARD (deny|warn|off, default deny; .v8-project.json
+# editingAllowedCheck stays as the upstream fallback). Fail-closed on an
+# unreadable support state (bin exists but cannot be parsed — same reaction);
+# other guard errors degrade to allow with a stderr notice.
+function Get-RootUuid([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $null }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { $u = $el.GetAttribute("uuid"); if ($u) { return $u } }
+	} catch {}
+	return $null
+}
+function Test-ExternalObjectRoot([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $false }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { return @('ExternalDataProcessor','ExternalReport') -contains $el.LocalName }
+	} catch {}
+	return $false
+}
+function Find-V8Project([string]$startDir) {
+	$d = $startDir
+	for ($i = 0; $i -lt 20 -and $d; $i++) {
+		$pj = Join-Path $d ".v8-project.json"
+		if (Test-Path $pj) { return $pj }
+		$parent = [System.IO.Path]::GetDirectoryName($d)
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return $null
+}
+function Get-EditMode([string]$cfgDir) {
+	try {
+		# 1c-rules: .dev.env SUPPORT_GUARD wins over .v8-project.json editingAllowedCheck.
+		$__devEnvHelper = Join-Path $PSScriptRoot '../../_common/DevEnv.ps1'
+		if (Test-Path $__devEnvHelper) {
+		    . $__devEnvHelper
+		    $__devEnvMode = (Get-1CDevEnvValue 'SUPPORT_GUARD').ToLower()
+		    if (@('deny', 'warn', 'off') -contains $__devEnvMode) { return $__devEnvMode }
+		}
+		$pj = Find-V8Project (Get-Location).Path
+		if (-not $pj) { $pj = Find-V8Project $cfgDir }
+		if (-not $pj) { return 'deny' }
+		$proj = Get-Content -Raw $pj | ConvertFrom-Json
+		$cfgFull = [System.IO.Path]::GetFullPath($cfgDir).TrimEnd('\', '/')
+		if ($proj.databases) {
+			foreach ($db in $proj.databases) {
+				if ($db.configSrc) {
+					$src = [System.IO.Path]::GetFullPath($db.configSrc).TrimEnd('\', '/')
+					if ($cfgFull -eq $src -or $cfgFull.StartsWith($src + [System.IO.Path]::DirectorySeparatorChar)) {
+						if ($db.editingAllowedCheck) { return $db.editingAllowedCheck }
+					}
+				}
+			}
+		}
+		if ($proj.editingAllowedCheck) { return $proj.editingAllowedCheck }
+		return 'deny'
+	} catch { return 'deny' }
+}
+function Assert-EditAllowed([string]$targetPath, [string]$require) {
+	try {
+		$rp = $targetPath
+		try { $rp = (Resolve-Path $targetPath -ErrorAction Stop).Path } catch {}
+		# Autonomous external object (EPF/ERF): never part of a config on support (issue #39).
+		if (Test-ExternalObjectRoot $rp) { return }
+		$elemUuid = Get-RootUuid $rp
+		$cfgDir = $null; $binPath = $null
+		$d = if (Test-Path $rp -PathType Container) { $rp } else { [System.IO.Path]::GetDirectoryName($rp) }
+		for ($i = 0; $i -lt 12 -and $d; $i++) {
+			if (Test-ExternalObjectRoot "$d.xml") { return }
+			if (-not $elemUuid) { $elemUuid = Get-RootUuid "$d.xml" }
+			if (-not $cfgDir) {
+				$cand = Join-Path (Join-Path $d "Ext") "ParentConfigurations.bin"
+				if ((Test-Path $cand) -or (Test-Path (Join-Path $d "Configuration.xml"))) { $cfgDir = $d; $binPath = $cand }
+			}
+			if ($elemUuid -and $cfgDir) { break }
+			$parent = [System.IO.Path]::GetDirectoryName($d)
+			if ($parent -eq $d) { break }
+			$d = $parent
+		}
+		# New object (no element file): fall back to config root uuid.
+		if (-not $elemUuid -and $cfgDir) { $elemUuid = Get-RootUuid (Join-Path $cfgDir "Configuration.xml") }
+		if (-not $binPath -or -not (Test-Path $binPath)) { return }
+		# Bin present: an unreadable / unparseable support state must not silently
+		# degrade to allow — fail closed via the SUPPORT_GUARD reaction instead.
+		$G = 0; $K = 0; $text = $null; $parseOk = $false
+		try {
+			$bytes = [System.IO.File]::ReadAllBytes($binPath)
+			if ($bytes.Length -gt 32) {
+				$start = 0
+				if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $start = 3 }
+				$text = [System.Text.Encoding]::UTF8.GetString($bytes, $start, $bytes.Length - $start)
+				$hm = [regex]::Match($text, '^\{6,(\d+),(\d+),')
+				if ($hm.Success) {
+					$G = [int]$hm.Groups[1].Value
+					$K = [int]$hm.Groups[2].Value
+					$parseOk = $true
+				}
+			}
+		} catch {}
+		if (-not $parseOk) {
+			$mode = Get-EditMode $cfgDir
+			if ($mode -eq 'off') { return }
+			$msg = "[support-guard] Файл состояния поддержки «$binPath» существует, но не читается или не разбирается — состояние объекта неизвестно, он может быть на замке."
+			if ($mode -eq 'warn') { [Console]::Error.WriteLine("$msg Продолжаю по SUPPORT_GUARD=warn."); return }
+			[Console]::Error.WriteLine("$msg`nРедактирование остановлено (fail-closed). Проверьте целостность выгрузки, либо задайте SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md).")
+			exit 1
+		}
+		if ($K -eq 0) { return }
+		$best = $null
+		if ($elemUuid) {
+			$u = [regex]::Escape($elemUuid.ToLower())
+			foreach ($m in [regex]::Matches($text, "([0-2]),0,$u")) {
+				$f1 = [int]$m.Groups[1].Value
+				if ($null -eq $best -or $f1 -lt $best) { $best = $f1 }
+			}
+		}
+		$blocked = $false; $code = ""; $reason = ""
+		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
+		elseif ($require -eq 'removed') {
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+		}
+		else {
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+		}
+		if (-not $blocked) { return }
+		$mode = Get-EditMode $cfgDir
+		if ($mode -eq 'off') { return }
+		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# latter throws and would be swallowed by this function's own catch.
+		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
+		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$offNote = "Снять проверку: SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md)."
+		if ($code -eq "capability-off") {
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+		} elseif ($code -eq "not-removed") {
+			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+		} else {
+			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+		}
+		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
+		exit 1
+	} catch {
+		[Console]::Error.WriteLine("[support-guard] Проверка состояния поддержки не выполнена ($($_.Exception.Message)) — продолжаю без блокировки.")
+		return
+	}
+}
+
+Assert-EditAllowed $resolvedPath 'editable'
 
 # --- Load XML with PreserveWhitespace ---
 $script:xmlDoc = New-Object System.Xml.XmlDocument
 $script:xmlDoc.PreserveWhitespace = $true
 $script:xmlDoc.Load($resolvedPath)
+
+# Версия формата редактируемой конфигурации — создаваемые рядом файлы (Ext/HomePageWorkArea.xml)
+# должны нести ту же версию, иначе в проекте окажутся файлы разных версий формата.
+$script:formatVersion = $script:xmlDoc.DocumentElement.GetAttribute("version")
+if (-not $script:formatVersion) { $script:formatVersion = "2.17" }
 
 $script:addCount = 0
 $script:removeCount = 0
@@ -90,7 +250,7 @@ Info "Configuration: $($script:objName)"
 $script:typeOrder = @(
 	"Language","Subsystem","StyleItem","Style",
 	"CommonPicture","SessionParameter","Role","CommonTemplate",
-	"FilterCriterion","CommonModule","CommonAttribute","ExchangePlan",
+	"FilterCriterion","CommonModule","Bot","CommonAttribute","ExchangePlan",
 	"XDTOPackage","WebService","HTTPService","WSReference",
 	"EventSubscription","ScheduledJob","SettingsStorage","FunctionalOption",
 	"FunctionalOptionsParameter","DefinedType","CommonCommand","CommandGroup",
@@ -101,6 +261,22 @@ $script:typeOrder = @(
 	"ChartOfCalculationTypes","CalculationRegister",
 	"BusinessProcess","Task","IntegrationService"
 )
+
+# --- Type → on-disk directory name (plural) ---
+$script:typeToDir = @{
+	"Language"="Languages"; "Subsystem"="Subsystems"; "StyleItem"="StyleItems"; "Style"="Styles"
+	"CommonPicture"="CommonPictures"; "SessionParameter"="SessionParameters"; "Role"="Roles"; "CommonTemplate"="CommonTemplates"
+	"FilterCriterion"="FilterCriteria"; "CommonModule"="CommonModules"; "Bot"="Bots"; "CommonAttribute"="CommonAttributes"; "ExchangePlan"="ExchangePlans"
+	"XDTOPackage"="XDTOPackages"; "WebService"="WebServices"; "HTTPService"="HTTPServices"; "WSReference"="WSReferences"
+	"EventSubscription"="EventSubscriptions"; "ScheduledJob"="ScheduledJobs"; "SettingsStorage"="SettingsStorages"; "FunctionalOption"="FunctionalOptions"
+	"FunctionalOptionsParameter"="FunctionalOptionsParameters"; "DefinedType"="DefinedTypes"; "CommonCommand"="CommonCommands"; "CommandGroup"="CommandGroups"
+	"Constant"="Constants"; "CommonForm"="CommonForms"; "Catalog"="Catalogs"; "Document"="Documents"
+	"DocumentNumerator"="DocumentNumerators"; "Sequence"="Sequences"; "DocumentJournal"="DocumentJournals"; "Enum"="Enums"
+	"Report"="Reports"; "DataProcessor"="DataProcessors"; "InformationRegister"="InformationRegisters"; "AccumulationRegister"="AccumulationRegisters"
+	"ChartOfCharacteristicTypes"="ChartsOfCharacteristicTypes"; "ChartOfAccounts"="ChartsOfAccounts"; "AccountingRegister"="AccountingRegisters"
+	"ChartOfCalculationTypes"="ChartsOfCalculationTypes"; "CalculationRegister"="CalculationRegisters"
+	"BusinessProcess"="BusinessProcesses"; "Task"="Tasks"; "IntegrationService"="IntegrationServices"
+}
 
 # --- XML manipulation helpers (from subsystem-edit pattern) ---
 function Get-ChildIndent($container) {
@@ -262,6 +438,29 @@ function Do-AddChildObject([string]$batchVal) {
 			exit 1
 		}
 
+		# Check that the referenced object actually exists on disk.
+		# cf-edit add-childObject is a low-level operation for rare scenarios
+		# (e.g. restoring a rolled-back Configuration.xml when object files are intact).
+		# For creating NEW objects, meta-compile/role-compile/subsystem-compile already
+		# auto-register in Configuration.xml — calling cf-edit add-childObject there is
+		# unnecessary and error-prone.
+		$typeDir = $script:typeToDir[$typeName]
+		$objFile = Join-Path (Join-Path $script:configDir $typeDir) "$objNameVal.xml"
+		if (-not (Test-Path $objFile)) {
+			$hintSkill = switch ($typeName) {
+				"Subsystem" { "subsystem-compile" }
+				"Role"      { "role-compile" }
+				default     { "meta-compile" }
+			}
+			Write-Error @"
+Object file not found: $typeDir/$objNameVal.xml
+cf-edit add-childObject only references objects that already exist on disk.
+To create a new $typeName, use $hintSkill (auto-registers in Configuration.xml):
+  /$hintSkill with {"type":"$typeName","name":"$objNameVal"}
+"@
+			exit 1
+		}
+
 		# Dedup check
 		$existing = $false
 		foreach ($child in $script:childObjsEl.ChildNodes) {
@@ -419,6 +618,309 @@ function Do-RemoveDefaultRole([string]$batchVal) {
 	}
 }
 
+# --- Operation: set-panels ---
+# Canonical English aliases — preferred form, used in docs and error messages.
+$script:panelUuids = @{
+	"sections"  = "b553047f-c9aa-4157-978d-448ecad24248"
+	"open"      = "cbab57f2-a0f3-4f0a-89ea-4cb19570ab75"
+	"favorites" = "13322b22-3960-4d68-93a6-fe2dd7f28ca3"
+	"history"   = "c933ac92-92cd-459d-81cc-e0c8a83ced99"
+	"functions" = "b2735bd3-d822-4430-ba59-c9e869693b24"
+}
+# Russian synonyms — silently accepted (cf-info displays Russian names; users
+# may copy them straight into cf-edit value).
+$script:panelSynonyms = @{
+	"разделов"   = "sections"; "разделы"   = "sections"
+	"открытых"   = "open";     "открытые"  = "open"
+	"избранного" = "favorites";"избранное" = "favorites"
+	"истории"    = "history";  "история"   = "history"
+	"функций"    = "functions";"функции"   = "functions"
+}
+
+function Build-PanelEntryXml($entry, [string]$indent) {
+	# String alias -> <panel><uuid>...</uuid></panel>
+	if ($entry -is [string]) {
+		$key = $entry.ToLowerInvariant()
+		if ($script:panelSynonyms.ContainsKey($key)) { $key = $script:panelSynonyms[$key] }
+		if (-not $script:panelUuids.ContainsKey($key)) {
+			Write-Error "Unknown panel alias '$entry'. Allowed: $(($script:panelUuids.Keys | Sort-Object) -join ', ')"
+			exit 1
+		}
+		$u = $script:panelUuids[$key]
+		$instId = [guid]::NewGuid().ToString()
+		return "$indent<panel id=`"$instId`">`r`n$indent`t<uuid>$u</uuid>`r`n$indent</panel>"
+	}
+	# Object {group: [...]} -> <group id=""><group><panel/></group>...</group> (stack)
+	if ($entry.PSObject.Properties['group']) {
+		$children = $entry.group
+		if (-not $children -or $children.Count -eq 0) {
+			Write-Error "group must contain at least one entry"
+			exit 1
+		}
+		$gid = [guid]::NewGuid().ToString()
+		$inner = ""
+		foreach ($child in $children) {
+			$childXml = Build-PanelEntryXml $child "$indent`t`t"
+			$inner += "$indent`t<group>`r`n$childXml`r`n$indent`t</group>`r`n"
+		}
+		return "$indent<group id=`"$gid`">`r`n$inner$indent</group>"
+	}
+	Write-Error "Panel entry must be a string alias or object {group:[...]}, got: $($entry | ConvertTo-Json -Compress)"
+	exit 1
+}
+
+function Do-SetPanels($valArg) {
+	# Accept string (JSON), PSCustomObject, or hashtable
+	$layout = $valArg
+	if ($layout -is [string]) {
+		try { $layout = $layout | ConvertFrom-Json } catch {
+			Write-Error "set-panels value must be valid JSON object, got: $valArg"
+			exit 1
+		}
+	}
+	if (-not $layout) {
+		Write-Error "set-panels value is empty"
+		exit 1
+	}
+
+	$sides = @("top","left","right","bottom")
+	$bodyParts = @()
+	foreach ($side in $sides) {
+		$entries = $null
+		if ($layout.PSObject.Properties[$side]) { $entries = $layout.$side }
+		if ($null -eq $entries) { continue }
+		# Normalize to array
+		if ($entries -isnot [System.Array] -and $entries -isnot [System.Collections.IList]) {
+			$entries = @($entries)
+		}
+		foreach ($entry in $entries) {
+			$entryXml = Build-PanelEntryXml $entry "`t`t"
+			$bodyParts += "`t<$side>`r`n$entryXml`r`n`t</$side>"
+		}
+	}
+
+	# Reject unknown side keys (catches typos like "Top" vs "top")
+	foreach ($prop in $layout.PSObject.Properties) {
+		if ($sides -notcontains $prop.Name) {
+			Write-Error "Unknown side '$($prop.Name)'. Allowed: $($sides -join ', ')"
+			exit 1
+		}
+	}
+
+	$body = $bodyParts -join "`r`n"
+	$declarations = @"
+	<panelDef id="b553047f-c9aa-4157-978d-448ecad24248"/>
+	<panelDef id="13322b22-3960-4d68-93a6-fe2dd7f28ca3"/>
+	<panelDef id="c933ac92-92cd-459d-81cc-e0c8a83ced99"/>
+	<panelDef id="cbab57f2-a0f3-4f0a-89ea-4cb19570ab75"/>
+	<panelDef id="b2735bd3-d822-4430-ba59-c9e869693b24"/>
+"@
+	$bodyBlock = if ($body) { "$body`r`n" } else { "" }
+	$caiXml = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<ClientApplicationInterface xmlns="http://v8.1c.ru/8.2/managed-application/core" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="InterfaceLayouter">
+$bodyBlock$declarations
+</ClientApplicationInterface>
+"@
+
+	$extDir = Join-Path $script:configDir "Ext"
+	if (-not (Test-Path $extDir)) { New-Item -ItemType Directory -Path $extDir -Force | Out-Null }
+	$caiPath = Join-Path $extDir "ClientApplicationInterface.xml"
+	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($caiPath, $caiXml, $utf8Bom)
+	$script:modifyCount++
+	Info "Wrote panel layout: $caiPath"
+}
+
+# --- Operation: set-home-page ---
+# Russian → English type aliases for form-ref normalization
+$script:ruTypeMap = @{
+	"справочник"               = "Catalog"
+	"документ"                 = "Document"
+	"перечисление"             = "Enum"
+	"отчёт"                    = "Report"
+	"отчет"                    = "Report"
+	"обработка"                = "DataProcessor"
+	"общаяформа"               = "CommonForm"
+	"журналдокументов"         = "DocumentJournal"
+	"планвидовхарактеристик"   = "ChartOfCharacteristicTypes"
+	"плансчетов"               = "ChartOfAccounts"
+	"планвидоврасчета"         = "ChartOfCalculationTypes"
+	"планвидоврасчёта"         = "ChartOfCalculationTypes"
+	"регистрсведений"          = "InformationRegister"
+	"регистрнакопления"        = "AccumulationRegister"
+	"регистрбухгалтерии"       = "AccountingRegister"
+	"регистррасчета"           = "CalculationRegister"
+	"регистррасчёта"           = "CalculationRegister"
+	"бизнеспроцесс"            = "BusinessProcess"
+	"задача"                   = "Task"
+	"бот"                      = "Bot"
+	"планобмена"               = "ExchangePlan"
+	"хранилищенастроек"        = "SettingsStorage"
+}
+# plural folder → singular type
+$script:dirToType = @{}
+foreach ($k in $script:typeToDir.Keys) { $script:dirToType[$script:typeToDir[$k].ToLowerInvariant()] = $k }
+
+function Normalize-FormRef([string]$s) {
+	$s = $s.Trim()
+	if (-not $s) { return $s }
+	# UUID — leave as-is
+	if ($s -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') { return $s }
+	# Path form?
+	if ($s.Contains("/") -or $s.Contains("\")) {
+		$parts = $s.Replace("\","/").Split("/") | Where-Object { $_ -ne "" -and $_.ToLowerInvariant() -ne "ext" }
+		# Strip trailing Form.xml
+		if ($parts.Count -gt 0 -and $parts[-1].ToLowerInvariant() -eq "form.xml") {
+			$parts = @($parts[0..($parts.Count - 2)])
+		}
+		if ($parts.Count -ge 2) {
+			$typeDir = $parts[0]
+			$typeSingular = $script:dirToType[$typeDir.ToLowerInvariant()]
+			if ($typeSingular) {
+				if ($typeSingular -eq "CommonForm" -and $parts.Count -ge 2) {
+					return "CommonForm.$($parts[1])"
+				}
+				if ($parts.Count -ge 4 -and $parts[2].ToLowerInvariant() -eq "forms") {
+					return "$typeSingular.$($parts[1]).Form.$($parts[3])"
+				}
+			}
+		}
+		return $s
+	}
+	# Dot form — translate Russian head and 'Форма' segment, auto-insert 'Form'
+	$segs = $s.Split(".")
+	if ($segs.Count -ge 1) {
+		$head = $segs[0].ToLowerInvariant()
+		if ($script:ruTypeMap.ContainsKey($head)) { $segs[0] = $script:ruTypeMap[$head] }
+		for ($i = 1; $i -lt $segs.Count; $i++) {
+			if ($segs[$i] -eq "Форма") { $segs[$i] = "Form" }
+		}
+		# Auto-insert Form: for object types with 3 segments (Type.Object.FormName)
+		if ($segs.Count -eq 3 -and $script:typeOrder -contains $segs[0] -and $segs[0] -ne "CommonForm") {
+			$segs = @($segs[0], $segs[1], "Form", $segs[2])
+		}
+	}
+	return ($segs -join ".")
+}
+
+# Accept short DSL or canonical XML keys (silently)
+function Get-FieldValue($obj, [string[]]$keys) {
+	foreach ($k in $keys) {
+		if ($obj.PSObject.Properties[$k]) { return $obj.PSObject.Properties[$k].Value }
+	}
+	return $null
+}
+
+function Build-HomePageItemXml($entry, [string]$indent) {
+	# Resolve fields
+	if ($entry -is [string]) {
+		$formRef = Normalize-FormRef $entry
+		$height = 10
+		$common = $true
+		$roles = $null
+	} else {
+		$formRaw = Get-FieldValue $entry @("form","Form")
+		if (-not $formRaw) { Write-Error "Home page item: 'form' is required, got: $($entry | ConvertTo-Json -Compress)"; exit 1 }
+		$formRef = Normalize-FormRef ([string]$formRaw)
+		$h = Get-FieldValue $entry @("height","Height")
+		$height = if ($null -ne $h) { [int]$h } else { 10 }
+		$vis = Get-FieldValue $entry @("visibility","Visibility")
+		$common = if ($null -ne $vis) { [bool]$vis } else { $true }
+		$roles = Get-FieldValue $entry @("roles")
+	}
+
+	$visParts = @()
+	$visParts += "$indent`t`t<xr:Common>$($common.ToString().ToLower())</xr:Common>"
+	if ($roles) {
+		# roles is PSCustomObject {Role.X: bool, ...}
+		foreach ($prop in $roles.PSObject.Properties) {
+			$rname = $prop.Name
+			if (-not $rname.StartsWith("Role.") -and -not ($rname -match '^[0-9a-fA-F]{8}-')) { $rname = "Role.$rname" }
+			$rval = ([bool]$prop.Value).ToString().ToLower()
+			$escName = [System.Security.SecurityElement]::Escape($rname)
+			$visParts += "$indent`t`t<xr:Value name=`"$escName`">$rval</xr:Value>"
+		}
+	}
+	$visBlock = $visParts -join "`r`n"
+	$escForm = [System.Security.SecurityElement]::Escape($formRef)
+	return @"
+$indent<Item>
+$indent`t<Form>$escForm</Form>
+$indent`t<Height>$height</Height>
+$indent`t<Visibility>
+$visBlock
+$indent`t</Visibility>
+$indent</Item>
+"@
+}
+
+function Do-SetHomePage($valArg) {
+	$layout = $valArg
+	if ($layout -is [string]) {
+		try { $layout = $layout | ConvertFrom-Json } catch {
+			Write-Error "set-home-page value must be valid JSON object"; exit 1
+		}
+	}
+	if (-not $layout) { Write-Error "set-home-page value is empty"; exit 1 }
+
+	$allowedTemplates = @("OneColumn","TwoColumnsEqualWidth","TwoColumnsVariableWidth")
+	$tmpl = Get-FieldValue $layout @("template","WorkingAreaTemplate")
+	if (-not $tmpl) { $tmpl = "TwoColumnsEqualWidth" }
+	if ($allowedTemplates -notcontains $tmpl) {
+		Write-Error "Unknown template '$tmpl'. Allowed: $($allowedTemplates -join ', ')"; exit 1
+	}
+
+	$leftItems = Get-FieldValue $layout @("left","LeftColumn")
+	$rightItems = Get-FieldValue $layout @("right","RightColumn")
+
+	# Reject unknown keys
+	$known = @("template","WorkingAreaTemplate","left","LeftColumn","right","RightColumn")
+	foreach ($prop in $layout.PSObject.Properties) {
+		if ($known -notcontains $prop.Name) {
+			Write-Error "Unknown key '$($prop.Name)'. Allowed: template, left, right"; exit 1
+		}
+	}
+
+	if ($tmpl -eq "OneColumn" -and $rightItems) {
+		Write-Error "Template 'OneColumn' cannot have items in 'right' column"; exit 1
+	}
+
+	function Build-Column([string]$tag, $items) {
+		if (-not $items) { return "`t<$tag/>" }
+		if ($items -isnot [System.Array] -and $items -isnot [System.Collections.IList]) {
+			$items = @($items)
+		}
+		if ($items.Count -eq 0) { return "`t<$tag/>" }
+		$itemBlocks = @()
+		foreach ($it in $items) {
+			$itemBlocks += Build-HomePageItemXml $it "`t`t"
+		}
+		$body = $itemBlocks -join "`r`n"
+		return "`t<$tag>`r`n$body`r`n`t</$tag>"
+	}
+
+	$leftXml = Build-Column "LeftColumn" $leftItems
+	$rightXml = Build-Column "RightColumn" $rightItems
+
+	$hpXml = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<HomePageWorkArea xmlns="http://v8.1c.ru/8.3/xcf/extrnprops" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="$($script:formatVersion)">
+	<WorkingAreaTemplate>$tmpl</WorkingAreaTemplate>
+$leftXml
+$rightXml
+</HomePageWorkArea>
+"@
+
+	$extDir = Join-Path $script:configDir "Ext"
+	if (-not (Test-Path $extDir)) { New-Item -ItemType Directory -Path $extDir -Force | Out-Null }
+	$hpPath = Join-Path $extDir "HomePageWorkArea.xml"
+	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+	[System.IO.File]::WriteAllText($hpPath, $hpXml, $utf8Bom)
+	$script:modifyCount++
+	Info "Wrote home page layout: $hpPath"
+}
+
 # --- Operation: set-defaultRoles ---
 function Do-SetDefaultRoles([string]$batchVal) {
 	$items = Parse-BatchValue $batchVal
@@ -483,48 +985,52 @@ if ($DefinitionFile) {
 
 foreach ($op in $operations) {
 	$opName = if ($op.operation) { "$($op.operation)" } else { "$Operation" }
-	$opValue = if ($op.value) { "$($op.value)" } else { "$Value" }
+	# Pass value through as-is (object or string); set-panels needs object form
+	$opValue = if ($null -ne $op.value) { $op.value } else { $Value }
+	$opValueStr = if ($opValue -is [string]) { $opValue } else { "$opValue" }
 
 	switch ($opName) {
-		"modify-property"    { Do-ModifyProperty $opValue }
-		"add-childObject"    { Do-AddChildObject $opValue }
-		"remove-childObject" { Do-RemoveChildObject $opValue }
-		"add-defaultRole"    { Do-AddDefaultRole $opValue }
-		"remove-defaultRole" { Do-RemoveDefaultRole $opValue }
-		"set-defaultRoles"   { Do-SetDefaultRoles $opValue }
+		"modify-property"    { Do-ModifyProperty $opValueStr }
+		"add-childObject"    { Do-AddChildObject $opValueStr }
+		"remove-childObject" { Do-RemoveChildObject $opValueStr }
+		"add-defaultRole"    { Do-AddDefaultRole $opValueStr }
+		"remove-defaultRole" { Do-RemoveDefaultRole $opValueStr }
+		"set-defaultRoles"   { Do-SetDefaultRoles $opValueStr }
+		"set-panels"         { Do-SetPanels $opValue }
+		"set-home-page"      { Do-SetHomePage $opValue }
 		default              { Write-Error "Unknown operation: $opName"; exit 1 }
 	}
 }
 
-# --- Save (DryRun gate: script-contract, mutations only under explicit -Apply) ---
-if (-not $Apply) {
-	Write-Host ""
-	Write-Host "DRY RUN: would save changes to $resolvedPath" -ForegroundColor Yellow
-} else {
-	$settings = New-Object System.Xml.XmlWriterSettings
-	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
-	$settings.Indent = $false
-	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+# --- Save ---
+$settings = New-Object System.Xml.XmlWriterSettings
+$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
+$settings.Indent = $false
+$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
 
-	$memStream = New-Object System.IO.MemoryStream
-	$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
-	$script:xmlDoc.Save($writer)
-	$writer.Flush(); $writer.Close()
+$memStream = New-Object System.IO.MemoryStream
+$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
+$script:xmlDoc.Save($writer)
+$writer.Flush(); $writer.Close()
 
-	$bytes = $memStream.ToArray()
-	$memStream.Close()
-	$text = [System.Text.Encoding]::UTF8.GetString($bytes)
-	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
-	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+$bytes = $memStream.ToArray()
+$memStream.Close()
+$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 
-	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-	[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
-	Info "Saved: $resolvedPath"
-}
+$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+$text = [regex]::Replace($text, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<\?.*?\?>|(?<=\S) />', { param($m) if ($m.Value -eq ' />') { '/>' } else { $m.Value } })
+$targetEol = if ([System.IO.File]::ReadAllText($resolvedPath) -match "`r`n") { "`r`n" } else { "`n" }
+$text = ($text -replace "`r`n", "`n") -replace "`n", $targetEol
+[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
+Info "Saved: $resolvedPath"
 
 # --- Auto-validate ---
+# Local: the validator sits in this scripts/ folder (upstream looked two levels
+# up and silently skipped); a missing validator fails, its exit code propagates.
 $script:validateExit = 0
-if ($Apply -and -not $NoValidate) {
+if (-not $NoValidate) {
 	$validateScript = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "cf-validate.ps1"))
 	if (Test-Path $validateScript) {
 		Write-Host ""
@@ -535,8 +1041,6 @@ if ($Apply -and -not $NoValidate) {
 			$script:validateExit = 1
 		}
 	} else {
-		# Silent skip here once hid a wrong path for months: say it, and fail.
-		Write-Host ""
 		Write-Host "[FAIL] cf-validate not found at: $validateScript - the result was written but NOT validated" -ForegroundColor Red
 		$script:validateExit = 1
 	}
@@ -549,7 +1053,4 @@ Write-Host "  Configuration: $($script:objName)"
 Write-Host "  Added:         $($script:addCount)"
 Write-Host "  Removed:       $($script:removeCount)"
 Write-Host "  Modified:      $($script:modifyCount)"
-if (-not $Apply) {
-	Write-Host "No changes made. Re-run with -Apply to save changes."
-}
 exit $script:validateExit

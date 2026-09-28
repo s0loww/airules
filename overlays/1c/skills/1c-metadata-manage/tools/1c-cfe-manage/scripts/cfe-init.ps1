@@ -1,19 +1,5 @@
-﻿# cfe-init v1.0 — Create 1C configuration extension scaffold (CFE)
+﻿# cfe-init v1.2 — Create 1C configuration extension scaffold (CFE)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
-<#
-.SYNOPSIS
-	Создание каркаса расширения конфигурации 1С (CFE)
-
-.PARAMETER Apply
-	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
-	показывает список файлов, которые были бы созданы, и завершается без изменений.
-
-.EXAMPLE
-	.\cfe-init.ps1 -Name "МоёРасширение" -OutputDir src
-
-.EXAMPLE
-	.\cfe-init.ps1 -Name "МоёРасширение" -OutputDir src -Apply
-#>
 param(
 	[Parameter(Mandatory)]
 	[string]$Name,
@@ -25,9 +11,17 @@ param(
 	[string]$Version,
 	[string]$Vendor,
 	[string]$CompatibilityMode = "Version8_3_24",
-	[switch]$NoRole,
-	[switch]$Apply
+	[string]$ConfigPath,
+	[switch]$NoRole
 )
+
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: cfe-init writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool cfe-init <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -47,6 +41,75 @@ $cfgFile = Join-Path $OutputDir "Configuration.xml"
 if (Test-Path $cfgFile) {
 	Write-Error "Configuration.xml already exists: $cfgFile"
 	exit 1
+}
+
+# MDClasses format version — inherited from the base config so the extension stays uniform
+# with it (a 2.13 base must yield a 2.13 extension, else platform import rejects the mismatch).
+$formatVersion = "2.17"
+
+# --- Resolve ConfigPath ---
+$baseLangUuid = "00000000-0000-0000-0000-000000000000"
+if ($ConfigPath) {
+	if (-not [System.IO.Path]::IsPathRooted($ConfigPath)) {
+		$ConfigPath = Join-Path (Get-Location).Path $ConfigPath
+	}
+	if (Test-Path $ConfigPath -PathType Container) {
+		$candidate = Join-Path $ConfigPath "Configuration.xml"
+		if (Test-Path $candidate) { $ConfigPath = $candidate }
+		else { Write-Error "No Configuration.xml in config directory: $ConfigPath"; exit 1 }
+	}
+	if (-not (Test-Path $ConfigPath)) { Write-Error "Config file not found: $ConfigPath"; exit 1 }
+	$cfgDir = Split-Path (Resolve-Path $ConfigPath).Path -Parent
+
+	# 3a. Read Language UUID from base config
+	$baseLangFile = Join-Path (Join-Path $cfgDir "Languages") "Русский.xml"
+	if (Test-Path $baseLangFile) {
+		$baseLangDoc = New-Object System.Xml.XmlDocument
+		$baseLangDoc.PreserveWhitespace = $false
+		$baseLangDoc.Load($baseLangFile)
+		$langEl = $null
+		foreach ($c in $baseLangDoc.DocumentElement.ChildNodes) {
+			if ($c.NodeType -eq 'Element' -and $c.LocalName -eq 'Language') { $langEl = $c; break }
+		}
+		if ($langEl) {
+			$baseLangUuid = $langEl.GetAttribute("uuid")
+			Write-Host "[INFO] Base config Language UUID: $baseLangUuid"
+		} else {
+			Write-Host "[WARN] No <Language> element in $baseLangFile"
+		}
+	} else {
+		Write-Host "[WARN] Base config language not found: $baseLangFile"
+	}
+
+	# 3b. Read CompatibilityMode and InterfaceCompatibilityMode from base config
+	$baseCfgDoc = New-Object System.Xml.XmlDocument
+	$baseCfgDoc.PreserveWhitespace = $false
+	$baseCfgDoc.Load((Resolve-Path $ConfigPath).Path)
+	$baseCfgNs = New-Object System.Xml.XmlNamespaceManager($baseCfgDoc.NameTable)
+	$baseCfgNs.AddNamespace("md", "http://v8.1c.ru/8.3/MDClasses")
+	$fmtVer = $baseCfgDoc.DocumentElement.GetAttribute("version")
+	if ($fmtVer) {
+		$formatVersion = $fmtVer
+		Write-Host "[INFO] Base config format version: $formatVersion"
+	}
+	$compatNode = $baseCfgDoc.SelectSingleNode("//md:Configuration/md:Properties/md:CompatibilityMode", $baseCfgNs)
+	if ($compatNode -and $compatNode.InnerText) {
+		$CompatibilityMode = $compatNode.InnerText.Trim()
+		Write-Host "[INFO] Base config CompatibilityMode: $CompatibilityMode"
+	} else {
+		Write-Host "[WARN] CompatibilityMode not found in base config, using default: $CompatibilityMode"
+	}
+	$ifcNode = $baseCfgDoc.SelectSingleNode("//md:Configuration/md:Properties/md:InterfaceCompatibilityMode", $baseCfgNs)
+	if ($ifcNode -and $ifcNode.InnerText) {
+		$InterfaceCompatibilityMode = $ifcNode.InnerText.Trim()
+		Write-Host "[INFO] Base config InterfaceCompatibilityMode: $InterfaceCompatibilityMode"
+	} else {
+		$InterfaceCompatibilityMode = "TaxiEnableVersion8_2"
+		Write-Host "[WARN] InterfaceCompatibilityMode not found in base config, using default: $InterfaceCompatibilityMode"
+	}
+} else {
+	$InterfaceCompatibilityMode = "TaxiEnableVersion8_2"
+	Write-Host "[WARN] Language ExtendedConfigurationObject set to zeros. Use -ConfigPath to auto-resolve from base config, or fix manually before loading."
 }
 
 # --- Generate UUIDs ---
@@ -92,7 +155,7 @@ $childObjectsXml += "`r`n`t`t"
 # --- Configuration.xml ---
 $cfgXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="$formatVersion">
 	<Configuration uuid="$uuidCfg">
 		<InternalInfo>
 			<xr:ContainedObject>
@@ -147,7 +210,7 @@ $cfgXml = @"
 			<Copyright/>
 			<VendorInformationAddress/>
 			<ConfigurationInformationAddress/>
-			<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
+			<InterfaceCompatibilityMode>$InterfaceCompatibilityMode</InterfaceCompatibilityMode>
 		</Properties>
 		<ChildObjects>$childObjectsXml</ChildObjects>
 	</Configuration>
@@ -157,14 +220,14 @@ $cfgXml = @"
 # --- Languages/Русский.xml (adopted format) ---
 $langXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="$formatVersion">
 	<Language uuid="$uuidLang">
 		<InternalInfo/>
 		<Properties>
 			<ObjectBelonging>Adopted</ObjectBelonging>
 			<Name>Русский</Name>
 			<Comment/>
-			<ExtendedConfigurationObject>00000000-0000-0000-0000-000000000000</ExtendedConfigurationObject>
+			<ExtendedConfigurationObject>$baseLangUuid</ExtendedConfigurationObject>
 			<LanguageCode>ru</LanguageCode>
 		</Properties>
 	</Language>
@@ -174,7 +237,7 @@ $langXml = @"
 # --- Role XML ---
 $roleXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="$formatVersion">
 	<Role uuid="$uuidRole">
 		<Properties>
 			<Name>$([System.Security.SecurityElement]::Escape($roleName))</Name>
@@ -184,18 +247,6 @@ $roleXml = @"
 	</Role>
 </MetaDataObject>
 "@
-
-# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
-if (-not $Apply) {
-	Write-Host "DRY RUN: would create extension '$Name' ($Purpose):" -ForegroundColor Yellow
-	Write-Host "  $cfgFile"
-	Write-Host "  $(Join-Path (Join-Path $OutputDir 'Languages') 'Русский.xml')"
-	if (-not $NoRole) {
-		Write-Host "  $(Join-Path (Join-Path $OutputDir 'Roles') "$roleName.xml")"
-	}
-	Write-Host "No changes made. Re-run with -Apply to create the files."
-	exit 0
-}
 
 # --- Create directories ---
 if (-not (Test-Path $OutputDir)) {
@@ -228,6 +279,7 @@ Write-Host "[OK] Создано расширение: $Name"
 Write-Host "     Каталог:            $OutputDir"
 Write-Host "     Назначение:         $Purpose"
 Write-Host "     Префикс:           $NamePrefix"
+Write-Host "     Совместимость:     $CompatibilityMode"
 Write-Host "     Configuration.xml:  $cfgFile"
 Write-Host "     Languages:          $langFile"
 if (-not $NoRole) {

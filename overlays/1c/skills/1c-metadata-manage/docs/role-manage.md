@@ -1,37 +1,33 @@
-# 1C Role Manage — Create, Info, Validate
+# 1C Role Manage — Compile, Info, Validate
+
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
 
 Create, analyze, and validate 1C roles (metadata + Rights.xml) for access rights management.
 
 ---
-## 1. Create Role — role-compile (preferred)
+## 1. Compile — Create Role
 
-`role-compile.ps1` compiles a JSON DSL description into both role files
-(descriptor + Rights.xml). The DSL format — presets `@view`/`@edit`, explicit
-rights, overrides, RLS, restriction templates, Russian synonyms — is
-specified in `tools/1c-role-compile/dsl-reference.md`.
+Creates role files (metadata + Rights.xml) from a JSON description.
 
-```powershell
-# Dry run (default): shows the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-role-compile/scripts/role-compile.ps1 -DslPath role.json -RolesDir "<workspace-dir>\cfsrc\Roles"
+> **Preferred path** — invoke the PowerShell script `tools/1c-role-compile/scripts/role-compile.ps1` (added from upstream `cc-1c-skills` `w-2026-05-17`). The full JSON DSL for the script lives in `tools/1c-role-compile/dsl-reference.md` (legacy Russian — to be translated separately).
+>
+> The XML templates below remain for manual fallback when the script is not applicable (e.g. one-off rights-only edits).
 
-# Apply: generates <RolesDir>/<Name>.xml + <RolesDir>/<Name>/Ext/Rights.xml
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-role-compile/scripts/role-compile.ps1 -DslPath role.json -RolesDir "<workspace-dir>\cfsrc\Roles" -Apply
+## Usage
+
+```
+1c-role-compile <RolePath> <OutputDir>
 ```
 
-Contract notes: dry run by default (`-Apply` required for writes); an existing
-descriptor's **UUID is preserved** on recompile; registration in
-`Configuration.xml` is *not* automated — the script prints a reminder. Always
-follow up with `role-validate.ps1` (section 3).
+- **RolePath** — path to the JSON role definition.
+- **OutputDir** — either the configuration source root (the script creates `Roles/` itself) or a path that already ends with `Roles`.
 
-### Manual XML authoring (fallback)
+**Command:**
+```powershell
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool role-compile -RolePath "<role.json>" -OutputDir "<src-root-or-Roles>"
+```
 
-When the DSL does not cover a case, write the XML by hand using the templates
-below and verify with `role-validate.ps1` and `role-info.ps1` (sections 2–3).
-
-## Inputs
-
-- **DslPath** — JSON role description (see dsl-reference.md)
-- **RolesDir** — `Roles/` directory in configuration sources
+The script accepts the DSL keys `objects` (canonical) or its synonym `rights`. UUIDs and registration in `Configuration.xml` are handled automatically.
 
 ## File Structure and Registration
 
@@ -299,8 +295,6 @@ Use `-Offset N` and `-Limit N` for paginated viewing.
 
 Checks correctness of a role's `Rights.xml`: XML format, namespace, global flags, object types, right names, RLS restrictions, templates. Optionally checks role metadata (UUID, name, synonym).
 
-Worth running as a pre-flight before loading an extension: rights blocks on types that never carry rights are redundant, and have been reported to hang `DESIGNER /LoadConfigFromFiles` with an empty log on some platform builds — a failure with no diagnostics of its own.
-
 ## Usage
 
 ```powershell
@@ -325,7 +319,6 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-role-validate
 3. Three global flags: `setForNewObjects`, `setForAttributesByDefault`, `independentRightsOfChildObjects`
 4. For each `<object>`:
    - `<name>` is not empty
-   - The type is one that carries rights at all — `Enum`, `FunctionalOption`, `DefinedType`, `CommonModule`, `CommonPicture`, `CommonTemplate` never do (see "Types WITHOUT Rights in Roles" above), so such a block is reported and its rights are not counted
    - Object type is recognized (Catalog, Document, InformationRegister, etc.)
    - Each `<right>` has `<name>` and `<value>` (`true`/`false`)
    - Right name is valid for the object type (with suggestion on typo)
@@ -363,11 +356,10 @@ Exit code: `0` — no errors, `1` — errors found.
 ... -RightsPath Roles/МояРоль/Ext/Rights.xml -MetadataPath Roles/МояРоль.xml
 ```
 
-### Verification After Role Creation
-
-After creating or editing role XML manually (section 1):
+### Verification After role-compile
 
 ```
+1c-role-compile role.json Roles/
 1c-role-validate -RightsPath Roles/МояРоль/Ext/Rights.xml -MetadataPath Roles/МояРоль.xml
 ```
 
@@ -375,24 +367,13 @@ After creating or editing role XML manually (section 1):
 ## Typical Workflow
 
 ```
-1c-role-compile -DslPath role.json -RolesDir <Roles/>        — dry run: check the plan
-1c-role-compile -DslPath role.json -RolesDir <Roles/> -Apply — generate descriptor + Rights.xml
-  (DSL spec: tools/1c-role-compile/dsl-reference.md; manual XML — fallback, templates in section 1)
-1c-role-validate -RightsPath <path> -MetadataPath <path>     — validate correctness
-1c-role-info <RightsPath>                                    — analyze existing role before modification
+1c-role-compile <RoleName> <RolesDir>                    — create role from description
+1c-role-validate -RightsPath <path> -MetadataPath <path>  — validate correctness
+1c-role-info <RightsPath>                                — analyze existing role before modification
 ```
 
+MCP evidence set (`rules/tooling-playbooks.md`): `get_xsd_schema` / `verify_xml` with `object_type="Роль"`.
+
 ---
-## MCP Integration
 
-- **metadatasearch** — Verify metadata object names when defining rights; verify objects referenced in role rights exist in the configuration.
-- **get_metadata_details** — Get full object structure to understand which attributes/tabular parts need specific access rights.
-- **get_xsd_schema** — Get XSD schema for role XML (`object_type="Роль"`). Use before generating role definitions.
-- **verify_xml** — Validate generated role XML against XSD.
-- **ssl_search** — Find SSL role patterns.
-
-## SDD Integration
-
-When creating or modifying roles as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Add spec deltas describing role purpose, access scope, and RLS rules in `openspec/changes/`.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

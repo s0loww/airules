@@ -1,19 +1,5 @@
-﻿# cf-init v1.0 — Create empty 1C configuration scaffold
+﻿# cf-init v1.3 — Create empty 1C configuration scaffold
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
-<#
-.SYNOPSIS
-	Создание каркаса пустой конфигурации 1С
-
-.PARAMETER Apply
-	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
-	показывает список файлов, которые были бы созданы, и завершается без изменений.
-
-.EXAMPLE
-	.\cf-init.ps1 -Name "МояКонфигурация" -OutputDir src
-
-.EXAMPLE
-	.\cf-init.ps1 -Name "МояКонфигурация" -OutputDir src -Apply
-#>
 param(
 	[Parameter(Mandatory)]
 	[string]$Name,
@@ -22,8 +8,20 @@ param(
 	[string]$Version,
 	[string]$Vendor,
 	[string]$CompatibilityMode = "Version8_3_24",
-	[switch]$Apply
+	# Версия формата выгрузки (MDClasses). Её задаёт ПЛАТФОРМА, которой выгружают, и от режима
+	# совместимости она не зависит: 8.3.24 пишет 2.17, 8.3.27 — 2.20. Дефолт консервативный —
+	# 2.17 читается всеми поддерживаемыми платформами.
+	[ValidateSet("2.17", "2.20", "2.21")]
+	[string]$FormatVersion = "2.17"
 )
+
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: cf-init writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool cf-init <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -88,7 +86,7 @@ $versionXml = if ($Version) { [System.Security.SecurityElement]::Escape($Version
 # --- Configuration.xml ---
 $cfgXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="$FormatVersion">
 	<Configuration uuid="$uuidCfg">
 		<InternalInfo>
 			<xr:ContainedObject>
@@ -175,7 +173,7 @@ $cfgXml = @"
 			<ObjectAutonumerationMode>NotAutoFree</ObjectAutonumerationMode>
 			<ModalityUseMode>DontUse</ModalityUseMode>
 			<SynchronousPlatformExtensionAndAddInCallUseMode>DontUse</SynchronousPlatformExtensionAndAddInCallUseMode>
-			<InterfaceCompatibilityMode>Taxi</InterfaceCompatibilityMode>
+			<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
 			<DatabaseTablespacesUseMode>DontUse</DatabaseTablespacesUseMode>
 			<CompatibilityMode>$CompatibilityMode</CompatibilityMode>
 			<DefaultConstantsForm/>
@@ -190,7 +188,7 @@ $cfgXml = @"
 # --- Languages/Русский.xml ---
 $langXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="$FormatVersion">
 	<Language uuid="$uuidLang">
 		<Properties>
 			<Name>Русский</Name>
@@ -207,14 +205,32 @@ $langXml = @"
 </MetaDataObject>
 "@
 
-# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
-if (-not $Apply) {
-	Write-Host "DRY RUN: would create configuration '$Name':" -ForegroundColor Yellow
-	Write-Host "  $cfgFile"
-	Write-Host "  $(Join-Path (Join-Path $OutputDir 'Languages') 'Русский.xml')"
-	Write-Host "No changes made. Re-run with -Apply to create the files."
-	exit 0
-}
+# --- Ext/ClientApplicationInterface.xml (default ERP-style panel layout) ---
+# Open panel on top, Sections panel on left; Functions/Favorites/History declared
+# via panelDef but not placed by default. Without this file the web client renders
+# section icons without labels (icon-only mode).
+$openPanelInst = [guid]::NewGuid().ToString()
+$sectionsPanelInst = [guid]::NewGuid().ToString()
+$caiXml = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<ClientApplicationInterface xmlns="http://v8.1c.ru/8.2/managed-application/core" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="InterfaceLayouter">
+	<top>
+		<panel id="$openPanelInst">
+			<uuid>cbab57f2-a0f3-4f0a-89ea-4cb19570ab75</uuid>
+		</panel>
+	</top>
+	<left>
+		<panel id="$sectionsPanelInst">
+			<uuid>b553047f-c9aa-4157-978d-448ecad24248</uuid>
+		</panel>
+	</left>
+	<panelDef id="b553047f-c9aa-4157-978d-448ecad24248"/>
+	<panelDef id="13322b22-3960-4d68-93a6-fe2dd7f28ca3"/>
+	<panelDef id="c933ac92-92cd-459d-81cc-e0c8a83ced99"/>
+	<panelDef id="cbab57f2-a0f3-4f0a-89ea-4cb19570ab75"/>
+	<panelDef id="b2735bd3-d822-4430-ba59-c9e869693b24"/>
+</ClientApplicationInterface>
+"@
 
 # --- Create directories ---
 if (-not (Test-Path $OutputDir)) {
@@ -224,6 +240,10 @@ $langDir = Join-Path $OutputDir "Languages"
 if (-not (Test-Path $langDir)) {
 	New-Item -ItemType Directory -Path $langDir -Force | Out-Null
 }
+$extDir = Join-Path $OutputDir "Ext"
+if (-not (Test-Path $extDir)) {
+	New-Item -ItemType Directory -Path $extDir -Force | Out-Null
+}
 
 # --- Write files with UTF-8 BOM ---
 $enc = New-Object System.Text.UTF8Encoding($true)
@@ -231,9 +251,12 @@ $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($cfgFile, $cfgXml, $enc)
 $langFile = Join-Path $langDir "Русский.xml"
 [System.IO.File]::WriteAllText($langFile, $langXml, $enc)
+$caiFile = Join-Path $extDir "ClientApplicationInterface.xml"
+[System.IO.File]::WriteAllText($caiFile, $caiXml, $enc)
 
 # --- Output ---
 Write-Host "[OK] Создана конфигурация: $Name"
 Write-Host "     Каталог:            $OutputDir"
 Write-Host "     Configuration.xml:  $cfgFile"
 Write-Host "     Languages:          $langFile"
+Write-Host "     Ext/CAI:            $caiFile"

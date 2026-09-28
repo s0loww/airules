@@ -1,7 +1,7 @@
-﻿# meta-info v1.0 — Compact summary of 1C metadata object
+﻿# meta-info v1.4 — Compact summary of 1C metadata object
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
-	[Parameter(Mandatory=$true)][string]$ObjectPath,
+	[Parameter(Mandatory=$true)][Alias('Path')][string]$ObjectPath,
 	[ValidateSet("overview","brief","full")]
 	[string]$Mode = "overview",
 	[string]$Name,
@@ -22,12 +22,15 @@ if (-not [System.IO.Path]::IsPathRooted($ObjectPath)) {
 	$ObjectPath = Join-Path (Get-Location).Path $ObjectPath
 }
 
-# Directory -> find XML inside
+# Directory -> find XML inside or as sibling
 if (Test-Path $ObjectPath -PathType Container) {
 	$dirName = Split-Path $ObjectPath -Leaf
 	$candidate = Join-Path $ObjectPath "$dirName.xml"
+	$sibling = Join-Path (Split-Path $ObjectPath) "$dirName.xml"
 	if (Test-Path $candidate) {
 		$ObjectPath = $candidate
+	} elseif (Test-Path $sibling) {
+		$ObjectPath = $sibling
 	} else {
 		$xmlFiles = @(Get-ChildItem $ObjectPath -Filter "*.xml" -File | Select-Object -First 1)
 		if ($xmlFiles.Count -gt 0) {
@@ -39,6 +42,16 @@ if (Test-Path $ObjectPath -PathType Container) {
 	}
 }
 
+# File not found — check Dir/Name/Name.xml → Dir/Name.xml (common LLM mistake)
+if (-not (Test-Path $ObjectPath)) {
+	$fileName = [System.IO.Path]::GetFileNameWithoutExtension($ObjectPath)
+	$parentDir = Split-Path $ObjectPath
+	$parentDirName = Split-Path $parentDir -Leaf
+	if ($fileName -eq $parentDirName) {
+		$candidate = Join-Path (Split-Path $parentDir) "$fileName.xml"
+		if (Test-Path $candidate) { $ObjectPath = $candidate }
+	}
+}
 if (-not (Test-Path $ObjectPath)) {
 	Write-Host "[ERROR] File not found: $ObjectPath"
 	exit 1
@@ -210,6 +223,8 @@ function Format-SingleType([string]$raw, $parentNode) {
 		"v8:UUID" { return "УникальныйИдентификатор" }
 		"v8:Null" { return "Null" }
 		default {
+			# Normalize d5p1:/dNpN: -> cfg:
+			$raw = $raw -replace '^d\d+p\d+:', 'cfg:'
 			# cfg:CatalogRef.Xxx -> СправочникСсылка.Xxx
 			if ($raw -match '^cfg:(\w+)Ref\.(.+)$') {
 				$prefix = "$($Matches[1])Ref"
@@ -343,6 +358,7 @@ function Decline-Cols([int]$n) {
 }
 
 function Format-SourceType([string]$raw) {
+	$raw = $raw -replace '^d\d+p\d+:', 'cfg:'
 	if ($raw -match '^cfg:(\w+)\.(.+)$') {
 		$prefix = $Matches[1]; $name = $Matches[2]
 		if ($objectTypeMap.ContainsKey($prefix)) { return "$($objectTypeMap[$prefix]).$name" }
@@ -399,12 +415,84 @@ function Get-WSOperations($childObjs) {
 	return $result
 }
 
+# --- Support status of this object (Ext/ParentConfigurations.bin) ---
+# See docs/1c-support-state-spec.md. Walks up to the config root, decodes the
+# object's support rule. Never throws — degrades to "не на поддержке".
+function Test-ExternalObjectRoot([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $false }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { return @('ExternalDataProcessor','ExternalReport') -contains $el.LocalName }
+	} catch {}
+	return $false
+}
+function Get-ObjectSupportStatus([string]$objUuid) {
+	try {
+		if (Test-ExternalObjectRoot $ObjectPath) { return $null }
+		# Walk up to the config root (dir with Configuration.xml or Ext/ParentConfigurations.bin).
+		$d = [System.IO.Path]::GetDirectoryName($ObjectPath)
+		$binPath = $null
+		for ($i = 0; $i -lt 8 -and $d; $i++) {
+			$cand = Join-Path (Join-Path $d "Ext") "ParentConfigurations.bin"
+			if ((Test-Path $cand) -or (Test-Path (Join-Path $d "Configuration.xml"))) { $binPath = $cand; break }
+			$parent = [System.IO.Path]::GetDirectoryName($d)
+			if ($parent -eq $d) { break }
+			$d = $parent
+		}
+		if (-not $binPath -or -not (Test-Path $binPath)) { return "не на поддержке" }
+		$bytes = [System.IO.File]::ReadAllBytes($binPath)
+		if ($bytes.Length -le 32) { return "снято с поддержки (правки свободны)" }
+		$start = 0
+		if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $start = 3 }
+		$text = [System.Text.Encoding]::UTF8.GetString($bytes, $start, $bytes.Length - $start)
+		$h = [regex]::Match($text, '^\{6,(\d+),(\d+),')
+		if (-not $h.Success) { return "не на поддержке" }
+		$G = [int]$h.Groups[1].Value
+		$K = [int]$h.Groups[2].Value
+		if ($K -eq 0) { return "снято с поддержки (правки свободны)" }
+		if ($G -eq 1) { return "конфигурация read-only (возможность изменения выключена) — правки невозможны без включения" }
+		if (-not $objUuid) { return "не на поддержке" }
+		# Conservative fold: locked if f1=0 in ANY vendor block.
+		$u = [regex]::Escape($objUuid.ToLower())
+		$best = $null
+		foreach ($m in [regex]::Matches($text, "([0-2]),0,$u")) {
+			$f1 = [int]$m.Groups[1].Value
+			if ($null -eq $best -or $f1 -lt $best) { $best = $f1 }
+		}
+		if ($null -eq $best) { return "не на поддержке" }
+		switch ($best) {
+			0 { return "на замке — прямая правка сломает обновления; дорабатывай через cfe-* либо включи редактирование объекта" }
+			1 { return "редактируется с сохранением поддержки" }
+			2 { return "снято с поддержки (правки свободны)" }
+		}
+		return "не на поддержке"
+	} catch { return "не на поддержке" }
+}
+
 # --- Extract metadata ---
 $props = $typeNode.SelectSingleNode("md:Properties", $ns)
 $childObjs = $typeNode.SelectSingleNode("md:ChildObjects", $ns)
 $objName = $props.SelectSingleNode("md:Name", $ns).InnerText
 $synNode = $props.SelectSingleNode("md:Synonym", $ns)
 $synonym = Get-MLText $synNode
+
+# Presentations (type-choice dialogs show "Представление объекта" as the ref type name)
+$objPresentation = Get-MLText $props.SelectSingleNode("md:ObjectPresentation", $ns)
+$extObjPresentation = Get-MLText $props.SelectSingleNode("md:ExtendedObjectPresentation", $ns)
+$listPresentation = Get-MLText $props.SelectSingleNode("md:ListPresentation", $ns)
+$extListPresentation = Get-MLText $props.SelectSingleNode("md:ExtendedListPresentation", $ns)
+
+# Reference (ref-typed) metadata objects — those with a ...Ref type
+$refMdTypes = @("Catalog","Document","Enum","ChartOfAccounts","ChartOfCharacteristicTypes",
+	"ChartOfCalculationTypes","ExchangePlan","BusinessProcess","Task")
+$isRefObject = $refMdTypes -contains $mdType
+
+# Effective type presentation: ObjectPresentation -> Synonym -> Name
+$typePresentation = if ($objPresentation) { $objPresentation }
+	elseif ($synonym) { $synonym }
+	else { $objName }
 
 # --- Handle -Name drill-down ---
 $drillDone = $false
@@ -576,6 +664,19 @@ if (-not $drillDone) {
 	if ($synonym -and $synonym -ne $objName) { $header += " — `"$synonym`"" }
 	$header += " ==="
 	Out $header
+	$support = Get-ObjectSupportStatus $typeNode.GetAttribute('uuid')
+	if ($null -ne $support) { Out "Поддержка: $support" }
+
+	# --- Type presentation (ref objects) ---
+	if ($isRefObject) {
+		Out "Представление типа: $typePresentation"
+		if ($Mode -eq "full") {
+			if ($objPresentation)     { Out "Представление объекта: $objPresentation" }
+			if ($extObjPresentation)  { Out "Расширенное представление объекта: $extObjPresentation" }
+			if ($listPresentation)    { Out "Представление списка: $listPresentation" }
+			if ($extListPresentation) { Out "Расширенное представление списка: $extListPresentation" }
+		}
+	}
 
 	# --- Mode: brief ---
 	if ($Mode -eq "brief") {
@@ -757,6 +858,13 @@ if (-not $drillDone) {
 			if ($hier -and $hier.InnerText -eq "true") {
 				$ht = $props.SelectSingleNode("md:HierarchyType", $ns)
 				$htText = if ($ht -and $ht.InnerText -eq "HierarchyFoldersAndItems") { "группы и элементы" } else { "элементы" }
+				$limitNode = $props.SelectSingleNode("md:LimitLevelCount", $ns)
+				$levelNode = $props.SelectSingleNode("md:LevelCount", $ns)
+				if ($limitNode -and $limitNode.InnerText -eq "true" -and $levelNode) {
+					$htText += ", уровней: $($levelNode.InnerText)"
+				} else {
+					$htText += ", без ограничения уровней"
+				}
 				$parts += "Иерархический: $htText"
 			}
 			$codeLen = $props.SelectSingleNode("md:CodeLength", $ns)

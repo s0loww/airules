@@ -48,6 +48,9 @@ ALLOW_MARKER = "airules:allow"
 MODEL_MAP_REL = os.path.join("core", "install", "model-map.yaml")
 MODEL_PROFILES_REL = os.path.join("core", "install", "model-profiles.md")
 
+# Vendored tools of the 1C metadata skill (synced by ci/sync_metadata_manage.py).
+VENDORED_TOOLS_REL = "overlays/1c/skills/1c-metadata-manage/tools/"
+
 # Rule id for the file-level (not line-level) BOM check below.
 PS1_BOM_RULE_ID = "ps1-bom"
 UTF8_BOM = b"\xef\xbb\xbf"
@@ -277,6 +280,16 @@ def _is_exception(rule, rel_path):
     """model-map.yaml and model-profiles.md are exempt from model-hardcode
     by design (see docs/LAYERS.md)."""
     norm = rel_path.replace("\\", "/")
+    # Vendored metadata tools: the platform takes the password only as /P on the
+    # command line, upstream prints the command through Protect-Secrets (masked),
+    # and help examples name C:\Bases. Per-line markers cannot be inserted safely
+    # into foreign code; the contract that matters is enforced by our wrapper
+    # (literal -Password refused). Hardcoded-secret rules still apply here, and
+    # the wrapper itself is not exempt from anything.
+    if (rule["id"] in ("creds-echo", "machine-paths")
+            and norm.startswith(VENDORED_TOOLS_REL)
+            and norm != VENDORED_TOOLS_REL + "_common/Invoke-1CEdit.ps1"):
+        return True
     if rule["id"] == "model-hardcode" and norm in (
         MODEL_MAP_REL.replace("\\", "/"),
         MODEL_PROFILES_REL.replace("\\", "/"),

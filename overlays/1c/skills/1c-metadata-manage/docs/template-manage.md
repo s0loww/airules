@@ -1,31 +1,38 @@
 # 1C Template Manage — Add/Remove Templates
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Creates or removes a template (layout) of specified type and registers/unregisters it in the root XML of a 1C metadata object. Works with any object type that supports templates: DataProcessor, Document, Catalog, Report, etc.
 
 ## Adding a Template
 
 ```
-1c-template-manage add <ObjectName> <TemplateName> <TemplateType> [-Apply]
+1c-template-manage add <ObjectName> <TemplateName> <TemplateType>
 ```
 
 | Parameter | Required | Default | Description |
 |-----------|:--------:|---------|-------------|
-| ObjectName | yes | — | Object name (for EPF) or object path |
+| ObjectName | yes | — | Object name, or absolute / relative path to the object's `.xml` file; alias `ProcessorName` |
 | TemplateName | yes | — | Template name |
 | TemplateType | yes | — | Type: HTML, Text, SpreadsheetDocument, BinaryData |
 | Synonym | no | = TemplateName | Template synonym |
 | SrcDir | no | `src` | Source directory |
-| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command (EPF)
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/add-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" -TemplateType "<TemplateType>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
-
-# Apply: actually create and register the template
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/add-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" -TemplateType "<TemplateType>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool add-template -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" -TemplateType "<TemplateType>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
 ```
+
+### Command (configuration or extension object)
+
+```powershell
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool add-template -ObjectName "SNiS/Documents/эс_ПланПотребностейВМатериалах.xml" -TemplateName "ПФ_КомплектовочнаяВедомость" -TemplateType SpreadsheetDocument
+```
+
+A relative XML path is resolved from the current directory, then from `SrcDir`. The descriptor and content are created beside that XML under `<ObjectName>/Templates/`; `SrcDir` is not required for an existing XML path. Name-only calls retain EPF lookup and lookup in configuration object-type folders under `SrcDir`.
+
+`meta-edit add-template` is refused before any mutation in both runtimes; use this scaffold and select `TemplateType` explicitly. This scaffold currently ships as PowerShell only.
 
 ### Type Mapping
 
@@ -68,7 +75,7 @@ If user provides a name without prefix but context is a print form, **add the `P
 ## Removing a Template
 
 ```
-1c-template-manage remove <ObjectName> <TemplateName> [-Apply]
+1c-template-manage remove <ObjectName> <TemplateName> [-DryRun | -Force]
 ```
 
 | Parameter | Required | Default | Description |
@@ -76,13 +83,17 @@ If user provides a name without prefix but context is a print form, **add the `P
 | ObjectName | yes | — | Object name |
 | TemplateName | yes | — | Template name to remove |
 | SrcDir | no | `src` | Source directory |
-| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
+| DryRun | no | off | Print the parent XML and files that would change; do not mutate anything |
+| Force | required to delete | off | Confirm the reviewed removal plan and perform it |
 
-### Command (EPF)
+### Commands (preview first, then execute)
 
 ```powershell
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts/remove-template.ps1 -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" [-SrcDir "<SrcDir>"] -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool remove-template -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" [-SrcDir "<SrcDir>"] -DryRun
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool remove-template -ProcessorName "<ObjectName>" -TemplateName "<TemplateName>" [-SrcDir "<SrcDir>"] -Force
 ```
+
+The script refuses a real deletion without `-Force`. It parses and serializes the parent XML before mutating the source tree, then removes the registration before deleting template files. Run the relevant metadata / MXL / DCS validator after execution.
 
 ### What Gets Removed
 
@@ -99,13 +110,9 @@ pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-template-manage/scripts
 
 ## Workflow
 
-1. `1c-template-manage add -Apply` — create template scaffold (dry run without `-Apply`)
-2. For SpreadsheetDocument: use `1c-mxl-compile -Apply` to generate the template content (dry run without `-Apply`)
+1. `1c-template-manage add` — create template scaffold
+2. For SpreadsheetDocument: use `1c-mxl-compile` to generate the template content
 3. `1c-mxl-validate` — validate template structure
 4. `1c-mxl-info` — analyze template structure
 
-## MCP Integration
-
-- **metadatasearch** — Verify the parent object exists and supports templates.
-- **get_metadata_details** — Get parent object structure to confirm template compatibility.
-- **templatesearch** — Find similar template implementations.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

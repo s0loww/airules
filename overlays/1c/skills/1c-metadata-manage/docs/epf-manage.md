@@ -1,5 +1,7 @@
 # 1C EPF/ERF Manage — Scaffold, Build, Dump, Validate
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Comprehensive external data processor (EPF) and external report (ERF) management: create empty scaffold, compile from XML, disassemble to XML, validate correctness.
 
 ---
@@ -11,7 +13,7 @@ Generates the minimal set of XML source files for a 1C external data processor: 
 ### Usage
 
 ```
-1c-epf-scaffold <Name> [Synonym] [SrcDir] [-Apply]
+1c-epf-scaffold <Name> [Synonym] [SrcDir]
 ```
 
 | Parameter | Required | Default | Description |
@@ -19,16 +21,11 @@ Generates the minimal set of XML source files for a 1C external data processor: 
 | Name | yes | — | Processor name (Latin/Cyrillic) |
 | Synonym | no | = Name | Synonym (display name) |
 | SrcDir | no | `src` | Source directory relative to CWD |
-| Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Command
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
-
-# Apply: actually create the files
-pwsh -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool epf-scaffold/init -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
 ```
 
 ### What Gets Created
@@ -51,7 +48,7 @@ After scaffolding, use these skills to build out the processor:
 
 - **Add a form**: `1c-form-scaffold` skill
 - **Add a template/layout**: `1c-template-manage` skill
-- **Register with SSL (BSP)**: `1c-bsp-registration` skill
+- **Register with SSL (BSP)**: `bsp-manage.md` section 1 «Registration»
 - **Build EPF**: `1c-epf-build` skill
 - **Validate**: `1c-epf-validate` skill
 
@@ -64,11 +61,7 @@ Generates the minimal set of XML source files for a 1C external report: root met
 ### Usage
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-erf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] [-WithSKD]
-
-# Apply: actually create the files
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-erf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] [-WithSKD] -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool erf-scaffold/init -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] [-WithSKD]
 ```
 
 | Parameter | Required | Default | Description |
@@ -77,7 +70,6 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-erf-scaffold/
 | Synonym | no | = Name | Synonym (display name) |
 | SrcDir | no | `src` | Source directory relative to CWD |
 | WithSKD | no | — | Create empty DCS and bind to MainDataCompositionSchema |
-| Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### What Gets Created
 
@@ -125,7 +117,7 @@ Builds an EPF or ERF file from XML sources using the 1C platform. The same scrip
 ### Usage
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-build/scripts/epf-build.ps1 <parameters>
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool epf-build <parameters>
 ```
 
 | Parameter | Required | Description |
@@ -135,7 +127,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-build/scr
 | `-InfoBaseServer <server>` | * | 1C server (for server databases) |
 | `-InfoBaseRef <name>` | * | Database name on server |
 | `-UserName <name>` | no | User name |
-| `-PasswordEnv <env-var-name>` | no | **Name** of the environment variable holding the password (e.g. `ONEC_PASSWORD`), not the password itself |
+| `-PasswordEnv <VAR>` | no | Password |
 | `-SourceFile <path>` | yes | Path to root XML source file |
 | `-OutputFile <path>` | yes | Path to output EPF/ERF file |
 
@@ -143,7 +135,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-build/scr
 
 ### Database Resolution
 
-Read `.v8-project.json` from the project root (see `1c-db-manage` skill for the full algorithm). If no databases are configured — create an empty infobase in `./base`.
+Take the infobase and platform from `.dev.env` (`INFOBASE_PATH`, `PLATFORM_PATH`; see [db-manage.md](db-manage.md) for the full resolution order). If no infobase is configured — create an empty infobase in `./base`.
 
 ### Return Codes
 
@@ -163,12 +155,12 @@ If the processor/report uses configuration reference types (`CatalogRef.XXX`, `D
 ... -InfoBasePath "<bases-dir>\MyDB" -SourceFile "src\МояОбработка.xml" -OutputFile "build\МояОбработка.epf"
 
 # Build report (server database)
-... -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -PasswordEnv ONEC_PASSWORD -SourceFile "src\МойОтчёт.xml" -OutputFile "build\МойОтчёт.erf"
+... -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -PasswordEnv IB_PASSWORD -SourceFile "src\МойОтчёт.xml" -OutputFile "build\МойОтчёт.erf"
 ```
 
 ### Verification
 
-After building, test by running: `1c-db-ops db-run ... -Execute build/MyProcessor.epf -Apply` (without `-Apply` the session is not started — dry run).
+After building, test by running: `1c-db-ops db-run ... -Execute build/MyProcessor.epf`
 
 ---
 
@@ -179,7 +171,7 @@ Disassembles an EPF or ERF file into XML sources using the 1C platform (hierarch
 ### Usage
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-dump/scripts/epf-dump.ps1 <parameters>
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool epf-dump <parameters>
 ```
 
 | Parameter | Required | Description |
@@ -189,7 +181,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-dump/scri
 | `-InfoBaseServer <server>` | * | 1C server |
 | `-InfoBaseRef <name>` | * | Database name on server |
 | `-UserName <name>` | no | User name |
-| `-PasswordEnv <env-var-name>` | no | **Name** of the environment variable holding the password (e.g. `ONEC_PASSWORD`), not the password itself |
+| `-PasswordEnv <VAR>` | no | Password |
 | `-InputFile <path>` | yes | Path to EPF/ERF file |
 | `-OutputDir <path>` | yes | Directory for XML source output |
 | `-Format <format>` | no | `Hierarchical` (default) / `Plain` |
@@ -198,7 +190,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-epf-dump/scri
 
 ### Database Resolution
 
-Read `.v8-project.json` from the project root (see `1c-db-manage` skill). If no databases — create an empty infobase in `./base`.
+Take the infobase and platform from `.dev.env` (see [db-manage.md](db-manage.md)). If no infobase is configured — create an empty infobase in `./base`.
 
 ### Hierarchical Format Output
 
@@ -292,7 +284,7 @@ Exit code: 0 = all checks passed, 1 = errors found.
 ### Data Processor
 
 ```
-1c-epf-scaffold <Name> -Apply         — create processor (dry run without -Apply)
+1c-epf-scaffold <Name>                — create processor
 1c-epf-validate src/<Name>.xml        — check result
 1c-epf-build <Name>                   — build EPF
 ```
@@ -300,7 +292,7 @@ Exit code: 0 = all checks passed, 1 = errors found.
 ### Report
 
 ```
-1c-erf-scaffold <Name> --with-skd -Apply — create report with DCS (dry run without -Apply)
+1c-erf-scaffold <Name> --with-skd    — create report with DCS
 1c-epf-validate src/<Name>.xml        — check result (same script)
 1c-epf-build <Name>                   — build ERF
 ```
@@ -310,21 +302,8 @@ Exit code: 0 = all checks passed, 1 = errors found.
 1. Dump: `db-dump-xml` or use `1c-epf-dump`
 2. Edit BSL files
 3. Build: `1c-epf-build`
-4. Test: `db-run` with the built EPF (add `-Apply` — without it the session is not started)
+4. Test: `db-run` with the built EPF
 
 ---
 
-## MCP Integration
-
-- **metadatasearch** — Verify metadata object names and types when setting up the processor/report for integration with existing configuration objects.
-- **get_metadata_details** — Get full structure of target metadata objects for integration.
-- **check_1c_code** — Verify BSL code for syntax, logic and performance issues before building; analyze code in extracted modules after dumping.
-- **review_1c_code** — Check code style and ITS standards compliance before building.
-- **syntaxcheck** — BSL syntax verification before building.
-- **docsearch** — Look up valid property values when investigating validation errors.
-
-## SDD Integration
-
-When creating external processors or reports as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Add spec deltas describing the processor/report purpose, parameters, and target objects in `openspec/changes/`.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

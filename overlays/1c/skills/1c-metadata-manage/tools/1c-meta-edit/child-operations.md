@@ -1,5 +1,7 @@
 # Inline-операции над дочерними элементами
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Подробный справочник операций `add-*` / `remove-*` / `modify-*` для дочерних элементов объекта метаданных.
 
 ## Общие правила
@@ -11,11 +13,25 @@
 
 **Shorthand-формат** реквизитов: `ИмяРеквизита: Тип | флаги`
 
-Флаги: `req` (FillChecking=ShowError), `index` (Indexing=Index), `master` (Master=true, только dimensions), `mainFilter` (MainFilterOperand, только dimensions).
+Флаги: `req` — обязательное заполнение; `index` — индексировать; `master` — ведущее измерение (только dimensions); `mainFilter` — основной отбор (только dimensions).
 
 **Позиционная вставка**: `>> after ИмяЭлемента` или `<< before ИмяЭлемента`:
 ```powershell
 -Operation add-attribute -Value "Склад: CatalogRef.Склады >> after Организация"
+```
+
+## Составные типы
+
+Для реквизитов с несколькими допустимыми типами — разделитель `+`:
+```powershell
+-Operation add-attribute -Value "Значение: Строка + Число(15,2) + Дата + CatalogRef.Контрагенты"
+-Operation add-attribute -Value "Значение: Строка + Число(15,2) | req"
+-Operation modify-ts-attribute -Value "Данные.Значение: type=Строка + Число(15,2) + Дата"
+```
+
+В JSON DSL — массив в `type`:
+```json
+{ "name": "Значение", "type": ["Строка", "Число(15,2)", "Дата", "CatalogRef.Контрагенты"] }
 ```
 
 ## add-attribute / add-dimension / add-resource / add-column
@@ -70,6 +86,27 @@ Batch через `;;` — можно указать разные ТЧ: `"Тов�
 
 Формат аналогичен `modify-attribute`: `ИмяТЧ: ключ=значение, ключ=значение`.
 
+## add-predefined
+
+Добавить предопределённые элементы (Catalog, ChartOfCharacteristicTypes). Существующие элементы и их
+идентификаторы сохраняются, новые получают свежий id.
+
+Inline — строка `(Код) Имя [Наименование]` (batch через `;;`; `[Наименование]` необязательно — иначе авто из имени):
+```powershell
+-Operation add-predefined -Value "(001) Основной ;; (002) Резервный [Резервный склад]"
+```
+
+JSON — строки и/или объекты (для групп с вложенными):
+```json
+{ "add": { "predefined": [
+  "(001) Основной",
+  { "name": "Группа", "isFolder": true, "childItems": ["(002) Вложенный"] }
+] } }
+```
+
+Ключи объекта: `name`, `code`, `description`, `isFolder`, `childItems` (дерево). Тип кода (строковый/числовой)
+берётся из объекта автоматически.
+
 ## add-enumValue / add-command
 
 Просто имена (batch через `;;`):
@@ -78,11 +115,43 @@ Batch через `;;` — можно указать разные ТЧ: `"Тов�
 -Operation add-command -Value "Команда1"
 ```
 
-`add-form` / `add-template` скрипт **отклоняет** (exit 1): форма и макет — это
-регистрация плюс собственные файлы, одна регистрация даёт выгрузку, которую
-Конфигуратор не загружает. Формы — `1c-form-scaffold/scripts/form-add.ps1`,
-макеты — `1c-template-manage/scripts/add-template.ps1`: они создают файлы и
-регистрируют.
+## add-template — use the template scaffold
+
+`meta-edit -Operation add-template` exits `2` before any write. The generic child builder does not create the descriptor and template content. The same refusal covers JSON `add/templates`, accepted aliases such as `добавить/макеты`, and the whole mixed definition.
+
+Use `1c-template-manage/scripts/add-template.ps1 -ObjectName "<object.xml>" -TemplateName "<name>" -TemplateType <type>`; see [template-manage.md](../../docs/template-manage.md). Select the type explicitly. The scaffold currently ships as PowerShell only.
+
+## add-form — не поддерживается, используйте form-add
+
+`meta-edit -Operation add-form` **отклоняется** с кодом `2` и ничего не меняет.
+
+Отказ относится к операции, а не к одному написанию ключа: префлайт прогоняет `-DefinitionFile` через те же нормализаторы, что и исполнитель, поэтому `{"add": {"forms": […]}}`, `{"Add": …}` и `{"добавить": {"формы": […]}}` отклоняются одинаково. Проверяется весь файл целиком до первой записи: смешанное определение (добавление формы рядом с любой другой операцией) отклоняется целиком, вторая половина не применяется.
+
+Общий конструктор дочерних элементов регистрировал форму вложенным дескриптором
+`ChildObjects/Form` с жёстким `FormType=Ordinary` и пустым `UsePurposes`, и не создавал
+ни `Forms/<Имя>.xml`, ни `Ext/Form.xml`, ни модуль. Такую выгрузку Конфигуратор не
+загружает, а запуск завершался успешно — поэтому теперь это явный отказ, а не тихая
+запись. Штатный путь — `form-add` из `1c-form-scaffold`, он делает полный управляемый
+scaffold: скалярную регистрацию `<Form>Имя</Form>`, отдельный дескриптор, `Ext/Form.xml`
+и `Module.bsl`.
+
+```powershell
+# Windows
+powershell -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool form-add `
+  -ObjectPath "config-dump/Catalogs/Номенклатура.xml" -FormName "ФормаЭлемента" -Purpose Object -SetDefault
+```
+```bash
+# Linux / macOS
+python3 skills/1c-metadata-manage/tools/1c-form-scaffold/scripts/form-add.py \
+  -ObjectPath "config-dump/Catalogs/Номенклатура.xml" -FormName "ФормаЭлемента" -Purpose Object -SetDefault
+```
+
+`-Purpose` выбирается по слоту формы (`Object` / `List` / `Choice` / `Record`).
+`-SetDefault` перезаписывает форму по умолчанию соответствующего слота — проверьте,
+что там сейчас, прежде чем запускать. Batch (`;;`) у `form-add` нет: формы создаются
+по одной, каждая своим запуском.
+
+`remove-form` в `meta-edit` не затронут и работает как раньше.
 
 ## remove-*
 
@@ -97,10 +166,34 @@ Batch через `;;` — можно указать разные ТЧ: `"Тов�
 
 Формат: `ИмяЭлемента: ключ=значение, ключ=значение`
 
-Ключи: `name` (rename), `type`, `synonym`, `indexing`, `fillChecking`, `use` и др.
+**Спец-операции** (строчные ключи): `name` (переименование), `type` (смена типа), `synonym`.
+
+**Свойства** задавайте по имени свойства 1С (PascalCase, как в конфигураторе): `Indexing`, `FillChecking`,
+`Use`, `FullTextSearch`, `DataHistory`, `PasswordMode`, `MultiLine`, `Mask`, `CreateOnInput`, `QuickChoice` и др.
+Свойство можно задать, даже если у реквизита оно ещё не выставлено. Опечатка в имени свойства → ошибка
+(правка не теряется молча).
 
 ```powershell
 -Operation modify-attribute -Value "СтароеИмя: name=НовоеИмя, type=Строка(500)"
--Operation modify-attribute -Value "Комментарий: indexing=Index"
+-Operation modify-attribute -Value "Комментарий: Indexing=Index, FullTextSearch=Use"
 -Operation modify-enumValue -Value "СтароеЗначение: name=НовоеЗначение"
 ```
+
+### Структурные свойства реквизита
+
+Свойства со сложным значением задавайте через JSON DSL (`{ "modify": { "attributes": { "Имя": { ... } } } }`):
+
+| Ключ | Значение | Пример (JSON) |
+|------|----------|---------------|
+| `Format` / `EditFormat` / `ToolTip` | строка (мультиязычная) | `"Format": "ДФ=dd.MM.yyyy"` |
+| `ChoiceForm` | путь формы выбора | `"ChoiceForm": "Catalog.Товары.Form.ФормаВыбора"` |
+| `MinValue` / `MaxValue` | число или строка | `"MinValue": 0, "MaxValue": 100` |
+| `FillValue` | значение заполнения | `"FillValue": "EmptyRef"` · `true` · `10` · `{"nil": true}` |
+| `LinkByType` | `{dataPath, linkItem?}` | `"LinkByType": {"dataPath": "Вид", "linkItem": 0}` |
+| `ChoiceParameterLinks` | `[{name, dataPath, valueChange?}]` | `["Отбор.Организация=Организация"]` |
+| `ChoiceParameters` | `[{name, type?, value?}]` | `[{"name": "Отбор.ЭтоГруппа", "value": false}]` |
+
+- `FillValue`: `"EmptyRef"` — пустая ссылка по типу реквизита; `{"emptyRef": true}` / `{"nil": true}` — явные маркеры.
+- `ChoiceParameters` value — булево/число/строка/ссылочный путь или массив; укажите `type` (напр.
+  `EnumRef.СтавкиНДС`), чтобы задавать значения короткими именами (`"Оптовая"` вместо полного пути).
+- В путях данных (`LinkByType`/`ChoiceParameterLinks`) можно писать короткое имя реквизита вместо полного пути.

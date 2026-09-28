@@ -1,11 +1,13 @@
 # 1C Help Manage — Built-in Help Management
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Adds built-in help to a 1C metadata object: help metadata file (`Help.xml`), HTML page, and optionally updates form metadata.
 
 ## Usage
 
 ```
-1c-help-manage <ObjectName> [Lang] [SrcDir] [-Apply]
+1c-help-manage <ObjectName> [Lang] [SrcDir]
 ```
 
 | Parameter | Required | Default | Description |
@@ -13,16 +15,11 @@ Adds built-in help to a 1C metadata object: help metadata file (`Help.xml`), HTM
 | ObjectName | yes | — | Object name (e.g., data processor name) |
 | Lang | no | `ru` | Help language code |
 | SrcDir | no | `src` | Source directory |
-| -Apply | no | — | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ## Command
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-help-manage/scripts/add-help.ps1 -ProcessorName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
-
-# Apply: actually create the help files
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-help-manage/scripts/add-help.ps1 -ProcessorName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"] -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool add-help -ProcessorName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
 ```
 
 ## What Gets Created
@@ -82,3 +79,5 @@ Review all `id="..."` in `Form.xml` and choose the next free numeric ID. Typical
 ## Editing Help
 
 After creation, help content is regular HTML. Edit `Ext/Help/ru.html` according to the object's purpose. Supported HTML markup: `<h1>`..`<h4>`, `<p>`, `<ul>`, `<ol>`, `<table>`, `<strong>`, `<em>`, `<a>`, `<pre>`.
+
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

@@ -1,6 +1,10 @@
 # 1C SKD Manage — Compile, Edit, Info, Validate
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Comprehensive Data Composition Schema (DCS/SKD) management: create from JSON, modify existing schemas, analyze structure, validate correctness.
+
+> The **complete JSON DSL grammar** for `skd-compile` — data sets, fields, resources, calculated fields, parameters, settings, filters, conditional appearance, nested schemas — is vendored verbatim as [`skd-dsl-spec.md`](../tools/1c-skd-compile/skd-dsl-spec.md) (Russian, upstream original). This document is the working guide; read the spec when a key is missing here or the compiler rejects a construct.
 
 ---
 ## 1. Compile — Create from JSON
@@ -14,16 +18,13 @@ Takes a JSON definition of a Data Composition Schema and generates Template.xml 
 | `DefinitionFile` | Path to JSON definition file (mutually exclusive with Value) |
 | `Value` | JSON string with DCS definition (mutually exclusive with DefinitionFile) |
 | `OutputPath` | Path to output Template.xml |
-| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ```powershell
-# From file — dry run first (prints the plan, no changes)
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -DefinitionFile "<json>" -OutputPath "<Template.xml>"
-# Then apply
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -DefinitionFile "<json>" -OutputPath "<Template.xml>" -Apply
+# From file
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool skd-compile -DefinitionFile "<json>" -OutputPath "<Template.xml>"
 
 # From string (no intermediate file)
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-compile/scripts/skd-compile.ps1 -Value '<json-string>' -OutputPath "<Template.xml>" -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool skd-compile -Value '<json-string>' -OutputPath "<Template.xml>"
 ```
 
 ### JSON DSL — Quick Reference
@@ -181,14 +182,9 @@ Atomic modification operations on an existing Data Composition Schema: add, remo
 | `DataSet` | (opt.) Data set name (default: first) |
 | `Variant` | (opt.) Settings variant name (default: first) |
 | `NoSelection` | (opt.) Don't add field to variant selection |
-| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-edit/scripts/skd-edit.ps1 -TemplatePath "<path>" -Operation <op> -Value "<value>"
-
-# Apply: actually modify Template.xml
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-edit/scripts/skd-edit.ps1 -TemplatePath "<path>" -Operation <op> -Value "<value>" -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool skd-edit -TemplatePath "<path>" -Operation <op> -Value "<value>"
 ```
 
 ### Batch Mode
@@ -196,7 +192,7 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-edit/scri
 Multiple values in one call via `;;` separator:
 
 ```powershell
--Operation add-field -Value "Цена: decimal(15,2) ;; Количество: decimal(15,3) ;; Сумма: decimal(15,2)" -Apply
+-Operation add-field -Value "Цена: decimal(15,2) ;; Количество: decimal(15,3) ;; Сумма: decimal(15,2)"
 ```
 
 Works for all operations except `set-query`, `set-structure`, and `add-dataSet`.
@@ -377,27 +373,34 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-validate/
 | 1 | Errors found |
 
 ---
-## Typical Workflow
+## 5. Decompile — Extract JSON DSL from Template.xml (draft)
 
-1. **Create new DCS**: `1c-skd-compile -Apply` from JSON (dry run without `-Apply`) → `1c-skd-validate` → `1c-skd-info` for visual summary
-2. **Modify existing DCS**: `1c-skd-edit` with operations and `-Apply` (dry run without `-Apply`) → `1c-skd-validate` → `1c-skd-info`
-3. **Analyze structure**: `1c-skd-info` overview → `1c-skd-info -Mode trace -Name <field>` for field calculation chain → `1c-skd-info -Mode query -Name <dataset>` for query text → `1c-skd-info -Mode variant -Name <N>` for variant groupings and filters
+Reverse of `1c-skd-compile`: reads an existing `Template.xml` (DataCompositionSchema) and reconstructs the JSON DSL consumed by `1c-skd-compile`. Use it to capture an existing report's schema as editable DSL, diff two schemas, or bootstrap a new schema from a working sample.
+
+> **Draft (v0.90).** Round-trip is best-effort — complex hand-tuned schemas may not reproduce byte-for-byte. Always re-validate (`1c-skd-validate`) and visually compare (`1c-skd-info`) after a decompile → edit → compile cycle.
+
+### Parameters and Command
+
+| Parameter | Description |
+|-----------|-------------|
+| `TemplatePath` (alias `Path`) | Path to the `Template.xml` of a Data Composition Schema |
+| `OutputPath` | (opt.) Write JSON DSL to this file; prints to stdout when omitted |
+
+```powershell
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-skd-decompile/scripts/skd-decompile.ps1 -TemplatePath "<Template.xml>" [-OutputPath "<schema.json>"]
+```
+
+Fails fast (exit 2) when the root element is not `DataCompositionSchema` (e.g. a spreadsheet document — use `1c-mxl-decompile` instead).
 
 ---
-## MCP Integration
+## Typical Workflow
 
-- **get_object_dossier** — Comprehensive structural passport of the object for DCS data set fields: attributes, tabular parts, dimensions, resources, and their types in one call.
-- **metadatasearch** — Verify object and attribute names used in queries; cross-reference field names with actual metadata objects.
-- **get_metadata_details** — Get exact attribute types and tabular part structure for objects used in DCS data sets.
-- **search_code** — Find existing BSL code that builds DCS queries or modifies DCS programmatically (prefer over Grep; supports semantic/fulltext/hybrid search).
-- **metadatasearch** (`names_only=true`) — Find similar metadata objects for DCS schema XML reference.
-- **get_xsd_schema** — Get XSD schema for DCS XML (`object_type="СКД"`). Use before generating schema XML.
-- **verify_xml** — Validate generated DCS XML against XSD. Always validate before committing.
-- **templatesearch** — Find similar DCS patterns in the codebase.
-- **docsearch** — Look up valid DCS element types and properties when investigating validation errors; DCS platform documentation.
+1. **Create new DCS**: `1c-skd-compile` from JSON → `1c-skd-validate` → `1c-skd-info` for visual summary
+2. **Modify existing DCS**: `1c-skd-edit` with operations → `1c-skd-validate` → `1c-skd-info`
+3. **Analyze structure**: `1c-skd-info` overview → `1c-skd-info -Mode trace -Name <field>` for field calculation chain → `1c-skd-info -Mode query -Name <dataset>` for query text → `1c-skd-info -Mode variant -Name <N>` for variant groupings and filters
+4. **Capture existing DCS as DSL**: `1c-skd-decompile` → edit the JSON → `1c-skd-compile` → `1c-skd-validate` (round-trip, draft)
+5. **MCP evidence set** (`rules/tooling-playbooks.md`): `get_xsd_schema` / `verify_xml` with `object_type="СКД"`
 
-## SDD Integration
+---
 
-When creating or modifying DCS/SKD schemas as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Add spec deltas describing report requirements, data sets, and expected output in `openspec/changes/`.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

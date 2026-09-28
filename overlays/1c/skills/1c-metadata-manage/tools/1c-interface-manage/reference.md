@@ -1,5 +1,7 @@
 # /interface-edit — редактирование CommandInterface.xml
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Точечное редактирование файла командного интерфейса подсистемы 1С.
 
 ## Параметры

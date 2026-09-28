@@ -1,29 +1,22 @@
-﻿# interface-edit v1.0 — Edit 1C CommandInterface.xml
+﻿# interface-edit v1.8 — Edit 1C CommandInterface.xml
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
-<#
-.SYNOPSIS
-	Редактирование командного интерфейса 1С (CommandInterface.xml)
-
-.PARAMETER Apply
-	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
-	показывает план операций и завершается без записи файла.
-
-.EXAMPLE
-	.\interface-edit.ps1 -CIPath "src\Subsystems\Продажи\Ext\CommandInterface.xml" -Operation hide -Value "Catalog.Номенклатура.StandardCommand.Create"
-
-.EXAMPLE
-	.\interface-edit.ps1 -CIPath "src\Subsystems\Продажи\Ext\CommandInterface.xml" -Operation hide -Value "Catalog.Номенклатура.StandardCommand.Create" -Apply
-#>
 param(
-	[Parameter(Mandatory)][string]$CIPath,
+	[Parameter(Mandatory)][Alias('Path')][string]$CIPath,
 	[string]$DefinitionFile,
 	[ValidateSet("hide","show","place","order","subsystem-order","group-order")]
 	[string]$Operation,
 	[string]$Value,
 	[switch]$CreateIfMissing,
-	[switch]$NoValidate,
-	[switch]$Apply
+	[switch]$NoValidate
 )
+
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: interface-edit writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool interface-edit <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -38,6 +31,188 @@ if (-not [System.IO.Path]::IsPathRooted($CIPath)) {
 }
 $resolvedPath = $CIPath
 
+# --- Support guard (Ext/ParentConfigurations.bin) ---
+# Canon: docs/support-manage.md. Blocks edits of vendor objects "на замке" /
+# read-only configs unless allowed. Trigger = bin present; reaction from
+# .dev.env SUPPORT_GUARD (deny|warn|off, default deny; .v8-project.json
+# editingAllowedCheck stays as the upstream fallback). Fail-closed on an
+# unreadable support state (bin exists but cannot be parsed — same reaction);
+# other guard errors degrade to allow with a stderr notice. Walk-up from
+# Subsystems/X/Ext/CommandInterface.xml reaches Subsystems/X.xml (owning
+# subsystem uuid).
+function Get-RootUuid([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $null }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { $u = $el.GetAttribute("uuid"); if ($u) { return $u } }
+	} catch {}
+	return $null
+}
+function Test-ExternalObjectRoot([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $false }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { return @('ExternalDataProcessor','ExternalReport') -contains $el.LocalName }
+	} catch {}
+	return $false
+}
+function Find-V8Project([string]$startDir) {
+	$d = $startDir
+	for ($i = 0; $i -lt 20 -and $d; $i++) {
+		$pj = Join-Path $d ".v8-project.json"
+		if (Test-Path $pj) { return $pj }
+		$parent = [System.IO.Path]::GetDirectoryName($d)
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return $null
+}
+function Get-EditMode([string]$cfgDir) {
+	try {
+		# 1c-rules: .dev.env SUPPORT_GUARD wins over .v8-project.json editingAllowedCheck.
+		$__devEnvHelper = Join-Path $PSScriptRoot '../../_common/DevEnv.ps1'
+		if (Test-Path $__devEnvHelper) {
+		    . $__devEnvHelper
+		    $__devEnvMode = (Get-1CDevEnvValue 'SUPPORT_GUARD').ToLower()
+		    if (@('deny', 'warn', 'off') -contains $__devEnvMode) { return $__devEnvMode }
+		}
+		$pj = Find-V8Project (Get-Location).Path
+		if (-not $pj) { $pj = Find-V8Project $cfgDir }
+		if (-not $pj) { return 'deny' }
+		$proj = Get-Content -Raw $pj | ConvertFrom-Json
+		$cfgFull = [System.IO.Path]::GetFullPath($cfgDir).TrimEnd('\', '/')
+		if ($proj.databases) {
+			foreach ($db in $proj.databases) {
+				if ($db.configSrc) {
+					$src = [System.IO.Path]::GetFullPath($db.configSrc).TrimEnd('\', '/')
+					if ($cfgFull -eq $src -or $cfgFull.StartsWith($src + [System.IO.Path]::DirectorySeparatorChar)) {
+						if ($db.editingAllowedCheck) { return $db.editingAllowedCheck }
+					}
+				}
+			}
+		}
+		if ($proj.editingAllowedCheck) { return $proj.editingAllowedCheck }
+		return 'deny'
+	} catch { return 'deny' }
+}
+function Assert-EditAllowed([string]$targetPath, [string]$require) {
+	try {
+		$rp = $targetPath
+		try { $rp = (Resolve-Path $targetPath -ErrorAction Stop).Path } catch {}
+		# Autonomous external object (EPF/ERF): never part of a config on support (issue #39).
+		if (Test-ExternalObjectRoot $rp) { return }
+		$elemUuid = Get-RootUuid $rp
+		$cfgDir = $null; $binPath = $null
+		$d = if (Test-Path $rp -PathType Container) { $rp } else { [System.IO.Path]::GetDirectoryName($rp) }
+		for ($i = 0; $i -lt 12 -and $d; $i++) {
+			if (Test-ExternalObjectRoot "$d.xml") { return }
+			if (-not $elemUuid) { $elemUuid = Get-RootUuid "$d.xml" }
+			if (-not $cfgDir) {
+				$cand = Join-Path (Join-Path $d "Ext") "ParentConfigurations.bin"
+				if ((Test-Path $cand) -or (Test-Path (Join-Path $d "Configuration.xml"))) { $cfgDir = $d; $binPath = $cand }
+			}
+			if ($elemUuid -and $cfgDir) { break }
+			$parent = [System.IO.Path]::GetDirectoryName($d)
+			if ($parent -eq $d) { break }
+			$d = $parent
+		}
+		# New object (no element file): fall back to config root uuid.
+		if (-not $elemUuid -and $cfgDir) { $elemUuid = Get-RootUuid (Join-Path $cfgDir "Configuration.xml") }
+		if (-not $binPath -or -not (Test-Path $binPath)) { return }
+		# Bin present: an unreadable / unparseable support state must not silently
+		# degrade to allow — fail closed via the SUPPORT_GUARD reaction instead.
+		$G = 0; $K = 0; $text = $null; $parseOk = $false
+		try {
+			$bytes = [System.IO.File]::ReadAllBytes($binPath)
+			if ($bytes.Length -gt 32) {
+				$start = 0
+				if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $start = 3 }
+				$text = [System.Text.Encoding]::UTF8.GetString($bytes, $start, $bytes.Length - $start)
+				$hm = [regex]::Match($text, '^\{6,(\d+),(\d+),')
+				if ($hm.Success) {
+					$G = [int]$hm.Groups[1].Value
+					$K = [int]$hm.Groups[2].Value
+					$parseOk = $true
+				}
+			}
+		} catch {}
+		if (-not $parseOk) {
+			$mode = Get-EditMode $cfgDir
+			if ($mode -eq 'off') { return }
+			$msg = "[support-guard] Файл состояния поддержки «$binPath» существует, но не читается или не разбирается — состояние объекта неизвестно, он может быть на замке."
+			if ($mode -eq 'warn') { [Console]::Error.WriteLine("$msg Продолжаю по SUPPORT_GUARD=warn."); return }
+			[Console]::Error.WriteLine("$msg`nРедактирование остановлено (fail-closed). Проверьте целостность выгрузки, либо задайте SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md).")
+			exit 1
+		}
+		if ($K -eq 0) { return }
+		$best = $null
+		if ($elemUuid) {
+			$u = [regex]::Escape($elemUuid.ToLower())
+			foreach ($m in [regex]::Matches($text, "([0-2]),0,$u")) {
+				$f1 = [int]$m.Groups[1].Value
+				if ($null -eq $best -or $f1 -lt $best) { $best = $f1 }
+			}
+		}
+		$blocked = $false; $code = ""; $reason = ""
+		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
+		elseif ($require -eq 'removed') {
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+		}
+		else {
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+		}
+		if (-not $blocked) { return }
+		$mode = Get-EditMode $cfgDir
+		if ($mode -eq 'off') { return }
+		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# latter throws and would be swallowed by this function's own catch.
+		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
+		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$offNote = "Снять проверку: SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md)."
+		if ($code -eq "capability-off") {
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+		} elseif ($code -eq "not-removed") {
+			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+		} else {
+			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+		}
+		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
+		exit 1
+	} catch {
+		[Console]::Error.WriteLine("[support-guard] Проверка состояния поддержки не выполнена ($($_.Exception.Message)) — продолжаю без блокировки.")
+		return
+	}
+}
+
+Assert-EditAllowed $CIPath 'editable'
+
+# --- Detect format version ---
+
+function Detect-FormatVersion([string]$dir) {
+	$d = $dir
+	while ($d) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "2.17"
+}
+
+$formatVersion = Detect-FormatVersion ([System.IO.Path]::GetDirectoryName($CIPath))
+
 # --- Namespaces ---
 $script:ciNs = "http://v8.1c.ru/8.3/xcf/extrnprops"
 $script:xrNs = "http://v8.1c.ru/8.3/xcf/readable"
@@ -45,46 +220,35 @@ $script:xsiNs = "http://www.w3.org/2001/XMLSchema-instance"
 $script:xsNs = "http://www.w3.org/2001/XMLSchema"
 
 # --- Create if missing ---
-$emptyCI = @"
+if (-not (Test-Path $CIPath)) {
+	if ($CreateIfMissing) {
+		$parentDir = [System.IO.Path]::GetDirectoryName($CIPath)
+		if (-not (Test-Path $parentDir)) {
+			New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+		}
+		$emptyCI = @"
 <?xml version="1.0" encoding="UTF-8"?>
 <CommandInterface xmlns="$($script:ciNs)"
 	xmlns:xr="$($script:xrNs)"
 	xmlns:xs="$($script:xsNs)"
 	xmlns:xsi="$($script:xsiNs)"
-	version="2.17">
+	version="$formatVersion">
 </CommandInterface>
 "@
-if (-not (Test-Path $CIPath)) {
-	if ($CreateIfMissing) {
-		if ($Apply) {
-			$parentDir = [System.IO.Path]::GetDirectoryName($CIPath)
-			if (-not (Test-Path $parentDir)) {
-				New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-			}
-			$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-			[System.IO.File]::WriteAllText($CIPath, $emptyCI, $utf8Bom)
-			Write-Host "[INFO] Created new CommandInterface.xml: $CIPath"
-		} else {
-			Write-Host "DRY RUN: would create new CommandInterface.xml: $CIPath" -ForegroundColor Yellow
-		}
+		$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+		[System.IO.File]::WriteAllText($CIPath, $emptyCI, $utf8Bom)
+		Write-Host "[INFO] Created new CommandInterface.xml: $CIPath"
 	} else {
 		Write-Error "File not found: $CIPath (use -CreateIfMissing to create)"
 		exit 1
 	}
 }
-if (Test-Path $CIPath) {
-	$resolvedPath = (Resolve-Path $CIPath).Path
-}
+$resolvedPath = (Resolve-Path $CIPath).Path
 
 # --- Load XML ---
 $script:xmlDoc = New-Object System.Xml.XmlDocument
 $script:xmlDoc.PreserveWhitespace = $true
-if (Test-Path $resolvedPath) {
-	$script:xmlDoc.Load($resolvedPath)
-} else {
-	# DryRun with -CreateIfMissing: operate on in-memory empty document
-	$script:xmlDoc.LoadXml($emptyCI)
-}
+$script:xmlDoc.Load($resolvedPath)
 
 $script:addCount = 0
 $script:removeCount = 0
@@ -228,9 +392,59 @@ function Find-CommandByName($section, [string]$cmdName) {
 	return $null
 }
 
+# --- Command name normalization (plural/Russian type prefix → singular English) ---
+$script:typeNormMap = @{
+	"Catalogs"="Catalog"; "Documents"="Document"; "Enums"="Enum"; "Constants"="Constant"
+	"Reports"="Report"; "DataProcessors"="DataProcessor"
+	"InformationRegisters"="InformationRegister"; "AccumulationRegisters"="AccumulationRegister"
+	"AccountingRegisters"="AccountingRegister"; "CalculationRegisters"="CalculationRegister"
+	"ChartsOfAccounts"="ChartOfAccounts"; "ChartsOfCharacteristicTypes"="ChartOfCharacteristicTypes"
+	"ChartsOfCalculationTypes"="ChartOfCalculationTypes"
+	"BusinessProcesses"="BusinessProcess"; "Tasks"="Task"
+	"ExchangePlans"="ExchangePlan"; "DocumentJournals"="DocumentJournal"
+	"CommonModules"="CommonModule"; "CommonCommands"="CommonCommand"
+	"CommonForms"="CommonForm"; "CommonPictures"="CommonPicture"
+	"CommonTemplates"="CommonTemplate"; "CommonAttributes"="CommonAttribute"
+	"CommandGroups"="CommandGroup"; "Roles"="Role"
+	"Subsystems"="Subsystem"; "StyleItems"="StyleItem"
+	# Russian singular
+	"Справочник"="Catalog"; "Документ"="Document"; "Перечисление"="Enum"
+	"Константа"="Constant"; "Отчёт"="Report"; "Отчет"="Report"; "Обработка"="DataProcessor"
+	"РегистрСведений"="InformationRegister"; "РегистрНакопления"="AccumulationRegister"
+	"РегистрБухгалтерии"="AccountingRegister"
+	"ПланСчетов"="ChartOfAccounts"; "ПланВидовХарактеристик"="ChartOfCharacteristicTypes"
+	"БизнесПроцесс"="BusinessProcess"; "Задача"="Task"
+	"ПланОбмена"="ExchangePlan"; "ЖурналДокументов"="DocumentJournal"
+	"ОбщийМодуль"="CommonModule"; "ОбщаяКоманда"="CommonCommand"
+	"ОбщаяФорма"="CommonForm"; "Подсистема"="Subsystem"
+	# Russian plural
+	"Справочники"="Catalog"; "Документы"="Document"; "Перечисления"="Enum"
+	"Константы"="Constant"; "Отчёты"="Report"; "Отчеты"="Report"; "Обработки"="DataProcessor"
+	"РегистрыСведений"="InformationRegister"; "РегистрыНакопления"="AccumulationRegister"
+	"РегистрыБухгалтерии"="AccountingRegister"
+	"ПланыСчетов"="ChartOfAccounts"; "ПланыВидовХарактеристик"="ChartOfCharacteristicTypes"
+	"БизнесПроцессы"="BusinessProcess"; "Задачи"="Task"
+	"ПланыОбмена"="ExchangePlan"; "ЖурналыДокументов"="DocumentJournal"
+	"Подсистемы"="Subsystem"
+}
+
+function Normalize-CmdName([string]$name) {
+	if (-not $name -or -not $name.Contains('.')) { return $name }
+	$dotIdx = $name.IndexOf('.')
+	$first = $name.Substring(0, $dotIdx)
+	$rest = $name.Substring($dotIdx)
+	if ($script:typeNormMap.ContainsKey($first)) {
+		$normalized = "$($script:typeNormMap[$first])$rest"
+		if ($normalized -ne $name) { Write-Host "[NORM] Command: $name -> $normalized" }
+		return $normalized
+	}
+	return $name
+}
+
 # --- Operations ---
 
 function Do-Hide([string[]]$commands) {
+	$commands = @($commands | ForEach-Object { Normalize-CmdName $_ })
 	$section = Ensure-Section "CommandsVisibility"
 	$sectionIndent = Get-ChildIndent $section
 
@@ -270,6 +484,7 @@ function Do-Hide([string[]]$commands) {
 }
 
 function Do-Show([string[]]$commands) {
+	$commands = @($commands | ForEach-Object { Normalize-CmdName $_ })
 	$section = $null
 	foreach ($child in $root.ChildNodes) {
 		if ($child.NodeType -eq 'Element' -and $child.LocalName -eq "CommandsVisibility") {
@@ -318,7 +533,7 @@ function Do-Show([string[]]$commands) {
 
 function Do-Place([string]$jsonVal) {
 	$def = $jsonVal | ConvertFrom-Json
-	$cmdName = "$($def.command)"
+	$cmdName = Normalize-CmdName "$($def.command)"
 	$groupName = "$($def.group)"
 	if (-not $cmdName -or -not $groupName) { Write-Error "place requires {command, group}"; exit 1 }
 
@@ -352,7 +567,7 @@ function Do-Place([string]$jsonVal) {
 function Do-Order([string]$jsonVal) {
 	$def = $jsonVal | ConvertFrom-Json
 	$groupName = "$($def.group)"
-	$commands = @($def.commands | ForEach-Object { "$_" })
+	$commands = @($def.commands | ForEach-Object { Normalize-CmdName "$_" })
 	if (-not $groupName -or $commands.Count -eq 0) { Write-Error "order requires {group, commands:[...]}"; exit 1 }
 
 	$section = Ensure-Section "CommandsOrder"
@@ -462,7 +677,9 @@ if ($DefinitionFile) {
 
 foreach ($op in $operations) {
 	$opName = if ($op.operation) { "$($op.operation)" } else { "$Operation" }
-	$opValue = if ($op.value) { "$($op.value)" } else { "$Value" }
+	$opValueRaw = if ($op.value) { $op.value } else { "$Value" }
+	# For operations expecting JSON (place, order, etc.): accept object or string
+	$opValue = if ($opValueRaw -is [string]) { $opValueRaw } else { $opValueRaw | ConvertTo-Json -Compress }
 
 	switch ($opName) {
 		"hide"            { Do-Hide (Parse-ValueList $opValue) }
@@ -475,35 +692,35 @@ foreach ($op in $operations) {
 	}
 }
 
-# --- Save (DryRun gate: script-contract, mutations only under explicit -Apply) ---
-if (-not $Apply) {
-	Write-Host ""
-	Write-Host "DRY RUN: would save changes to $resolvedPath" -ForegroundColor Yellow
-} else {
-	$settings = New-Object System.Xml.XmlWriterSettings
-	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
-	$settings.Indent = $false
-	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+# --- Save ---
+$settings = New-Object System.Xml.XmlWriterSettings
+$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
+$settings.Indent = $false
+$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
 
-	$memStream = New-Object System.IO.MemoryStream
-	$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
-	$script:xmlDoc.Save($writer)
-	$writer.Flush(); $writer.Close()
+$memStream = New-Object System.IO.MemoryStream
+$writer = [System.Xml.XmlWriter]::Create($memStream, $settings)
+$script:xmlDoc.Save($writer)
+$writer.Flush(); $writer.Close()
 
-	$bytes = $memStream.ToArray()
-	$memStream.Close()
-	$text = [System.Text.Encoding]::UTF8.GetString($bytes)
-	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
-	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+$bytes = $memStream.ToArray()
+$memStream.Close()
+$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 
-	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-	[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
-	Info "Saved: $resolvedPath"
-}
+$utf8Bom = New-Object System.Text.UTF8Encoding($true)
+$text = [regex]::Replace($text, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<\?.*?\?>|(?<=\S) />', { param($m) if ($m.Value -eq ' />') { '/>' } else { $m.Value } })
+$targetEol = if ([System.IO.File]::ReadAllText($resolvedPath) -match "`r`n") { "`r`n" } else { "`n" }
+$text = ($text -replace "`r`n", "`n") -replace "`n", $targetEol
+[System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
+Info "Saved: $resolvedPath"
 
 # --- Auto-validate ---
+# Local: the validator sits in this scripts/ folder (upstream looked two levels
+# up and silently skipped); a missing validator fails, its exit code propagates.
 $script:validateExit = 0
-if ($Apply -and -not $NoValidate) {
+if (-not $NoValidate) {
 	$validateScript = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "interface-validate.ps1"))
 	if (Test-Path $validateScript) {
 		Write-Host ""
@@ -514,8 +731,6 @@ if ($Apply -and -not $NoValidate) {
 			$script:validateExit = 1
 		}
 	} else {
-		# Silent skip here once hid a wrong path for months: say it, and fail.
-		Write-Host ""
 		Write-Host "[FAIL] interface-validate not found at: $validateScript - the result was written but NOT validated" -ForegroundColor Red
 		$script:validateExit = 1
 	}
@@ -527,7 +742,4 @@ Write-Host "=== interface-edit summary ==="
 Write-Host "  Added:    $($script:addCount)"
 Write-Host "  Removed:  $($script:removeCount)"
 Write-Host "  Modified: $($script:modifyCount)"
-if (-not $Apply) {
-	Write-Host "No changes made. Re-run with -Apply to save changes."
-}
 exit $script:validateExit

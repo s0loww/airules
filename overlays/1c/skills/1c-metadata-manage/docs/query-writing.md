@@ -1,10 +1,12 @@
 # 1C Query Writing — Composing Queries from Scratch
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Covers **writing** new 1C queries: structure, parameters, virtual tables, temporary tables, totals, joins with tabular sections, and the small set of patterns you need 90% of the time.
 
 For tuning existing queries, joins versus subqueries, composite-type dereferencing, index alignment and DCS specifics — see [query-optimization.md](query-optimization.md).
 
-For project-wide query rules (formatting, aliases, parameters, no queries in loops) — see `dev-standards-core.md` and `anti-patterns.md` in the rules folder.
+For project-wide query rules — load the router `rules/dev-standards-architecture.md` first. Authoritative formatting, aliases, parameters, and the no-queries-in-loops ban live in `rules/dev-standards-architecture.md` §3 → "Queries"`; severity catalog — `rules/anti-patterns.md` (§1 Query in Loop, §4 Virtual Table Filter in WHERE, §5 Missing ПЕРВЫЕ N, Batch Query with Temp Table).
 
 ## When to Use This Skill
 
@@ -107,7 +109,7 @@ These are the high-leverage tools — most reporting queries are built around th
 | Information register | `РегистрСведений.<Имя>.СрезПоследних(&Дата, <отбор>)` | Latest record per dimension up to date. |
 | Information register | `РегистрСведений.<Имя>.СрезПервых(&Дата, <отбор>)` | First record per dimension on or after date. |
 
-**Pass parameters to the virtual table itself**, not as a separate `ГДЕ`:
+**Push dimension filters into virtual-table parameters when equivalent.** Slice attribute / resource filters require the before-slice versus after-slice choice in `rules/dev-standards-architecture.md` §3 → "Queries"`; do not move them as a mechanical optimization. The balance dimension filter below is equivalent:
 
 ```bsl
 // ❌ filter applied AFTER materialisation — slow
@@ -138,7 +140,7 @@ Temporary tables are the way to compose multi-step queries instead of nested sub
 "ВЫБРАТЬ
 |	Товары.Номенклатура КАК Номенклатура,
 |	СУММА(Товары.Количество) КАК Количество
-|ПОМЕСТИТЬ ВТНоменклатураЗаказа
+|ПОМЕСТИТЬ ВТ_НоменклатураЗаказа
 |ИЗ
 |	Документ.ЗаказКлиента.Товары КАК Товары
 |ГДЕ
@@ -154,11 +156,11 @@ Temporary tables are the way to compose multi-step queries instead of nested sub
 |	ВТ.Количество КАК Заказано,
 |	ЕСТЬNULL(Остатки.КоличествоОстаток, 0) КАК ВНаличии
 |ИЗ
-|	ВТНоменклатураЗаказа КАК ВТ
+|	ВТ_НоменклатураЗаказа КАК ВТ
 |		ЛЕВОЕ СОЕДИНЕНИЕ
 |			РегистрНакопления.ТоварыНаСкладах.Остатки(
 |				&МоментВремени,
-|				Номенклатура В (ВЫБРАТЬ Номенклатура ИЗ ВТНоменклатураЗаказа)
+|				Номенклатура В (ВЫБРАТЬ Номенклатура ИЗ ВТ_НоменклатураЗаказа)
 |			) КАК Остатки
 |		ПО ВТ.Номенклатура = Остатки.Номенклатура";
 
@@ -171,9 +173,9 @@ Temporary tables are the way to compose multi-step queries instead of nested sub
 
 Rules of thumb:
 
-- Always `ИНДЕКСИРОВАТЬ ПО` the columns you join on.
+- Always `ИНДЕКСИРОВАТЬ ПО` the join keys — the 2–3 most selective fields, not every column (`query-optimization.md → Temporary Table Indexing`).
 - A batch query separator is the `;` plus a comment ruler — no semantic role, just visual separation.
-- Pass the temporary-table set into a virtual table via `В (ВЫБРАТЬ ... ИЗ ВТ...)` to push the filter to the lowest possible level.
+- Pass the temporary-table set of dimension keys into a virtual table via `В (ВЫБРАТЬ ... ИЗ ВТ...)` when that pushdown preserves the result (see *Virtual Tables of Registers*).
 - A single `Запрос` instance with one `МенеджерВременныхТаблиц` is enough; do **not** create a query per batch step.
 
 ## Totals

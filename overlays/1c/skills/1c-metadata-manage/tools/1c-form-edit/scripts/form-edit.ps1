@@ -1,30 +1,187 @@
-﻿<#
-.SYNOPSIS
-	Редактирование существующей формы 1С (Form.xml) по JSON-определению
-
-.PARAMETER Apply
-	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
-	показывает план добавлений (элементы/реквизиты/команды) и завершается
-	без записи файла.
-
-.EXAMPLE
-	.\form-edit.ps1 -FormPath "src\Обработка\Forms\Форма\Ext\Form.xml" -JsonPath changes.json
-
-.EXAMPLE
-	.\form-edit.ps1 -FormPath "src\Обработка\Forms\Форма\Ext\Form.xml" -JsonPath changes.json -Apply
-#>
+﻿# form-edit v1.6 — Edit 1C managed form elements
+# Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
+# Local: DynamicList attributes require settings.mainTable or settings.query
+# and emit <Settings xsi:type="DynamicList">. An attribute without a source
+# loads into the designer but the form fails to open
+# ("не задан ни текст запроса, ни основная таблица").
 param(
 	[Parameter(Mandatory)]
+	[Alias('Path')]
 	[string]$FormPath,
 
 	[Parameter(Mandatory)]
-	[string]$JsonPath,
-
-	[switch]$Apply
+	[string]$JsonPath
 )
+
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: form-edit writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool form-edit <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Support guard (Ext/ParentConfigurations.bin) ---
+# Canon: docs/support-manage.md. Blocks edits of vendor objects "на замке" /
+# read-only configs unless allowed. Trigger = bin present; reaction from
+# .dev.env SUPPORT_GUARD (deny|warn|off, default deny; .v8-project.json
+# editingAllowedCheck stays as the upstream fallback). Fail-closed on an
+# unreadable support state (bin exists but cannot be parsed — same reaction);
+# other guard errors degrade to allow with a stderr notice.
+function Get-RootUuid([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $null }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { $u = $el.GetAttribute("uuid"); if ($u) { return $u } }
+	} catch {}
+	return $null
+}
+function Test-ExternalObjectRoot([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $false }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { return @('ExternalDataProcessor','ExternalReport') -contains $el.LocalName }
+	} catch {}
+	return $false
+}
+function Find-V8Project([string]$startDir) {
+	$d = $startDir
+	for ($i = 0; $i -lt 20 -and $d; $i++) {
+		$pj = Join-Path $d ".v8-project.json"
+		if (Test-Path $pj) { return $pj }
+		$parent = [System.IO.Path]::GetDirectoryName($d)
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return $null
+}
+function Get-EditMode([string]$cfgDir) {
+	try {
+		# 1c-rules: .dev.env SUPPORT_GUARD wins over .v8-project.json editingAllowedCheck.
+		$__devEnvHelper = Join-Path $PSScriptRoot '../../_common/DevEnv.ps1'
+		if (Test-Path $__devEnvHelper) {
+		    . $__devEnvHelper
+		    $__devEnvMode = (Get-1CDevEnvValue 'SUPPORT_GUARD').ToLower()
+		    if (@('deny', 'warn', 'off') -contains $__devEnvMode) { return $__devEnvMode }
+		}
+		$pj = Find-V8Project (Get-Location).Path
+		if (-not $pj) { $pj = Find-V8Project $cfgDir }
+		if (-not $pj) { return 'deny' }
+		$proj = Get-Content -Raw $pj | ConvertFrom-Json
+		$cfgFull = [System.IO.Path]::GetFullPath($cfgDir).TrimEnd('\', '/')
+		if ($proj.databases) {
+			foreach ($db in $proj.databases) {
+				if ($db.configSrc) {
+					$src = [System.IO.Path]::GetFullPath($db.configSrc).TrimEnd('\', '/')
+					if ($cfgFull -eq $src -or $cfgFull.StartsWith($src + [System.IO.Path]::DirectorySeparatorChar)) {
+						if ($db.editingAllowedCheck) { return $db.editingAllowedCheck }
+					}
+				}
+			}
+		}
+		if ($proj.editingAllowedCheck) { return $proj.editingAllowedCheck }
+		return 'deny'
+	} catch { return 'deny' }
+}
+function Assert-EditAllowed([string]$targetPath, [string]$require) {
+	try {
+		$rp = $targetPath
+		try { $rp = (Resolve-Path $targetPath -ErrorAction Stop).Path } catch {}
+		# Autonomous external object (EPF/ERF): never part of a config on support (issue #39).
+		if (Test-ExternalObjectRoot $rp) { return }
+		$elemUuid = Get-RootUuid $rp
+		$cfgDir = $null; $binPath = $null
+		$d = if (Test-Path $rp -PathType Container) { $rp } else { [System.IO.Path]::GetDirectoryName($rp) }
+		for ($i = 0; $i -lt 12 -and $d; $i++) {
+			if (Test-ExternalObjectRoot "$d.xml") { return }
+			if (-not $elemUuid) { $elemUuid = Get-RootUuid "$d.xml" }
+			if (-not $cfgDir) {
+				$cand = Join-Path (Join-Path $d "Ext") "ParentConfigurations.bin"
+				if ((Test-Path $cand) -or (Test-Path (Join-Path $d "Configuration.xml"))) { $cfgDir = $d; $binPath = $cand }
+			}
+			if ($elemUuid -and $cfgDir) { break }
+			$parent = [System.IO.Path]::GetDirectoryName($d)
+			if ($parent -eq $d) { break }
+			$d = $parent
+		}
+		# New object (no element file): fall back to config root uuid.
+		if (-not $elemUuid -and $cfgDir) { $elemUuid = Get-RootUuid (Join-Path $cfgDir "Configuration.xml") }
+		if (-not $binPath -or -not (Test-Path $binPath)) { return }
+		# Bin present: an unreadable / unparseable support state must not silently
+		# degrade to allow — fail closed via the SUPPORT_GUARD reaction instead.
+		$G = 0; $K = 0; $text = $null; $parseOk = $false
+		try {
+			$bytes = [System.IO.File]::ReadAllBytes($binPath)
+			if ($bytes.Length -gt 32) {
+				$start = 0
+				if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $start = 3 }
+				$text = [System.Text.Encoding]::UTF8.GetString($bytes, $start, $bytes.Length - $start)
+				$hm = [regex]::Match($text, '^\{6,(\d+),(\d+),')
+				if ($hm.Success) {
+					$G = [int]$hm.Groups[1].Value
+					$K = [int]$hm.Groups[2].Value
+					$parseOk = $true
+				}
+			}
+		} catch {}
+		if (-not $parseOk) {
+			$mode = Get-EditMode $cfgDir
+			if ($mode -eq 'off') { return }
+			$msg = "[support-guard] Файл состояния поддержки «$binPath» существует, но не читается или не разбирается — состояние объекта неизвестно, он может быть на замке."
+			if ($mode -eq 'warn') { [Console]::Error.WriteLine("$msg Продолжаю по SUPPORT_GUARD=warn."); return }
+			[Console]::Error.WriteLine("$msg`nРедактирование остановлено (fail-closed). Проверьте целостность выгрузки, либо задайте SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md).")
+			exit 1
+		}
+		if ($K -eq 0) { return }
+		$best = $null
+		if ($elemUuid) {
+			$u = [regex]::Escape($elemUuid.ToLower())
+			foreach ($m in [regex]::Matches($text, "([0-2]),0,$u")) {
+				$f1 = [int]$m.Groups[1].Value
+				if ($null -eq $best -or $f1 -lt $best) { $best = $f1 }
+			}
+		}
+		$blocked = $false; $code = ""; $reason = ""
+		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
+		elseif ($require -eq 'removed') {
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+		}
+		else {
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+		}
+		if (-not $blocked) { return }
+		$mode = Get-EditMode $cfgDir
+		if ($mode -eq 'off') { return }
+		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# latter throws and would be swallowed by this function's own catch.
+		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
+		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$offNote = "Снять проверку: SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md)."
+		if ($code -eq "capability-off") {
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+		} elseif ($code -eq "not-removed") {
+			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+		} else {
+			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+		}
+		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
+		exit 1
+	} catch {
+		[Console]::Error.WriteLine("[support-guard] Проверка состояния поддержки не выполнена ($($_.Exception.Message)) — продолжаю без блокировки.")
+		return
+	}
+}
 
 # === 1. Load Form.xml ===
 
@@ -38,6 +195,7 @@ if (-not (Test-Path $JsonPath)) {
 }
 
 $resolvedFormPath = (Resolve-Path $FormPath).Path
+Assert-EditAllowed $resolvedFormPath 'editable'
 $xmlDoc = New-Object System.Xml.XmlDocument
 $xmlDoc.PreserveWhitespace = $true
 try {
@@ -125,6 +283,16 @@ $script:nextElemId++
 $script:nextAttrId++
 $script:nextCmdId++
 
+# --- 4b. Auto-detect extension mode (BaseForm present) ---
+$script:isExtension = $false
+$baseForm = $root.SelectSingleNode("f:BaseForm", $nsMgr)
+if ($baseForm) {
+	$script:isExtension = $true
+	if ($script:nextAttrId -lt 1000000) { $script:nextAttrId = 1000000 }
+	if ($script:nextCmdId -lt 1000000) { $script:nextCmdId = 1000000 }
+	if ($script:nextElemId -lt 1000000) { $script:nextElemId = 1000000 }
+}
+
 function New-ElemId { $id = $script:nextElemId; $script:nextElemId++; return $id }
 function New-AttrId { $id = $script:nextAttrId; $script:nextAttrId++; return $id }
 function New-CmdId { $id = $script:nextCmdId; $script:nextCmdId++; return $id }
@@ -158,11 +326,54 @@ function Emit-MLText {
 
 # --- Type emitter ---
 
+$script:formTypeSynonyms = New-Object System.Collections.Hashtable
+$script:formTypeSynonyms["строка"]   = "string"
+$script:formTypeSynonyms["число"]    = "decimal"
+$script:formTypeSynonyms["булево"]   = "boolean"
+$script:formTypeSynonyms["дата"]     = "date"
+$script:formTypeSynonyms["датавремя"]= "dateTime"
+$script:formTypeSynonyms["number"]   = "decimal"
+$script:formTypeSynonyms["bool"]     = "boolean"
+$script:formTypeSynonyms["справочникссылка"]            = "CatalogRef"
+$script:formTypeSynonyms["справочникобъект"]            = "CatalogObject"
+$script:formTypeSynonyms["документссылка"]              = "DocumentRef"
+$script:formTypeSynonyms["документобъект"]              = "DocumentObject"
+$script:formTypeSynonyms["перечислениессылка"]           = "EnumRef"
+$script:formTypeSynonyms["плансчетовссылка"]             = "ChartOfAccountsRef"
+$script:formTypeSynonyms["планвидовхарактеристикссылка"] = "ChartOfCharacteristicTypesRef"
+$script:formTypeSynonyms["планвидоврасчётассылка"]        = "ChartOfCalculationTypesRef"
+$script:formTypeSynonyms["планвидоврасчетассылка"]        = "ChartOfCalculationTypesRef"
+$script:formTypeSynonyms["планобменассылка"]              = "ExchangePlanRef"
+$script:formTypeSynonyms["бизнеспроцессссылка"]           = "BusinessProcessRef"
+$script:formTypeSynonyms["задачассылка"]                  = "TaskRef"
+$script:formTypeSynonyms["определяемыйтип"]             = "DefinedType"
+
+function Resolve-TypeStr {
+	param([string]$typeStr)
+	if (-not $typeStr) { return $typeStr }
+	if ($typeStr -match '^([^(]+)\((.+)\)$') {
+		$base = $Matches[1].Trim(); $params = $Matches[2]
+		$r = $script:formTypeSynonyms[$base.ToLower()]
+		if ($r) { return "$r($params)" }
+		return $typeStr
+	}
+	if ($typeStr.Contains('.')) {
+		$i = $typeStr.IndexOf('.')
+		$prefix = $typeStr.Substring(0, $i); $suffix = $typeStr.Substring($i)
+		$r = $script:formTypeSynonyms[$prefix.ToLower()]
+		if ($r) { return "$r$suffix" }
+		return $typeStr
+	}
+	$r = $script:formTypeSynonyms[$typeStr.ToLower()]
+	if ($r) { return $r }
+	return $typeStr
+}
+
 function Emit-Type {
 	param($typeStr, [string]$indent)
 	if (-not $typeStr) { X "$indent<Type/>"; return }
 	$typeString = "$typeStr"
-	$parts = $typeString -split '\s*\|\s*'
+	$parts = $typeString -split '\s*[|+]\s*'
 	X "$indent<Type>"
 	foreach ($part in $parts) {
 		Emit-SingleType -typeStr $part.Trim() -indent "$indent`t"
@@ -172,6 +383,8 @@ function Emit-Type {
 
 function Emit-SingleType {
 	param([string]$typeStr, [string]$indent)
+
+	$typeStr = Resolve-TypeStr $typeStr
 
 	if ($typeStr -eq "boolean") {
 		X "$indent<v8:Type>xs:boolean</v8:Type>"; return
@@ -221,6 +434,44 @@ function Emit-SingleType {
 	else { X "$indent<v8:Type>$typeStr</v8:Type>" }
 }
 
+function Test-IsDynamicListType {
+	param([string]$typeStr)
+	return ($typeStr -eq "DynamicList" -or $typeStr -eq "cfg:DynamicList")
+}
+
+function Test-DynamicListSource {
+	param($settings)
+	if (-not $settings) { return $false }
+	$main = "$($settings.mainTable)".Trim()
+	$query = "$($settings.query)".Trim()
+	return ($main -ne "" -or $query -ne "")
+}
+
+function Emit-DynamicListSettings {
+	param($settings, [string]$indent)
+	X "$indent<Settings xsi:type=`"DynamicList`">"
+	$si = "$indent`t"
+	$hasQuery = $settings.query -and "$($settings.query)".Trim()
+	$hasMQKey = $false
+	if ($settings -is [System.Collections.IDictionary]) {
+		$hasMQKey = $settings.Contains("manualQuery") -and ($null -ne $settings.manualQuery)
+	} elseif ($settings.PSObject -and $settings.PSObject.Properties["manualQuery"]) {
+		$hasMQKey = $null -ne $settings.manualQuery
+	}
+	$mq = if ($hasMQKey) { if ($settings.manualQuery) { "true" } else { "false" } } elseif ($hasQuery) { "true" } else { "false" }
+	X "$si<ManualQuery>$mq</ManualQuery>"
+	$ddr = if ($settings.dynamicDataRead -eq $false) { "false" } else { "true" }
+	X "$si<DynamicDataRead>$ddr</DynamicDataRead>"
+	if ($hasQuery) {
+		X "$si<QueryText>$(Esc-Xml "$($settings.query)")</QueryText>"
+	}
+	$main = "$($settings.mainTable)".Trim()
+	if ($main -ne "") {
+		X "$si<MainTable>$(Esc-Xml $main)</MainTable>"
+	}
+	X "$indent</Settings>"
+}
+
 # --- Event handler name generator ---
 
 $script:eventSuffixMap = @{
@@ -250,6 +501,16 @@ function Get-ElementName {
 	return "$($el.$typeKey)"
 }
 
+# Уникальность имён внутри JSON-определения (1С: своя коллекция — свой неймспейс).
+function Assert-EditUnique {
+	param([string]$name, [hashtable]$seen, [string]$ctx)
+	if ($seen.ContainsKey($name)) {
+		Write-Host "[ERROR] Duplicate $ctx '$name' in JSON definition — names must be unique in 1C form"
+		exit 1
+	}
+	$seen[$name] = $true
+}
+
 $script:knownEvents = @{
 	"input"     = @("OnChange","StartChoice","ChoiceProcessing","AutoComplete","TextEditEnd","Clearing","Creating","EditTextChange")
 	"check"     = @("OnChange")
@@ -275,18 +536,29 @@ function Emit-Events {
 	if ($typeKey -and $script:knownEvents.ContainsKey($typeKey)) {
 		$allowed = $script:knownEvents[$typeKey]
 		foreach ($evt in $el.on) {
-			if ($allowed.Count -gt 0 -and $allowed -notcontains "$evt") {
-				Write-Host "[WARN] Unknown event '$evt' for $typeKey '$elementName'. Known: $($allowed -join ', ')"
+			$evtStr = if ($evt -is [string]) { "$evt" } else { "$($evt.event)" }
+			if ($allowed.Count -gt 0 -and $allowed -notcontains $evtStr) {
+				Write-Host "[WARN] Unknown event '$evtStr' for $typeKey '$elementName'. Known: $($allowed -join ', ')"
 			}
 		}
 	}
 
 	X "$indent<Events>"
 	foreach ($evt in $el.on) {
-		$evtName = "$evt"
-		$handler = if ($el.handlers -and $el.handlers.$evtName) { "$($el.handlers.$evtName)" }
-		else { Get-HandlerName -elementName $elementName -eventName $evtName }
-		X "$indent`t<Event name=`"$evtName`">$handler</Event>"
+		# Support both string ("OnChange") and object ({ "event": "OnChange", "callType": "After" })
+		if ($evt -is [string] -or -not $evt.event) {
+			$evtName = "$evt"
+			$handler = if ($el.handlers -and $el.handlers.$evtName) { "$($el.handlers.$evtName)" }
+			else { Get-HandlerName -elementName $elementName -eventName $evtName }
+			X "$indent`t<Event name=`"$evtName`">$handler</Event>"
+		} else {
+			$evtName = "$($evt.event)"
+			$handler = if ($evt.handler) { "$($evt.handler)" }
+			elseif ($el.handlers -and $el.handlers.$evtName) { "$($el.handlers.$evtName)" }
+			else { Get-HandlerName -elementName $elementName -eventName $evtName }
+			$callTypeAttr = if ($evt.callType) { " callType=`"$($evt.callType)`"" } else { "" }
+			X "$indent`t<Event name=`"$evtName`"$callTypeAttr>$handler</Event>"
+		}
 	}
 	X "$indent</Events>"
 }
@@ -737,7 +1009,7 @@ function Insert-IntoContainer($container, $newNode, $afterName, $childIndent) {
 
 # === 9. Generate fragment, parse, import nodes ===
 
-$allNsDecl = 'xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema"'
+$allNsDecl = 'xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema"'
 
 function Parse-Fragment([string]$xmlText) {
 	$fragDoc = New-Object System.Xml.XmlDocument
@@ -812,17 +1084,31 @@ if ($def.elements -and $def.elements.Count -gt 0) {
 	# Detect indent level
 	$childIndent = Get-ChildIndent $targetCI
 
-	# Check for duplicate element names
+	# Имена элементов уникальны (требование 1С). Сначала — внутри самого JSON-определения
+	# (рекурсивно по children/columns).
+	$elemTypeKeys = @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup")
+	function Walk-ElemNames($el, [hashtable]$seen) {
+		$tk = $null
+		foreach ($k in $elemTypeKeys) { if ($el.$k -ne $null) { $tk = $k; break } }
+		if ($tk) { Assert-EditUnique -name (Get-ElementName -el $el -typeKey $tk) -seen $seen -ctx 'element name' }
+		if ($el.children) { foreach ($c in $el.children) { Walk-ElemNames $c $seen } }
+		if ($el.columns)  { foreach ($c in $el.columns)  { Walk-ElemNames $c $seen } }
+	}
+	$dslElemNames = @{}
+	foreach ($el in $def.elements) { Walk-ElemNames $el $dslElemNames }
+
+	# Затем — против уже существующих элементов формы (дубль = битый XML, форма не откроется)
 	foreach ($el in $def.elements) {
 		$typeKey = $null
-		foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup")) {
+		foreach ($key in $elemTypeKeys) {
 			if ($el.$key -ne $null) { $typeKey = $key; break }
 		}
 		if ($typeKey) {
 			$elName = Get-ElementName -el $el -typeKey $typeKey
 			$existing = Find-Element $rootCI $elName
 			if ($existing) {
-				Write-Host "[WARN] Element '$elName' already exists in form (id=$($existing.GetAttribute('id')))"
+				Write-Host "[ERROR] Element '$elName' already exists in form (id=$($existing.GetAttribute('id'))) — element names must be unique"
+				exit 1
 			}
 		}
 	}
@@ -901,6 +1187,26 @@ if ($def.attributes -and $def.attributes.Count -gt 0) {
 	$attrChildIndent = Get-ChildIndent $attrsSection
 	if (-not $attrChildIndent -or $attrChildIndent -eq "") { $attrChildIndent = "`t`t" }
 
+	# Уникальность имён реквизитов: внутри JSON-определения (+ колонки в пределах реквизита) и
+	# против уже существующих реквизитов формы.
+	$dslAttrNames = @{}
+	foreach ($attr in $def.attributes) {
+		Assert-EditUnique -name "$($attr.name)" -seen $dslAttrNames -ctx 'attribute name'
+		if ($attr.columns) {
+			$dslColNames = @{}
+			foreach ($col in $attr.columns) { Assert-EditUnique -name "$($col.name)" -seen $dslColNames -ctx "column name of '$($attr.name)'" }
+		}
+		$existingAttr = $attrsSection.SelectSingleNode("f:Attribute[@name='$($attr.name)']", $nsMgr)
+		if ($existingAttr) {
+			Write-Host "[ERROR] Attribute '$($attr.name)' already exists in form — attribute names must be unique"
+			exit 1
+		}
+		if ((Test-IsDynamicListType "$($attr.type)") -and -not (Test-DynamicListSource $attr.settings)) {
+			Write-Host "[ERROR] Attribute '$($attr.name)': DynamicList requires settings.mainTable or settings.query — otherwise the form fails to open"
+			exit 1
+		}
+	}
+
 	# Generate attribute fragments
 	$script:xml = New-Object System.Text.StringBuilder 2048
 	X "<_F $allNsDecl>"
@@ -916,7 +1222,9 @@ if ($def.attributes -and $def.attributes.Count -gt 0) {
 		if ($attr.savedData -eq $true) { X "$inner<SavedData>true</SavedData>" }
 		if ($attr.fillChecking) { X "$inner<FillChecking>$($attr.fillChecking)</FillChecking>" }
 
-		if ($attr.columns -and $attr.columns.Count -gt 0) {
+		$typeStr = if ($attr.type) { "$($attr.type)" } else { "(no type)" }
+		$isDynamicList = Test-IsDynamicListType $typeStr
+		if ($attr.columns -and $attr.columns.Count -gt 0 -and -not $isDynamicList) {
 			X "$inner<Columns>"
 			$colId = 1
 			foreach ($col in $attr.columns) {
@@ -929,8 +1237,11 @@ if ($def.attributes -and $def.attributes.Count -gt 0) {
 			X "$inner</Columns>"
 		}
 
+		if ($isDynamicList) {
+			Emit-DynamicListSettings -settings $attr.settings -indent $inner
+		}
+
 		X "$attrChildIndent</Attribute>"
-		$typeStr = if ($attr.type) { "$($attr.type)" } else { "(no type)" }
 		$addedAttrs += "  + ${attrName}: $typeStr (id=$attrId)"
 	}
 	X "</_F>"
@@ -969,6 +1280,17 @@ if ($def.commands -and $def.commands.Count -gt 0) {
 	$cmdChildIndent = Get-ChildIndent $cmdsSection
 	if (-not $cmdChildIndent -or $cmdChildIndent -eq "") { $cmdChildIndent = "`t`t" }
 
+	# Уникальность имён команд: внутри JSON-определения и против существующих команд формы.
+	$dslCmdNames = @{}
+	foreach ($cmd in $def.commands) {
+		Assert-EditUnique -name "$($cmd.name)" -seen $dslCmdNames -ctx 'command name'
+		$existingCmd = $cmdsSection.SelectSingleNode("f:Command[@name='$($cmd.name)']", $nsMgr)
+		if ($existingCmd) {
+			Write-Host "[ERROR] Command '$($cmd.name)' already exists in form — command names must be unique"
+			exit 1
+		}
+	}
+
 	# Generate command fragments
 	$script:xml = New-Object System.Text.StringBuilder 1024
 	X "<_F $allNsDecl>"
@@ -979,7 +1301,20 @@ if ($def.commands -and $def.commands.Count -gt 0) {
 		$inner = "$cmdChildIndent`t"
 
 		if ($cmd.title) { Emit-MLText -tag "Title" -text "$($cmd.title)" -indent $inner }
-		if ($cmd.action) { X "$inner<Action>$($cmd.action)</Action>" }
+
+		# Support single action with optional callType, or multiple actions
+		if ($cmd.actions) {
+			# Multiple actions: [{ "callType": "Before", "handler": "..." }, ...]
+			foreach ($act in $cmd.actions) {
+				$actHandler = "$($act.handler)"
+				$callTypeAttr = if ($act.callType) { " callType=`"$($act.callType)`"" } else { "" }
+				X "$inner<Action$callTypeAttr>$actHandler</Action>"
+			}
+		} elseif ($cmd.action) {
+			$callTypeAttr = if ($cmd.callType) { " callType=`"$($cmd.callType)`"" } else { "" }
+			X "$inner<Action$callTypeAttr>$($cmd.action)</Action>"
+		}
+
 		if ($cmd.shortcut) { X "$inner<Shortcut>$($cmd.shortcut)</Shortcut>" }
 		if ($cmd.picture) {
 			X "$inner<Picture>"
@@ -990,7 +1325,7 @@ if ($def.commands -and $def.commands.Count -gt 0) {
 		if ($cmd.representation) { X "$inner<Representation>$($cmd.representation)</Representation>" }
 
 		X "$cmdChildIndent</Command>"
-		$actionStr = if ($cmd.action) { " -> $($cmd.action)" } else { "" }
+		$actionStr = if ($cmd.action) { " -> $($cmd.action)" } elseif ($cmd.actions) { " -> $($cmd.actions.Count) action(s)" } else { "" }
 		$addedCmds += "  + ${cmdName}${actionStr} (id=$cmdId)"
 	}
 	X "</_F>"
@@ -1003,21 +1338,166 @@ if ($def.commands -and $def.commands.Count -gt 0) {
 	}
 }
 
-# === 13. Save (DryRun gate: script-contract, mutations only under explicit -Apply) ===
+# === 12b. Add form-level events ===
 
-if (-not $Apply) {
-	Write-Host "DRY RUN: would save changes to $resolvedFormPath" -ForegroundColor Yellow
-	Write-Host ""
-} else {
-	$content = $xmlDoc.OuterXml
-	# Ensure encoding declaration is uppercase UTF-8
-	$content = $content -replace '^<\?xml version="1.0" encoding="utf-8"\?>', '<?xml version="1.0" encoding="UTF-8"?>'
+$addedFormEvents = @()
 
-	$enc = New-Object System.Text.UTF8Encoding($true)
-	[System.IO.File]::WriteAllText($resolvedFormPath, $content, $enc)
+if ($def.formEvents -and $def.formEvents.Count -gt 0) {
+	$eventsSection = $root.SelectSingleNode("f:Events", $nsMgr)
+	if (-not $eventsSection) {
+		# Create Events section — insert after AutoCommandBar or at the beginning
+		$eventsSection = $xmlDoc.CreateElement("Events", $formNs)
+		$insertAfter = $root.SelectSingleNode("f:AutoCommandBar", $nsMgr)
+		if ($insertAfter) {
+			# Insert after AutoCommandBar (Events come after AutoCommandBar in 1C)
+			$ws1 = $xmlDoc.CreateWhitespace("`r`n`t")
+			$ws2 = $xmlDoc.CreateWhitespace("`r`n`t")
+			if ($insertAfter.NextSibling) {
+				$root.InsertBefore($ws1, $insertAfter.NextSibling) | Out-Null
+				$root.InsertBefore($eventsSection, $ws1) | Out-Null
+				$root.InsertBefore($ws2, $eventsSection) | Out-Null
+			} else {
+				$root.AppendChild($xmlDoc.CreateWhitespace("`r`n`t")) | Out-Null
+				$root.AppendChild($eventsSection) | Out-Null
+				$root.AppendChild($xmlDoc.CreateWhitespace("`r`n")) | Out-Null
+			}
+		} else {
+			$firstChild = $root.FirstChild
+			if ($firstChild) {
+				$ws = $xmlDoc.CreateWhitespace("`r`n`t")
+				$root.InsertBefore($eventsSection, $firstChild) | Out-Null
+				$root.InsertBefore($ws, $eventsSection) | Out-Null
+			} else {
+				$root.AppendChild($xmlDoc.CreateWhitespace("`r`n`t")) | Out-Null
+				$root.AppendChild($eventsSection) | Out-Null
+			}
+		}
+	}
+
+	$evtChildIndent = Get-ChildIndent $eventsSection
+	if (-not $evtChildIndent -or $evtChildIndent -eq "") { $evtChildIndent = "`t`t" }
+
+	# Generate event fragments
+	$script:xml = New-Object System.Text.StringBuilder 512
+	X "<_F $allNsDecl>"
+	foreach ($fe in $def.formEvents) {
+		$feName = "$($fe.name)"
+		$feHandler = "$($fe.handler)"
+		$callTypeAttr = if ($fe.callType) { " callType=`"$($fe.callType)`"" } else { "" }
+		X "$evtChildIndent<Event name=`"$feName`"$callTypeAttr>$feHandler</Event>"
+		$ctStr = if ($fe.callType) { "[$($fe.callType)]" } else { "" }
+		$addedFormEvents += "  + $feName${ctStr} -> $feHandler"
+	}
+	X "</_F>"
+
+	$fragDoc = Parse-Fragment $script:xml.ToString()
+	$importedEvents = Import-ElementNodes $fragDoc
+
+	foreach ($node in $importedEvents) {
+		Insert-IntoContainer -container $eventsSection -newNode $node -afterName $null -childIndent $evtChildIndent
+	}
 }
 
+# === 12c. Add element-level events ===
+
+$addedElemEvents = @()
+
+if ($def.elementEvents -and $def.elementEvents.Count -gt 0) {
+	if (-not $rootCI) {
+		$rootCI = $root.SelectSingleNode("f:ChildItems", $nsMgr)
+	}
+
+	foreach ($ee in $def.elementEvents) {
+		$targetName = "$($ee.element)"
+		$targetEl = Find-Element $rootCI $targetName
+		if (-not $targetEl) {
+			Write-Host "[WARN] Element '$targetName' not found — skipping elementEvent"
+			continue
+		}
+
+		# Find or create Events element within the target
+		$targetEvents = $targetEl.SelectSingleNode("f:Events", $nsMgr)
+		if (-not $targetEvents) {
+			$targetEvents = $xmlDoc.CreateElement("Events", $formNs)
+			# Insert Events before closing tag (after last property, before ChildItems if any)
+			$ciNode = $targetEl.SelectSingleNode("f:ChildItems", $nsMgr)
+			if ($ciNode) {
+				$ws = $xmlDoc.CreateWhitespace("`r`n" + (Get-ChildIndent $targetEl))
+				$targetEl.InsertBefore($ws, $ciNode) | Out-Null
+				$targetEl.InsertBefore($targetEvents, $ciNode) | Out-Null
+			} else {
+				$trailing = $targetEl.LastChild
+				if ($trailing -and ($trailing.NodeType -eq 'Whitespace' -or $trailing.NodeType -eq 'SignificantWhitespace')) {
+					$ws = $xmlDoc.CreateWhitespace("`r`n" + (Get-ChildIndent $targetEl))
+					$targetEl.InsertBefore($ws, $trailing) | Out-Null
+					$targetEl.InsertBefore($targetEvents, $trailing) | Out-Null
+				} else {
+					$targetEl.AppendChild($xmlDoc.CreateWhitespace("`r`n" + (Get-ChildIndent $targetEl))) | Out-Null
+					$targetEl.AppendChild($targetEvents) | Out-Null
+				}
+			}
+		}
+
+		$eeChildIndent = Get-ChildIndent $targetEvents
+		if (-not $eeChildIndent -or $eeChildIndent -eq "") {
+			$parentIndent = Get-ChildIndent $targetEl
+			$eeChildIndent = "$parentIndent`t"
+		}
+
+		# Create Event element
+		$eeName = "$($ee.name)"
+		$eeHandler = "$($ee.handler)"
+		$callTypeAttr = if ($ee.callType) { " callType=`"$($ee.callType)`"" } else { "" }
+
+		$script:xml = New-Object System.Text.StringBuilder 256
+		X "<_F $allNsDecl>"
+		X "$eeChildIndent<Event name=`"$eeName`"$callTypeAttr>$eeHandler</Event>"
+		X "</_F>"
+
+		$fragDoc = Parse-Fragment $script:xml.ToString()
+		$importedEE = Import-ElementNodes $fragDoc
+
+		foreach ($node in $importedEE) {
+			Insert-IntoContainer -container $targetEvents -newNode $node -afterName $null -childIndent $eeChildIndent
+		}
+
+		$ctStr = if ($ee.callType) { "[$($ee.callType)]" } else { "" }
+		$addedElemEvents += "  + $targetName.$eeName${ctStr} -> $eeHandler"
+	}
+}
+
+# === 13. Save ===
+
+$content = $xmlDoc.OuterXml
+# Ensure encoding declaration is uppercase UTF-8
+$content = $content -replace '^<\?xml version="1.0" encoding="utf-8"\?>', '<?xml version="1.0" encoding="UTF-8"?>'
+# Match Configurator's compact empty tags without altering literal XML text.
+# PreserveWhitespace alone does not preserve the self-closing tag spelling.
+$content = [regex]::Replace($content, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<\?.*?\?>|(?<=\S) />', { param($m) if ($m.Value -eq ' />') { '/>' } else { $m.Value } })
+$targetEol = if ([System.IO.File]::ReadAllText($resolvedFormPath) -match "`r`n") { "`r`n" } else { "`n" }
+$content = ($content -replace "`r`n", "`n") -replace "`n", $targetEol
+
+$enc = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($resolvedFormPath, $content, $enc)
+
 # === 14. Summary ===
+
+if ($script:isExtension) {
+	Write-Host "[EXTENSION] BaseForm detected — IDs start at 1000000+"
+	Write-Host ""
+}
+
+if ($addedFormEvents.Count -gt 0) {
+	Write-Host "Added form events:"
+	foreach ($line in $addedFormEvents) { Write-Host $line }
+	Write-Host ""
+}
+
+if ($addedElemEvents.Count -gt 0) {
+	Write-Host "Added element events:"
+	foreach ($line in $addedElemEvents) { Write-Host $line }
+	Write-Host ""
+}
 
 if ($addedElems.Count -gt 0) {
 	$posStr = ""
@@ -1043,6 +1523,8 @@ if ($addedCmds.Count -gt 0) {
 
 Write-Host "---"
 $totalParts = @()
+if ($addedFormEvents.Count -gt 0) { $totalParts += "$($addedFormEvents.Count) form event(s)" }
+if ($addedElemEvents.Count -gt 0) { $totalParts += "$($addedElemEvents.Count) element event(s)" }
 if ($addedElems.Count -gt 0) {
 	$compStr = if ($companionCount -gt 0) { " (+$companionCount companions)" } else { "" }
 	$totalParts += "$($addedElems.Count) element(s)$compStr"
@@ -1050,8 +1532,4 @@ if ($addedElems.Count -gt 0) {
 if ($addedAttrs.Count -gt 0) { $totalParts += "$($addedAttrs.Count) attribute(s)" }
 if ($addedCmds.Count -gt 0) { $totalParts += "$($addedCmds.Count) command(s)" }
 Write-Host "Total: $($totalParts -join ', ')"
-if (-not $Apply) {
-	Write-Host "No changes made. Re-run with -Apply to save the form."
-} else {
-	Write-Host "Run /form-validate to verify."
-}
+Write-Host "Run /form-validate to verify."

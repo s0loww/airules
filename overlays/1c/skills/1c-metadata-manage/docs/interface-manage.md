@@ -1,15 +1,17 @@
 # 1C Interface Manage — Edit and Validate Command Interface
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Edit and validate CommandInterface.xml files for 1C subsystems.
 
 ---
 
 ## 1. Edit — Modify CommandInterface.xml
 
-Operations: hide, show, place, order, subsystem-order, group-order. Full reference: [reference.md](skills/1c-metadata-manage/tools/1c-interface-manage/reference.md).
+Operations: hide, show, place, order, subsystem-order, group-order. Full reference: [reference.md](../tools/1c-interface-manage/reference.md).
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-manage/scripts/interface-edit.ps1 -CIPath '<path>' -Operation <op> -Value '<value>' -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool interface-edit -CIPath '<path>' -Operation <op> -Value '<value>'
 ```
 
 | Parameter | Description |
@@ -20,7 +22,6 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-man
 | Value | Value for operation |
 | CreateIfMissing | Create file if it doesn't exist |
 | NoValidate | Skip auto-validation |
-| Apply | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Operations
 
@@ -36,22 +37,20 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-man
 ### Examples
 
 ```powershell
-# Hide a command — dry run first (prints the plan, no changes)
+# Hide a command
 ... -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList"
-# Then apply
-... -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList" -Apply
 
 # Show a command
-... -Operation show -Value "Report.Продажи.Command.Отчёт" -Apply
+... -Operation show -Value "Report.Продажи.Command.Отчёт"
 
 # Place in group
-... -Operation place -Value '{"command":"Report.X.Command.Y","group":"CommandGroup.Отчеты"}' -Apply
+... -Operation place -Value '{"command":"Report.X.Command.Y","group":"CommandGroup.Отчеты"}'
 
 # Set subsystem order
-... -Operation subsystem-order -Value '["Subsystem.X.Subsystem.A","Subsystem.X.Subsystem.B"]' -Apply
+... -Operation subsystem-order -Value '["Subsystem.X.Subsystem.A","Subsystem.X.Subsystem.B"]'
 ```
 
-Without `-Apply` the script prints the plan and exits (dry run). Auto-validation runs after each applied operation. Suppress with `-NoValidate`.
+Auto-validation runs after each operation. Suppress with `-NoValidate`.
 
 ---
 
@@ -87,7 +86,4 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-interface-man
 
 Exit code: 0 = all checks passed, 1 = errors found.
 
-## MCP Integration
-
-- **metadatasearch** — Verify command and subsystem names referenced in the interface configuration.
-- **get_metadata_details** — Get object structure for verifying command targets.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

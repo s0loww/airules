@@ -1,5 +1,7 @@
 # 1C Subsystem Manage — Create, Edit, Analyze, Validate Subsystems
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Comprehensive subsystem management: create from JSON, edit content/properties, analyze structure, validate correctness.
 
 ---
@@ -7,11 +9,7 @@ Comprehensive subsystem management: create from JSON, edit content/properties, a
 ## 1. Compile — Create Subsystem from JSON
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-compile.ps1 -Value '<json>' -OutputDir '<ConfigDir>'
-
-# Apply: actually create and register the subsystem
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-compile.ps1 -Value '<json>' -OutputDir '<ConfigDir>' -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool subsystem-compile -Value '<json>' -OutputDir '<ConfigDir>'
 ```
 
 | Parameter | Description |
@@ -21,7 +19,6 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-man
 | `OutputDir` | Export root (where `Subsystems/`, `Configuration.xml` are) |
 | `Parent` | Path to parent subsystem XML (for nested subsystems) |
 | `NoValidate` | Skip auto-validation |
-| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### JSON Definition
 
@@ -49,11 +46,7 @@ Minimal: only `name` required. Everything else has defaults.
 ## 2. Edit — Modify Existing Subsystem
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-edit.ps1 -SubsystemPath '<path>' -Operation <op> -Value '<value>'
-
-# Apply: actually modify the subsystem
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-manage/scripts/subsystem-edit.ps1 -SubsystemPath '<path>' -Operation <op> -Value '<value>' -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool subsystem-edit -SubsystemPath '<path>' -Operation <op> -Value '<value>'
 ```
 
 | Parameter | Description |
@@ -63,7 +56,6 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-subsystem-man
 | `Value` | Value for operation |
 | `DefinitionFile` | JSON file with operation array |
 | `NoValidate` | Skip auto-validation |
-| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Operations
 
@@ -130,25 +122,10 @@ Exit code: 0 = OK, 1 = errors.
 ## Typical Workflow
 
 ```
-1c-subsystem-manage compile   — create subsystem (mutation: requires -Apply)
+1c-subsystem-manage compile   — create subsystem
 1c-subsystem-manage validate  — check correctness
-1c-subsystem-manage edit      — add objects to content (mutation: requires -Apply)
+1c-subsystem-manage edit      — add objects to content
 1c-subsystem-manage info      — view structure
 ```
 
-Mutating steps (`compile`, `edit`) run as dry run by default: they print the plan and exit. Pass `-Apply` to write changes.
-
-## MCP Integration
-
-- **get_object_dossier** — Comprehensive structural passport of objects before inclusion (structure, forms, dependencies, subscriptions, roles).
-- **metadatasearch** — Verify that objects referenced in subsystem content exist in the configuration.
-- **get_metadata_details** — Get structure of objects being included in the subsystem.
-- **trace_impact** — Recursive dependency analysis for subsystem composition: find all objects that depend on or are depended upon by the objects being included (preferred over `graph_dependencies` for deep analysis).
-- **graph_dependencies** — Flat dependency overview between objects.
-- **business_search** — Find related objects to include by natural language description.
-
-## SDD Integration
-
-When creating or modifying subsystems as part of a feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Add spec deltas describing subsystem purpose and included objects in `openspec/changes/`.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

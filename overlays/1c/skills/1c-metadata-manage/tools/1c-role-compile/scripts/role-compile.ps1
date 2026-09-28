@@ -1,479 +1,916 @@
-﻿# role-compile v1.1 — Compile a 1C role from JSON DSL
-# Restored per dsl-reference.md (the original cc-1c-skills compiler was not ported).
-<#
-.SYNOPSIS
-    Компиляция роли 1С из JSON DSL в XML (descriptor + Rights.xml)
-
-.DESCRIPTION
-    Читает JSON-описание роли (формат — tools/1c-role-compile/dsl-reference.md):
-    пресеты @view/@edit, явные права, переопределения, RLS-ограничения, шаблоны
-    ограничений, русские синонимы типов и прав. Генерирует:
-      <RolesDir>/<Name>.xml           — descriptor метаданных (UUID сохраняется,
-                                        если файл уже существует)
-      <RolesDir>/<Name>/Ext/Rights.xml — права роли
-    Регистрацию <Role> в Configuration.xml скрипт НЕ выполняет — только
-    напоминает о ней.
-
-.PARAMETER DslPath
-    Путь к JSON-файлу описания роли
-
-.PARAMETER RolesDir
-    Каталог Roles/ выгрузки конфигурации (целевое место генерации)
-
-.PARAMETER Apply
-    Применить генерацию. Без этого флага скрипт работает в режиме DryRun:
-    показывает план (файлы, объекты, права, предупреждения) и завершается
-    без изменений.
-
-.EXAMPLE
-    .\role-compile.ps1 -DslPath role.json -RolesDir "<workspace-dir>\cfsrc\Roles"
-
-.EXAMPLE
-    .\role-compile.ps1 -DslPath role.json -RolesDir "<workspace-dir>\cfsrc\Roles" -Apply
-#>
-
-[CmdletBinding()]
+﻿# role-compile v1.8 — Compile 1C role from JSON
+# Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
-    [Parameter(Mandatory)]
-    [string]$DslPath,
+	[Parameter(Mandatory)]
+	[string]$JsonPath,
 
-    [Parameter(Mandatory)]
-    [string]$RolesDir,
-
-    [Parameter(Mandatory=$false)]
-    [switch]$Apply
+	[Parameter(Mandatory)]
+	[string]$OutputDir
 )
 
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: role-compile writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool role-compile <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
+
 $ErrorActionPreference = "Stop"
-$OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# --- 1. Translation tables (Russian -> English), per dsl-reference.md ---
-
-$typeMap = @{
-    "Справочник" = "Catalog"; "Документ" = "Document"
-    "РегистрСведений" = "InformationRegister"; "РегистрНакопления" = "AccumulationRegister"
-    "РегистрБухгалтерии" = "AccountingRegister"; "РегистрРасчета" = "CalculationRegister"
-    "Константа" = "Constant"; "ПланСчетов" = "ChartOfAccounts"
-    "ПланВидовХарактеристик" = "ChartOfCharacteristicTypes"
-    "ПланВидовРасчета" = "ChartOfCalculationTypes"; "ПланОбмена" = "ExchangePlan"
-    "БизнесПроцесс" = "BusinessProcess"; "Задача" = "Task"
-    "Обработка" = "DataProcessor"; "Отчет" = "Report"
-    "ОбщаяФорма" = "CommonForm"; "ОбщаяКоманда" = "CommonCommand"
-    "Подсистема" = "Subsystem"; "КритерийОтбора" = "FilterCriterion"
-    "ЖурналДокументов" = "DocumentJournal"; "Последовательность" = "Sequence"
-    "ВебСервис" = "WebService"; "HTTPСервис" = "HTTPService"
-    "СервисИнтеграции" = "IntegrationService"; "ПараметрСеанса" = "SessionParameter"
-    "ОбщийРеквизит" = "CommonAttribute"; "Конфигурация" = "Configuration"
-    "Перечисление" = "Enum"
+# --- Support guard (Ext/ParentConfigurations.bin) ---
+# Canon: docs/support-manage.md. Blocks edits of vendor objects "на замке" /
+# read-only configs unless allowed. Trigger = bin present; reaction from
+# .dev.env SUPPORT_GUARD (deny|warn|off, default deny; .v8-project.json
+# editingAllowedCheck stays as the upstream fallback). Fail-closed on an
+# unreadable support state (bin exists but cannot be parsed — same reaction);
+# other guard errors degrade to allow with a stderr notice.
+function Get-RootUuid([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $null }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { $u = $el.GetAttribute("uuid"); if ($u) { return $u } }
+	} catch {}
+	return $null
+}
+function Test-ExternalObjectRoot([string]$xmlPath) {
+	if (-not (Test-Path $xmlPath)) { return $false }
+	try {
+		[xml]$mx = Get-Content -Path $xmlPath -Encoding UTF8
+		$el = $mx.DocumentElement.FirstChild
+		while ($el -and $el.NodeType -ne 'Element') { $el = $el.NextSibling }
+		if ($el) { return @('ExternalDataProcessor','ExternalReport') -contains $el.LocalName }
+	} catch {}
+	return $false
+}
+function Find-V8Project([string]$startDir) {
+	$d = $startDir
+	for ($i = 0; $i -lt 20 -and $d; $i++) {
+		$pj = Join-Path $d ".v8-project.json"
+		if (Test-Path $pj) { return $pj }
+		$parent = [System.IO.Path]::GetDirectoryName($d)
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return $null
+}
+function Get-EditMode([string]$cfgDir) {
+	try {
+		# 1c-rules: .dev.env SUPPORT_GUARD wins over .v8-project.json editingAllowedCheck.
+		$__devEnvHelper = Join-Path $PSScriptRoot '../../_common/DevEnv.ps1'
+		if (Test-Path $__devEnvHelper) {
+		    . $__devEnvHelper
+		    $__devEnvMode = (Get-1CDevEnvValue 'SUPPORT_GUARD').ToLower()
+		    if (@('deny', 'warn', 'off') -contains $__devEnvMode) { return $__devEnvMode }
+		}
+		$pj = Find-V8Project (Get-Location).Path
+		if (-not $pj) { $pj = Find-V8Project $cfgDir }
+		if (-not $pj) { return 'deny' }
+		$proj = Get-Content -Raw $pj | ConvertFrom-Json
+		$cfgFull = [System.IO.Path]::GetFullPath($cfgDir).TrimEnd('\', '/')
+		if ($proj.databases) {
+			foreach ($db in $proj.databases) {
+				if ($db.configSrc) {
+					$src = [System.IO.Path]::GetFullPath($db.configSrc).TrimEnd('\', '/')
+					if ($cfgFull -eq $src -or $cfgFull.StartsWith($src + [System.IO.Path]::DirectorySeparatorChar)) {
+						if ($db.editingAllowedCheck) { return $db.editingAllowedCheck }
+					}
+				}
+			}
+		}
+		if ($proj.editingAllowedCheck) { return $proj.editingAllowedCheck }
+		return 'deny'
+	} catch { return 'deny' }
+}
+function Assert-EditAllowed([string]$targetPath, [string]$require) {
+	try {
+		$rp = $targetPath
+		try { $rp = (Resolve-Path $targetPath -ErrorAction Stop).Path } catch {}
+		# Autonomous external object (EPF/ERF): never part of a config on support (issue #39).
+		if (Test-ExternalObjectRoot $rp) { return }
+		$elemUuid = Get-RootUuid $rp
+		$cfgDir = $null; $binPath = $null
+		$d = if (Test-Path $rp -PathType Container) { $rp } else { [System.IO.Path]::GetDirectoryName($rp) }
+		for ($i = 0; $i -lt 12 -and $d; $i++) {
+			if (Test-ExternalObjectRoot "$d.xml") { return }
+			if (-not $elemUuid) { $elemUuid = Get-RootUuid "$d.xml" }
+			if (-not $cfgDir) {
+				$cand = Join-Path (Join-Path $d "Ext") "ParentConfigurations.bin"
+				if ((Test-Path $cand) -or (Test-Path (Join-Path $d "Configuration.xml"))) { $cfgDir = $d; $binPath = $cand }
+			}
+			if ($elemUuid -and $cfgDir) { break }
+			$parent = [System.IO.Path]::GetDirectoryName($d)
+			if ($parent -eq $d) { break }
+			$d = $parent
+		}
+		# New object (no element file): fall back to config root uuid.
+		if (-not $elemUuid -and $cfgDir) { $elemUuid = Get-RootUuid (Join-Path $cfgDir "Configuration.xml") }
+		if (-not $binPath -or -not (Test-Path $binPath)) { return }
+		# Bin present: an unreadable / unparseable support state must not silently
+		# degrade to allow — fail closed via the SUPPORT_GUARD reaction instead.
+		$G = 0; $K = 0; $text = $null; $parseOk = $false
+		try {
+			$bytes = [System.IO.File]::ReadAllBytes($binPath)
+			if ($bytes.Length -gt 32) {
+				$start = 0
+				if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $start = 3 }
+				$text = [System.Text.Encoding]::UTF8.GetString($bytes, $start, $bytes.Length - $start)
+				$hm = [regex]::Match($text, '^\{6,(\d+),(\d+),')
+				if ($hm.Success) {
+					$G = [int]$hm.Groups[1].Value
+					$K = [int]$hm.Groups[2].Value
+					$parseOk = $true
+				}
+			}
+		} catch {}
+		if (-not $parseOk) {
+			$mode = Get-EditMode $cfgDir
+			if ($mode -eq 'off') { return }
+			$msg = "[support-guard] Файл состояния поддержки «$binPath» существует, но не читается или не разбирается — состояние объекта неизвестно, он может быть на замке."
+			if ($mode -eq 'warn') { [Console]::Error.WriteLine("$msg Продолжаю по SUPPORT_GUARD=warn."); return }
+			[Console]::Error.WriteLine("$msg`nРедактирование остановлено (fail-closed). Проверьте целостность выгрузки, либо задайте SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md).")
+			exit 1
+		}
+		if ($K -eq 0) { return }
+		$best = $null
+		if ($elemUuid) {
+			$u = [regex]::Escape($elemUuid.ToLower())
+			foreach ($m in [regex]::Matches($text, "([0-2]),0,$u")) {
+				$f1 = [int]$m.Groups[1].Value
+				if ($null -eq $best -or $f1 -lt $best) { $best = $f1 }
+			}
+		}
+		$blocked = $false; $code = ""; $reason = ""
+		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
+		elseif ($require -eq 'removed') {
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+		}
+		else {
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+		}
+		if (-not $blocked) { return }
+		$mode = Get-EditMode $cfgDir
+		if ($mode -eq 'off') { return }
+		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# latter throws and would be swallowed by this function's own catch.
+		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
+		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$offNote = "Снять проверку: SUPPORT_GUARD = warn|off в .dev.env (канон — docs/support-manage.md)."
+		if ($code -eq "capability-off") {
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+		} elseif ($code -eq "not-removed") {
+			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+		} else {
+			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+		}
+		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
+		exit 1
+	} catch {
+		[Console]::Error.WriteLine("[support-guard] Проверка состояния поддержки не выполнена ($($_.Exception.Message)) — продолжаю без блокировки.")
+		return
+	}
 }
 
-$nestedTypeMap = @{
-    "Реквизит" = "Attribute"; "СтандартныйРеквизит" = "StandardAttribute"
-    "ТабличнаяЧасть" = "TabularSection"; "Измерение" = "Dimension"
-    "Ресурс" = "Resource"; "Команда" = "Command"
-    "РеквизитАдресации" = "AddressingAttribute"
+# --- 1. Load and validate JSON ---
+
+if (-not (Test-Path $JsonPath)) {
+	Write-Error "File not found: $JsonPath"
+	exit 1
 }
 
-$rightMap = @{
-    "Чтение" = "Read"; "Добавление" = "Insert"; "Изменение" = "Update"
-    "Удаление" = "Delete"; "Просмотр" = "View"; "Редактирование" = "Edit"
-    "ВводПоСтроке" = "InputByString"; "Проведение" = "Posting"
-    "ОтменаПроведения" = "UndoPosting"; "Использование" = "Use"
-    "Получение" = "Get"; "Установка" = "Set"; "Старт" = "Start"
-    "Выполнение" = "Execute"; "УправлениеИтогами" = "TotalsControl"
-    "ИнтерактивноеДобавление" = "InteractiveInsert"
-    "ИнтерактивнаяПометкаУдаления" = "InteractiveSetDeletionMark"
-    "ИнтерактивноеСнятиеПометкиУдаления" = "InteractiveClearDeletionMark"
-    "ИнтерактивноеУдаление" = "InteractiveDelete"
-    "ИнтерактивноеУдалениеПомеченных" = "InteractiveDeleteMarked"
-    "ИнтерактивноеПроведение" = "InteractivePosting"
-    "ИнтерактивноеПроведениеНеоперативное" = "InteractivePostingRegular"
-    "ИнтерактивнаяОтменаПроведения" = "InteractiveUndoPosting"
-    "ИнтерактивноеИзменениеПроведенных" = "InteractiveChangeOfPosted"
-    "ИнтерактивныйСтарт" = "InteractiveStart"
-    "ИнтерактивнаяАктивация" = "InteractiveActivate"
-    "ИнтерактивноеВыполнение" = "InteractiveExecute"
-    "Администрирование" = "Administration"
-    "АдминистрированиеДанных" = "DataAdministration"
-    "ТонкийКлиент" = "ThinClient"; "ТолстыйКлиент" = "ThickClient"
-    "ВебКлиент" = "WebClient"; "МобильныйКлиент" = "MobileClient"
-    "ВнешнееСоединение" = "ExternalConnection"; "Вывод" = "Output"
-    "СохранениеДанныхПользователя" = "SaveUserData"
+$json = Get-Content -Raw -Encoding UTF8 $JsonPath
+$def = $json | ConvertFrom-Json
+
+if (-not $def.name) {
+	Write-Error "JSON must have 'name' field (role programmatic name)"
+	exit 1
 }
 
-# --- 2. Presets, per dsl-reference.md ---
+$roleName = "$($def.name)"
+$synonym = if ($def.synonym) { "$($def.synonym)" } else { $roleName }
+$comment = if ($def.comment) { "$($def.comment)" } else { "" }
 
-$presetView = @{}
-foreach ($t in @("Catalog","ExchangePlan","Document","ChartOfAccounts","ChartOfCharacteristicTypes","ChartOfCalculationTypes","BusinessProcess","Task")) {
-    $presetView[$t] = @("Read","View","InputByString")
-}
-foreach ($t in @("InformationRegister","AccumulationRegister","AccountingRegister","CalculationRegister","Constant","DocumentJournal")) {
-    $presetView[$t] = @("Read","View")
-}
-$presetView["Sequence"] = @("Read")
-foreach ($t in @("CommonForm","CommonCommand","Subsystem","FilterCriterion","CommonAttribute")) {
-    $presetView[$t] = @("View")
-}
-foreach ($t in @("DataProcessor","Report")) { $presetView[$t] = @("Use","View") }
-$presetView["SessionParameter"] = @("Get")
-$presetView["Configuration"] = @("ThinClient","WebClient","Output","SaveUserData","MainWindowModeNormal")
+# --- 2. XML helpers ---
 
-$presetEdit = @{}
-foreach ($t in @("Catalog","ExchangePlan","ChartOfAccounts","ChartOfCharacteristicTypes","ChartOfCalculationTypes")) {
-    $presetEdit[$t] = @("Read","Insert","Update","Delete","View","Edit","InputByString","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark")
-}
-$presetEdit["Document"] = @("Read","Insert","Update","Delete","View","Edit","InputByString","Posting","UndoPosting","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark","InteractivePosting","InteractivePostingRegular","InteractiveUndoPosting","InteractiveChangeOfPosted")
-$presetEdit["BusinessProcess"] = @("Read","Insert","Update","Delete","View","Edit","InputByString","Start","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark","InteractiveActivate","InteractiveStart")
-$presetEdit["Task"] = @("Read","Insert","Update","Delete","View","Edit","InputByString","Execute","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark","InteractiveActivate","InteractiveExecute")
-foreach ($t in @("InformationRegister","AccumulationRegister","AccountingRegister","Constant")) {
-    $presetEdit[$t] = @("Read","Update","View","Edit")
-}
-$presetEdit["DocumentJournal"] = @("Read","View")
-$presetEdit["Sequence"] = @("Read","Update")
-$presetEdit["SessionParameter"] = @("Get","Set")
-$presetEdit["CommonAttribute"] = @("View","Edit")
+$script:xmlBuf = $null
 
-$presets = @{ "view" = $presetView; "edit" = $presetEdit }
-
-# Types that cannot carry rights in a role, per dsl-reference.md
-$noRightsTypes = @("Enum","CommonModule","DefinedType","CommonPicture","CommonTemplate","Language","FunctionalOption","FunctionalOptionsParameter","EventSubscription","ScheduledJob","StyleItem")
-
-$script:warnings = @()
-$script:errors = @()
-
-function Add-Warn { param([string]$msg) $script:warnings += $msg }
-function Add-Err  { param([string]$msg) $script:errors += $msg }
-
-function Translate-Right {
-    param([string]$name)
-    $n = $name.Trim()
-    if ($rightMap.ContainsKey($n)) { return $rightMap[$n] }
-    return $n
+function X {
+	param([string]$text)
+	$script:xmlBuf.AppendLine($text) | Out-Null
 }
 
+function Esc-Xml {
+	param([string]$s)
+	return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
+}
+
+# --- 3. Russian synonyms → canonical English names ---
+
+$script:typeAliases = @{
+	"Справочник" = "Catalog"
+	"Документ" = "Document"
+	"РегистрСведений" = "InformationRegister"
+	"РегистрНакопления" = "AccumulationRegister"
+	"РегистрБухгалтерии" = "AccountingRegister"
+	"РегистрРасчета" = "CalculationRegister"
+	"Константа" = "Constant"
+	"ПланСчетов" = "ChartOfAccounts"
+	"ПланВидовХарактеристик" = "ChartOfCharacteristicTypes"
+	"ПланВидовРасчета" = "ChartOfCalculationTypes"
+	"ПланОбмена" = "ExchangePlan"
+	"БизнесПроцесс" = "BusinessProcess"
+	"Задача" = "Task"
+	"Обработка" = "DataProcessor"
+	"Отчет" = "Report"
+	"ОбщаяФорма" = "CommonForm"
+	"ОбщаяКоманда" = "CommonCommand"
+	"Подсистема" = "Subsystem"
+	"КритерийОтбора" = "FilterCriterion"
+	"ЖурналДокументов" = "DocumentJournal"
+	"Последовательность" = "Sequence"
+	"ВебСервис" = "WebService"
+	"HTTPСервис" = "HTTPService"
+	"СервисИнтеграции" = "IntegrationService"
+	"ПараметрСеанса" = "SessionParameter"
+	"ОбщийРеквизит" = "CommonAttribute"
+	"Конфигурация" = "Configuration"
+	"Перечисление" = "Enum"
+	# Nested
+	"Реквизит" = "Attribute"
+	"СтандартныйРеквизит" = "StandardAttribute"
+	"ТабличнаяЧасть" = "TabularSection"
+	"Измерение" = "Dimension"
+	"Ресурс" = "Resource"
+	"Команда" = "Command"
+	"РеквизитАдресации" = "AddressingAttribute"
+}
+
+$script:rightAliases = @{
+	"Чтение" = "Read"
+	"Добавление" = "Insert"
+	"Изменение" = "Update"
+	"Удаление" = "Delete"
+	"Просмотр" = "View"
+	"Редактирование" = "Edit"
+	"ВводПоСтроке" = "InputByString"
+	"Проведение" = "Posting"
+	"ОтменаПроведения" = "UndoPosting"
+	"ИнтерактивноеДобавление" = "InteractiveInsert"
+	"ИнтерактивнаяПометкаУдаления" = "InteractiveSetDeletionMark"
+	"ИнтерактивноеСнятиеПометкиУдаления" = "InteractiveClearDeletionMark"
+	"ИнтерактивноеУдаление" = "InteractiveDelete"
+	"ИнтерактивноеУдалениеПомеченных" = "InteractiveDeleteMarked"
+	"ИнтерактивноеПроведение" = "InteractivePosting"
+	"ИнтерактивноеПроведениеНеоперативное" = "InteractivePostingRegular"
+	"ИнтерактивнаяОтменаПроведения" = "InteractiveUndoPosting"
+	"ИнтерактивноеИзменениеПроведенных" = "InteractiveChangeOfPosted"
+	"Использование" = "Use"
+	"Получение" = "Get"
+	"Установка" = "Set"
+	"Старт" = "Start"
+	"ИнтерактивныйСтарт" = "InteractiveStart"
+	"ИнтерактивнаяАктивация" = "InteractiveActivate"
+	"Выполнение" = "Execute"
+	"ИнтерактивноеВыполнение" = "InteractiveExecute"
+	"УправлениеИтогами" = "TotalsControl"
+	"Администрирование" = "Administration"
+	"АдминистрированиеДанных" = "DataAdministration"
+	"ТонкийКлиент" = "ThinClient"
+	"ВебКлиент" = "WebClient"
+	"ТолстыйКлиент" = "ThickClient"
+	"ВнешнееСоединение" = "ExternalConnection"
+	"Вывод" = "Output"
+	"СохранениеДанныхПользователя" = "SaveUserData"
+	"МобильныйКлиент" = "MobileClient"
+}
+
+# Translate Russian object name to English (e.g. "Справочник.Контрагенты" → "Catalog.Контрагенты")
 function Translate-ObjectName {
-    # Translate type segments (1st, and 3rd for nested) of a dot-path name.
-    param([string]$name)
-    $parts = $name.Split(".")
-    if ($parts.Count -ge 1 -and $typeMap.ContainsKey($parts[0])) { $parts[0] = $typeMap[$parts[0]] }
-    if ($parts.Count -ge 3 -and $nestedTypeMap.ContainsKey($parts[2])) { $parts[2] = $nestedTypeMap[$parts[2]] }
-    return ($parts -join ".")
+	param([string]$name)
+	$parts = $name.Split(".")
+	$result = @()
+	foreach ($p in $parts) {
+		if ($script:typeAliases.ContainsKey($p)) {
+			$result += $script:typeAliases[$p]
+		} else {
+			$result += $p
+		}
+	}
+	return $result -join "."
+}
+
+# Translate Russian right name to English (e.g. "Чтение" → "Read")
+function Translate-RightName {
+	param([string]$name)
+	if ($script:rightAliases.ContainsKey($name)) {
+		return $script:rightAliases[$name]
+	}
+	return $name
+}
+
+# --- 4. Known rights per object type (source: docs/1c-role-spec.md) ---
+
+$script:knownRights = @{
+	"Configuration" = @(
+		"Administration","DataAdministration","UpdateDataBaseConfiguration",
+		"ConfigurationExtensionsAdministration","ActiveUsers","EventLog","ExclusiveMode",
+		"ThinClient","ThickClient","WebClient","MobileClient","ExternalConnection",
+		"Automation","Output","SaveUserData","TechnicalSpecialistMode",
+		"InteractiveOpenExtDataProcessors","InteractiveOpenExtReports",
+		"AnalyticsSystemClient","CollaborationSystemInfoBaseRegistration",
+		"MainWindowModeNormal","MainWindowModeWorkplace",
+		"MainWindowModeEmbeddedWorkplace","MainWindowModeFullscreenWorkplace","MainWindowModeKiosk"
+	)
+	"Catalog" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete","InteractiveDeleteMarked",
+		"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
+		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"UpdateDataHistoryOfMissingData","ReadDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
+	)
+	"Document" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"Posting","UndoPosting",
+		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete","InteractiveDeleteMarked",
+		"InteractivePosting","InteractivePostingRegular","InteractiveUndoPosting",
+		"InteractiveChangeOfPosted",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"UpdateDataHistoryOfMissingData","ReadDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
+	)
+	"InformationRegister" = @(
+		"Read","Update","View","Edit","TotalsControl",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"UpdateDataHistoryOfMissingData","ReadDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
+	)
+	"AccumulationRegister" = @("Read","Update","View","Edit","TotalsControl")
+	"AccountingRegister" = @("Read","Update","View","Edit","TotalsControl")
+	"CalculationRegister" = @("Read","View")
+	"Constant" = @(
+		"Read","Update","View","Edit",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
+	)
+	"ChartOfAccounts" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete",
+		"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
+		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData",
+		"ReadDataHistory","ReadDataHistoryOfMissingData",
+		"UpdateDataHistory","UpdateDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment"
+	)
+	"ChartOfCharacteristicTypes" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete","InteractiveDeleteMarked",
+		"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
+		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"ReadDataHistoryOfMissingData","UpdateDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
+	)
+	"ChartOfCalculationTypes" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete",
+		"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
+		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData"
+	)
+	"ExchangePlan" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete","InteractiveDeleteMarked",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"ReadDataHistoryOfMissingData","UpdateDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
+	)
+	"BusinessProcess" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"Start","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete","InteractiveActivate","InteractiveStart"
+	)
+	"Task" = @(
+		"Read","Insert","Update","Delete","View","Edit","InputByString",
+		"Execute","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
+		"InteractiveDelete","InteractiveActivate","InteractiveExecute"
+	)
+	"DataProcessor" = @("Use","View")
+	"Report" = @("Use","View")
+	"CommonForm" = @("View")
+	"CommonCommand" = @("View")
+	"Subsystem" = @("View")
+	"FilterCriterion" = @("View")
+	"DocumentJournal" = @("Read","View")
+	"Sequence" = @("Read","Update")
+	"WebService" = @("Use")
+	"HTTPService" = @("Use")
+	"IntegrationService" = @("Use")
+	"SessionParameter" = @("Get","Set")
+	"CommonAttribute" = @("View","Edit")
+}
+
+# Nested objects: Attribute, StandardAttribute, TabularSection, Dimension, Resource, AddressingAttribute
+$script:nestedRights = @("View","Edit")
+$script:commandRights = @("View")
+
+# --- 4. Presets (@view, @edit) ---
+
+$script:presets = @{
+	"view" = @{
+		"Catalog" = @("Read","View","InputByString")
+		"ExchangePlan" = @("Read","View","InputByString")
+		"Document" = @("Read","View","InputByString")
+		"ChartOfAccounts" = @("Read","View","InputByString")
+		"ChartOfCharacteristicTypes" = @("Read","View","InputByString")
+		"ChartOfCalculationTypes" = @("Read","View","InputByString")
+		"BusinessProcess" = @("Read","View","InputByString")
+		"Task" = @("Read","View","InputByString")
+		"InformationRegister" = @("Read","View")
+		"AccumulationRegister" = @("Read","View")
+		"AccountingRegister" = @("Read","View")
+		"CalculationRegister" = @("Read","View")
+		"Constant" = @("Read","View")
+		"DocumentJournal" = @("Read","View")
+		"Sequence" = @("Read")
+		"CommonForm" = @("View")
+		"CommonCommand" = @("View")
+		"Subsystem" = @("View")
+		"FilterCriterion" = @("View")
+		"SessionParameter" = @("Get")
+		"CommonAttribute" = @("View")
+		"DataProcessor" = @("Use","View")
+		"Report" = @("Use","View")
+		"Configuration" = @("ThinClient","WebClient","Output","SaveUserData","MainWindowModeNormal")
+	}
+	"edit" = @{
+		"Catalog" = @("Read","Insert","Update","Delete","View","Edit","InputByString","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark")
+		"ExchangePlan" = @("Read","Insert","Update","Delete","View","Edit","InputByString","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark")
+		"Document" = @("Read","Insert","Update","Delete","View","Edit","InputByString","Posting","UndoPosting","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark","InteractivePosting","InteractivePostingRegular","InteractiveUndoPosting","InteractiveChangeOfPosted")
+		"ChartOfAccounts" = @("Read","Insert","Update","Delete","View","Edit","InputByString","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark")
+		"ChartOfCharacteristicTypes" = @("Read","Insert","Update","Delete","View","Edit","InputByString","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark")
+		"ChartOfCalculationTypes" = @("Read","Insert","Update","Delete","View","Edit","InputByString","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark")
+		"BusinessProcess" = @("Read","Insert","Update","Delete","View","Edit","InputByString","Start","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark","InteractiveActivate","InteractiveStart")
+		"Task" = @("Read","Insert","Update","Delete","View","Edit","InputByString","Execute","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark","InteractiveActivate","InteractiveExecute")
+		"InformationRegister" = @("Read","Update","View","Edit")
+		"AccumulationRegister" = @("Read","Update","View","Edit")
+		"AccountingRegister" = @("Read","Update","View","Edit")
+		"Constant" = @("Read","Update","View","Edit")
+		"DocumentJournal" = @("Read","View")
+		"Sequence" = @("Read","Update")
+		"SessionParameter" = @("Get","Set")
+		"CommonAttribute" = @("View","Edit")
+	}
+}
+
+# --- 5. Helpers ---
+
+function Get-ObjectType {
+	param([string]$objectName)
+	$dotIdx = $objectName.IndexOf(".")
+	if ($dotIdx -lt 0) { return $objectName }
+	return $objectName.Substring(0, $dotIdx)
+}
+
+function Is-NestedObject {
+	param([string]$objectName)
+	return ($objectName.Split(".").Count -ge 3)
 }
 
 function Resolve-Preset {
-    param([string]$objName, [string]$presetName)
-    $type = $objName.Split(".")[0]
-    if ($objName.Split(".").Count -ge 3) {
-        Add-Warn "${objName}: presets are not applicable to nested objects (View/Edit only) - preset '@$presetName' ignored"
-        return @()
-    }
-    if (-not $presets.ContainsKey($presetName)) {
-        Add-Err "${objName}: unknown preset '@$presetName' (available: @view, @edit)"
-        return @()
-    }
-    $table = $presets[$presetName]
-    if (-not $table.ContainsKey($type)) {
-        $available = @()
-        foreach ($p in $presets.Keys) { if ($presets[$p].ContainsKey($type)) { $available += "@$p" } }
-        $hint = if ($available.Count -gt 0) { " (available for ${type}: $($available -join ', '))" } else { " (no presets for '$type' - use explicit rights)" }
-        Add-Warn "${objName}: preset '@$presetName' is not defined for type '$type'$hint - skipped"
-        return @()
-    }
-    return $table[$type]
+	param([string]$objectType, [string]$presetName)
+
+	$preset = $presetName.TrimStart('@')
+
+	if (-not $script:presets.ContainsKey($preset)) {
+		Write-Warning "Unknown preset '@$preset'. Known: @view, @edit"
+		return @()
+	}
+
+	$typeMap = $script:presets[$preset]
+	if (-not $typeMap.ContainsKey($objectType)) {
+		$available = @()
+		foreach ($k in $script:presets.Keys) {
+			if ($script:presets[$k].ContainsKey($objectType)) {
+				$available += "@$k"
+			}
+		}
+		$availStr = if ($available.Count -gt 0) { $available -join ", " } else { "none" }
+		Write-Warning "Preset '@$preset' not defined for type '$objectType'. Available: $availStr"
+		return @()
+	}
+
+	return @($typeMap[$objectType])
 }
 
-# Build one normalized object entry: name + ordered rights (name -> @{value; rls})
-function New-RoleObject {
-    param([string]$name)
-    return [pscustomobject]@{
-        Name   = $name
-        Rights = New-Object System.Collections.Specialized.OrderedDictionary
-    }
+function Validate-RightName {
+	param([string]$objectName, [string]$rightName)
+
+	$objectType = Get-ObjectType $objectName
+
+	if (Is-NestedObject $objectName) {
+		if ($objectName -match '\.Command\.') {
+			if ($rightName -notin $script:commandRights) {
+				Write-Warning "${objectName}: '$rightName' not valid for commands (only: View)"
+				return $false
+			}
+		} else {
+			if ($rightName -notin $script:nestedRights) {
+				Write-Warning "${objectName}: '$rightName' not valid for nested objects (only: View, Edit)"
+				return $false
+			}
+		}
+		return $true
+	}
+
+	if (-not $script:knownRights.ContainsKey($objectType)) {
+		Write-Warning "${objectName}: unknown object type '$objectType'"
+		return $true
+	}
+
+	$validRights = $script:knownRights[$objectType]
+	if ($rightName -notin $validRights) {
+		$suggestions = @($validRights | Where-Object {
+			$_ -like "*$rightName*" -or $rightName -like "*$_*"
+		})
+		$sugStr = if ($suggestions.Count -gt 0) { " Did you mean: $($suggestions -join ', ')?" } else { "" }
+		Write-Warning "${objectName}: unknown right '$rightName'.$sugStr"
+		return $false
+	}
+
+	return $true
 }
 
-function Set-Right {
-    param($roleObj, [string]$rightName, [bool]$value)
-    $r = Translate-Right $rightName
-    if ($roleObj.Rights.Contains($r)) {
-        $roleObj.Rights[$r].value = $value
-    } else {
-        $roleObj.Rights.Add($r, @{ value = $value; rls = $null })
-    }
+# --- 6. Parse object entries ---
+
+function Parse-ObjectEntry {
+	param($entry)
+
+	# --- String shorthand ---
+	if ($entry -is [string]) {
+		$colonIdx = $entry.IndexOf(':')
+		if ($colonIdx -lt 0) {
+			Write-Warning "Invalid string '$entry' -- expected 'Object.Name: @preset' or 'Object.Name: Right1, Right2'"
+			return $null
+		}
+		$objName = Translate-ObjectName ($entry.Substring(0, $colonIdx).Trim())
+		$rightsStr = $entry.Substring($colonIdx + 1).Trim()
+		$objectType = Get-ObjectType $objName
+
+		if ($rightsStr.StartsWith('@')) {
+			$rightNames = @(Resolve-Preset -objectType $objectType -presetName $rightsStr)
+		} else {
+			$rightNames = @($rightsStr -split ',\s*' | ForEach-Object { Translate-RightName $_.Trim() } | Where-Object { $_ })
+			foreach ($r in $rightNames) {
+				Validate-RightName -objectName $objName -rightName $r | Out-Null
+			}
+		}
+
+		$rights = @()
+		foreach ($r in $rightNames) {
+			$rights += ,@{Name=$r; Value="true"; Condition=$null}
+		}
+		return @{ Name = $objName; Rights = $rights }
+	}
+
+	# --- Object form ---
+	$objName = Translate-ObjectName "$($entry.name)"
+	if (-not $objName) {
+		Write-Warning "Object entry missing 'name' field"
+		return $null
+	}
+
+	$objectType = Get-ObjectType $objName
+	$rightsMap = [ordered]@{}
+
+	# 1) Start with preset
+	if ($entry.preset) {
+		$presetRights = @(Resolve-Preset -objectType $objectType -presetName "$($entry.preset)")
+		foreach ($r in $presetRights) {
+			$rightsMap[$r] = @{Value="true"; Condition=$null}
+		}
+	}
+
+	# 2) Apply explicit rights
+	if ($entry.rights) {
+		if ($entry.rights -is [array]) {
+			foreach ($r in $entry.rights) {
+				$rName = Translate-RightName "$r"
+				Validate-RightName -objectName $objName -rightName $rName | Out-Null
+				$rightsMap[$rName] = @{Value="true"; Condition=$null}
+			}
+		} else {
+			foreach ($p in $entry.rights.PSObject.Properties) {
+				$rName = Translate-RightName $p.Name
+				Validate-RightName -objectName $objName -rightName $rName | Out-Null
+				$boolVal = $p.Value
+				if ($boolVal -eq $true -or "$boolVal" -eq "True") {
+					$rightsMap[$rName] = @{Value="true"; Condition=$null}
+				} else {
+					$rightsMap[$rName] = @{Value="false"; Condition=$null}
+				}
+			}
+		}
+	}
+
+	# 3) Apply RLS conditions
+	if ($entry.rls) {
+		foreach ($p in $entry.rls.PSObject.Properties) {
+			$rlsRight = Translate-RightName $p.Name
+			if ($rightsMap.Contains($rlsRight)) {
+				$rightsMap[$rlsRight].Condition = "$($p.Value)"
+			} else {
+				Write-Warning "${objName}: RLS for '$rlsRight' but this right is not in the rights list"
+			}
+		}
+	}
+
+	# Convert to array
+	$rights = @()
+	foreach ($k in $rightsMap.Keys) {
+		$rights += ,@{
+			Name = $k
+			Value = $rightsMap[$k].Value
+			Condition = $rightsMap[$k].Condition
+		}
+	}
+
+	return @{ Name = $objName; Rights = $rights }
 }
 
-# --- 3. Read and normalize the DSL ---
+# --- 7. Parse all object entries ---
 
-if (-not (Test-Path $DslPath)) {
-    Write-Host "Error: DSL file not found: $DslPath" -ForegroundColor Red
-    exit 1
+# Synonym: accept "rights" as alias for "objects"
+if (-not $def.objects -and $def.rights) { $def | Add-Member -NotePropertyName objects -NotePropertyValue $def.rights }
+
+$parsedObjects = @()
+if ($def.objects) {
+	foreach ($entry in $def.objects) {
+		$parsed = Parse-ObjectEntry -entry $entry
+		if ($parsed) {
+			$parsedObjects += ,$parsed
+		}
+	}
 }
 
-try {
-    $dsl = Get-Content -Path $DslPath -Raw -Encoding UTF8 | ConvertFrom-Json
-} catch {
-    Write-Host "Error: cannot parse JSON: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
+# --- Detect format version ---
+
+function Detect-FormatVersion([string]$dir) {
+	$d = $dir
+	while ($d) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "2.17"
 }
 
-if (-not $dsl.name) {
-    Write-Host "Error: DSL field 'name' is required" -ForegroundColor Red
-    exit 1
+$resolvedOutputDir = if ([System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path (Get-Location) $OutputDir }
+Assert-EditAllowed $resolvedOutputDir 'editable'
+$formatVersion = Detect-FormatVersion $resolvedOutputDir
+
+# --- 8. Generate UUID ---
+
+$uuid = [guid]::NewGuid().ToString()
+
+# --- 9. Emit metadata XML (Roles/Name.xml) ---
+
+$script:xmlBuf = New-Object System.Text.StringBuilder 4096
+
+X '<?xml version="1.0" encoding="UTF-8"?>'
+X '<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"'
+X '        xmlns:app="http://v8.1c.ru/8.2/managed-application/core"'
+X '        xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"'
+X '        xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"'
+X '        xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"'
+X '        xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
+X '        xmlns:style="http://v8.1c.ru/8.1/data/ui/style"'
+X '        xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system"'
+X '        xmlns:v8="http://v8.1c.ru/8.1/data/core"'
+X '        xmlns:v8ui="http://v8.1c.ru/8.1/data/ui"'
+X '        xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web"'
+X '        xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows"'
+X '        xmlns:xen="http://v8.1c.ru/8.3/xcf/enums"'
+X '        xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"'
+X '        xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"'
+X '        xmlns:xs="http://www.w3.org/2001/XMLSchema"'
+X '        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+X "        version=`"$formatVersion`">"
+X "    <Role uuid=`"$uuid`">"
+X '        <Properties>'
+X "            <Name>$roleName</Name>"
+X '            <Synonym>'
+X '                <v8:item>'
+X '                    <v8:lang>ru</v8:lang>'
+X "                    <v8:content>$(Esc-Xml $synonym)</v8:content>"
+X '                </v8:item>'
+X '            </Synonym>'
+if ($comment) {
+	X "            <Comment>$(Esc-Xml $comment)</Comment>"
+} else {
+	X '            <Comment/>'
 }
+X '        </Properties>'
+X '    </Role>'
+X '</MetaDataObject>'
 
-$roleName = [string]$dsl.name
-$synonym  = if ($dsl.PSObject.Properties["synonym"] -and $dsl.synonym) { [string]$dsl.synonym } else { $roleName }
-$comment  = if ($dsl.PSObject.Properties["comment"] -and $dsl.comment) { [string]$dsl.comment } else { "" }
+$metadataXml = $script:xmlBuf.ToString()
 
-$flagSetForNewObjects = $false
-$flagSetForAttributes = $true
-$flagIndependentChild = $false
-if ($dsl.PSObject.Properties["setForNewObjects"]) { $flagSetForNewObjects = [bool]$dsl.setForNewObjects }
-if ($dsl.PSObject.Properties["setForAttributesByDefault"]) { $flagSetForAttributes = [bool]$dsl.setForAttributesByDefault }
-if ($dsl.PSObject.Properties["independentRightsOfChildObjects"]) { $flagIndependentChild = [bool]$dsl.independentRightsOfChildObjects }
+# --- 10. Emit Rights XML (Roles/Name/Ext/Rights.xml) ---
 
-$roleObjects = @()
+$script:xmlBuf = New-Object System.Text.StringBuilder 8192
 
-$dslObjects = @()
-if ($dsl.PSObject.Properties["objects"] -and $dsl.objects) { $dslObjects = @($dsl.objects) }
+X '<?xml version="1.0" encoding="UTF-8"?>'
+X '<Rights xmlns="http://v8.1c.ru/8.2/roles"'
+X '        xmlns:xs="http://www.w3.org/2001/XMLSchema"'
+X '        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+X "        xsi:type=`"Rights`" version=`"$formatVersion`">"
 
-foreach ($entry in $dslObjects) {
-    if ($entry -is [string]) {
-        # Shorthand: "Type.Name: @preset" | "Type.Name: Right1, Right2"
-        $colonIdx = $entry.IndexOf(":")
-        if ($colonIdx -lt 1) {
-            Add-Err "Bad shorthand entry (expected 'Object: rights'): $entry"
-            continue
-        }
-        $objName = Translate-ObjectName ($entry.Substring(0, $colonIdx).Trim())
-        $spec = $entry.Substring($colonIdx + 1).Trim()
-        $obj = New-RoleObject -name $objName
+# Global flags (defaults match typical 1C roles)
+$sfno = if ($null -ne $def.setForNewObjects) { "$($def.setForNewObjects)".ToLower() } else { "false" }
+$sfab = if ($null -ne $def.setForAttributesByDefault) { "$($def.setForAttributesByDefault)".ToLower() } else { "true" }
+$irco = if ($null -ne $def.independentRightsOfChildObjects) { "$($def.independentRightsOfChildObjects)".ToLower() } else { "false" }
 
-        $objType = $objName.Split(".")[0]
-        if ($noRightsTypes -contains $objType) {
-            Add-Err "${objName}: type '$objType' cannot carry rights in a role (see dsl-reference.md) - remove it from 'objects'"
-            continue
-        }
+X "    <setForNewObjects>$sfno</setForNewObjects>"
+X "    <setForAttributesByDefault>$sfab</setForAttributesByDefault>"
+X "    <independentRightsOfChildObjects>$irco</independentRightsOfChildObjects>"
 
-        foreach ($token in ($spec -split ",")) {
-            $tk = $token.Trim()
-            if (-not $tk) { continue }
-            if ($tk.StartsWith("@")) {
-                foreach ($r in (Resolve-Preset -objName $objName -presetName $tk.Substring(1).ToLower())) {
-                    Set-Right -roleObj $obj -rightName $r -value $true
-                }
-            } else {
-                Set-Right -roleObj $obj -rightName $tk -value $true
-            }
-        }
-        if ($obj.Rights.Count -gt 0) { $roleObjects += $obj }
-        elseif ($script:errors.Count -eq 0) { Add-Warn "${objName}: no rights resolved - object skipped" }
-    } else {
-        # Object form: { name, preset, rights, rls }
-        if (-not $entry.name) {
-            Add-Err "Object entry without 'name': $($entry | ConvertTo-Json -Compress -Depth 5)"
-            continue
-        }
-        $objName = Translate-ObjectName ([string]$entry.name)
-        $obj = New-RoleObject -name $objName
-
-        $objType = $objName.Split(".")[0]
-        if ($noRightsTypes -contains $objType) {
-            Add-Err "${objName}: type '$objType' cannot carry rights in a role (see dsl-reference.md) - remove it from 'objects'"
-            continue
-        }
-
-        if ($entry.PSObject.Properties["preset"] -and $entry.preset) {
-            foreach ($r in (Resolve-Preset -objName $objName -presetName ([string]$entry.preset).TrimStart("@").ToLower())) {
-                Set-Right -roleObj $obj -rightName $r -value $true
-            }
-        }
-        if ($entry.PSObject.Properties["rights"] -and $entry.rights) {
-            if ($entry.rights -is [System.Array]) {
-                foreach ($r in $entry.rights) { Set-Right -roleObj $obj -rightName ([string]$r) -value $true }
-            } else {
-                foreach ($p in $entry.rights.PSObject.Properties) {
-                    Set-Right -roleObj $obj -rightName $p.Name -value ([bool]$p.Value)
-                }
-            }
-        }
-        if ($entry.PSObject.Properties["rls"] -and $entry.rls) {
-            foreach ($p in $entry.rls.PSObject.Properties) {
-                $rName = Translate-Right $p.Name
-                if (-not $obj.Rights.Contains($rName)) {
-                    Set-Right -roleObj $obj -rightName $rName -value $true
-                }
-                $obj.Rights[$rName].rls = [string]$p.Value
-            }
-        }
-        if ($obj.Rights.Count -gt 0) { $roleObjects += $obj }
-        else { Add-Warn "${objName}: no rights resolved - object skipped" }
-    }
-}
-
-$rlsTemplates = @()
-if ($dsl.PSObject.Properties["templates"] -and $dsl.templates) {
-    foreach ($tpl in @($dsl.templates)) {
-        if (-not $tpl.name) { Add-Err "RLS template without 'name'"; continue }
-        $cond = if ($tpl.PSObject.Properties["condition"]) { [string]$tpl.condition } else { "" }
-        if (-not $cond) { Add-Warn "RLS template '$($tpl.name)': empty condition" }
-        $rlsTemplates += [pscustomobject]@{ Name = [string]$tpl.name; Condition = $cond }
-    }
-}
-
-if ($script:errors.Count -gt 0) {
-    Write-Host "DSL errors ($($script:errors.Count)):" -ForegroundColor Red
-    foreach ($e in $script:errors) { Write-Host "  ERR  $e" -ForegroundColor Red }
-    foreach ($w in $script:warnings) { Write-Host "  WARN $w" -ForegroundColor Yellow }
-    exit 1
-}
-
-# --- 4. Plan ---
-
-$descriptorPath = Join-Path $RolesDir "$roleName.xml"
-$extDir = Join-Path (Join-Path $RolesDir $roleName) "Ext"
-$rightsPath = Join-Path $extDir "Rights.xml"
-
-$existingUuid = $null
-if (Test-Path $descriptorPath) {
-    try {
-        [xml]$existing = Get-Content -Path $descriptorPath -Encoding UTF8
-        $roleNode = $existing.DocumentElement.SelectSingleNode("//*[local-name()='Role']")
-        if ($roleNode) {
-            $u = $roleNode.GetAttribute("uuid")
-            if ($u) { $existingUuid = $u }
-        }
-    } catch {
-        Add-Warn "Existing descriptor is not parseable, a new UUID will be generated: $($_.Exception.Message)"
-    }
-}
-
+# Object blocks
 $totalRights = 0
-$totalRls = 0
-foreach ($o in $roleObjects) {
-    $totalRights += $o.Rights.Count
-    foreach ($k in $o.Rights.Keys) { if ($o.Rights[$k].rls) { $totalRls++ } }
+foreach ($obj in $parsedObjects) {
+	X '    <object>'
+	X "        <name>$($obj.Name)</name>"
+	foreach ($right in $obj.Rights) {
+		X '        <right>'
+		X "            <name>$($right.Name)</name>"
+		X "            <value>$($right.Value)</value>"
+		if ($right.Condition) {
+			X '            <restrictionByCondition>'
+			X "                <condition>$(Esc-Xml $right.Condition)</condition>"
+			X '            </restrictionByCondition>'
+		}
+		X '        </right>'
+		$totalRights++
+	}
+	X '    </object>'
 }
 
-$descriptorAction = if (Test-Path $descriptorPath) { "overwrite (UUID preserved)" } else { "create" }
-$rightsAction = if (Test-Path $rightsPath) { "overwrite" } else { "create" }
-
-Write-Host "Role:      $roleName ('$synonym')"
-Write-Host "Objects:   $($roleObjects.Count) | Rights: $totalRights | RLS: $totalRls | Templates: $($rlsTemplates.Count)"
-Write-Host "Descriptor: $descriptorPath [$descriptorAction]"
-Write-Host "Rights:     $rightsPath [$rightsAction]"
-foreach ($w in $script:warnings) { Write-Host "  WARN $w" -ForegroundColor Yellow }
-
-if (-not $Apply) {
-    Write-Host "DRY RUN: no files written." -ForegroundColor Yellow
-    Write-Host "No changes made. Re-run with -Apply to generate the role files."
-    exit 0
+# RLS restriction templates
+$templateCount = 0
+if ($def.templates) {
+	foreach ($tpl in $def.templates) {
+		X '    <restrictionTemplate>'
+		X "        <name>$(Esc-Xml "$($tpl.name)")</name>"
+		X "        <condition>$(Esc-Xml "$($tpl.condition)")</condition>"
+		X '    </restrictionTemplate>'
+		$templateCount++
+	}
 }
 
-# --- 5. Generate XML (UTF-8 with BOM, indented) ---
+X '</Rights>'
 
-$uuid = if ($existingUuid) { $existingUuid } else { [guid]::NewGuid().ToString() }
+$rightsXml = $script:xmlBuf.ToString()
 
-New-Item -ItemType Directory -Path $extDir -Force | Out-Null
+# --- 11. Write output files ---
 
-$xmlSettings = New-Object System.Xml.XmlWriterSettings
-$xmlSettings.Indent = $true
-$xmlSettings.IndentChars = "    "
-$xmlSettings.Encoding = New-Object System.Text.UTF8Encoding($true)
-
-# 5a. Descriptor
-$w = [System.Xml.XmlWriter]::Create($descriptorPath, $xmlSettings)
-try {
-    $mdNs = "http://v8.1c.ru/8.3/MDClasses"
-    $v8Ns = "http://v8.1c.ru/8.1/data/core"
-    $w.WriteStartDocument()
-    $w.WriteStartElement("MetaDataObject", $mdNs)
-    $w.WriteAttributeString("xmlns", "v8", $null, $v8Ns)
-    $w.WriteAttributeString("xmlns", "xr", $null, "http://v8.1c.ru/8.3/xcf/readable")
-    $w.WriteAttributeString("xmlns", "xs", $null, "http://www.w3.org/2001/XMLSchema")
-    $w.WriteAttributeString("xmlns", "xsi", $null, "http://www.w3.org/2001/XMLSchema-instance")
-    $w.WriteAttributeString("version", "2.17")
-    $w.WriteStartElement("Role", $mdNs)
-    $w.WriteAttributeString("uuid", $uuid)
-    $w.WriteStartElement("Properties", $mdNs)
-    $w.WriteElementString("Name", $mdNs, $roleName)
-    $w.WriteStartElement("Synonym", $mdNs)
-    $w.WriteStartElement("item", $v8Ns)
-    $w.WriteElementString("lang", $v8Ns, "ru")
-    $w.WriteElementString("content", $v8Ns, $synonym)
-    $w.WriteEndElement() # item
-    $w.WriteEndElement() # Synonym
-    if ($comment) { $w.WriteElementString("Comment", $mdNs, $comment) }
-    else { $w.WriteStartElement("Comment", $mdNs); $w.WriteEndElement() }
-    $w.WriteEndElement() # Properties
-    $w.WriteEndElement() # Role
-    $w.WriteEndElement() # MetaDataObject
-    $w.WriteEndDocument()
-} finally {
-    $w.Close()
+$outDir = if ([System.IO.Path]::IsPathRooted($OutputDir)) {
+	$OutputDir
+} else {
+	Join-Path (Get-Location) $OutputDir
 }
 
-# 5b. Rights.xml
-$rightsNs = "http://v8.1c.ru/8.2/roles"
-$w = [System.Xml.XmlWriter]::Create($rightsPath, $xmlSettings)
-try {
-    $w.WriteStartDocument()
-    $w.WriteStartElement("Rights", $rightsNs)
-    $w.WriteAttributeString("xmlns", "xs", $null, "http://www.w3.org/2001/XMLSchema")
-    $w.WriteAttributeString("xmlns", "xsi", $null, "http://www.w3.org/2001/XMLSchema-instance")
-    $w.WriteAttributeString("version", "2.17")
-    $w.WriteElementString("setForNewObjects", $rightsNs, $flagSetForNewObjects.ToString().ToLower())
-    $w.WriteElementString("setForAttributesByDefault", $rightsNs, $flagSetForAttributes.ToString().ToLower())
-    $w.WriteElementString("independentRightsOfChildObjects", $rightsNs, $flagIndependentChild.ToString().ToLower())
-
-    foreach ($o in $roleObjects) {
-        $w.WriteStartElement("object", $rightsNs)
-        $w.WriteElementString("name", $rightsNs, $o.Name)
-        foreach ($rName in $o.Rights.Keys) {
-            $r = $o.Rights[$rName]
-            $w.WriteStartElement("right", $rightsNs)
-            $w.WriteElementString("name", $rightsNs, $rName)
-            $w.WriteElementString("value", $rightsNs, ([bool]$r.value).ToString().ToLower())
-            if ($r.rls) {
-                $w.WriteStartElement("restrictionByCondition", $rightsNs)
-                $w.WriteElementString("condition", $rightsNs, [string]$r.rls)
-                $w.WriteEndElement()
-            }
-            $w.WriteEndElement() # right
-        }
-        $w.WriteEndElement() # object
-    }
-
-    foreach ($tpl in $rlsTemplates) {
-        $w.WriteStartElement("restrictionTemplate", $rightsNs)
-        $w.WriteElementString("name", $rightsNs, $tpl.Name)
-        $w.WriteElementString("condition", $rightsNs, $tpl.Condition)
-        $w.WriteEndElement()
-    }
-
-    $w.WriteEndElement() # Rights
-    $w.WriteEndDocument()
-} finally {
-    $w.Close()
+# Determine Roles dir and config root
+# Back-compat: if OutputDir leaf is "Roles", use as-is; otherwise treat as config root
+$leaf = Split-Path $outDir -Leaf
+if ($leaf -eq "Roles") {
+	$rolesDir = $outDir
+	$configDir = Split-Path $outDir -Parent
+} else {
+	$rolesDir = Join-Path $outDir "Roles"
+	$configDir = $outDir
 }
 
-# --- 6. Post-apply verification (script-contract: verify from re-read state) ---
-
-$verifyOk = $true
-foreach ($p in @($descriptorPath, $rightsPath)) {
-    try {
-        [xml](Get-Content -Path $p -Encoding UTF8) | Out-Null
-        Write-Host "OK  written and re-parsed: $p" -ForegroundColor Green
-    } catch {
-        $verifyOk = $false
-        Write-Host "ERR re-parse failed: $p - $($_.Exception.Message)" -ForegroundColor Red
-    }
+# Metadata: Roles/RoleName.xml
+$metadataPath = Join-Path $rolesDir "$roleName.xml"
+if (-not (Test-Path $rolesDir)) {
+	New-Item -ItemType Directory -Path $rolesDir -Force | Out-Null
 }
 
-Write-Host ""
-Write-Host "Next steps:"
-Write-Host "  1. Validate:  role-validate.ps1 -RightsPath `"$rightsPath`" -MetadataPath `"$descriptorPath`""
-Write-Host "  2. Register the role in Configuration.xml <ChildObjects>: <Role>$roleName</Role> (if new)"
+# Rights: Roles/RoleName/Ext/Rights.xml
+$roleSubDir = Join-Path $rolesDir $roleName
+$extDir = Join-Path $roleSubDir "Ext"
+$rightsPath = Join-Path $extDir "Rights.xml"
+if (-not (Test-Path $extDir)) {
+	New-Item -ItemType Directory -Path $extDir -Force | Out-Null
+}
 
-if (-not $verifyOk) { exit 1 }
-exit 0
+$enc = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($metadataPath, $metadataXml, $enc)
+[System.IO.File]::WriteAllText($rightsPath, $rightsXml, $enc)
+
+# --- 12. Register in Configuration.xml ---
+
+$configXmlPath = Join-Path $configDir "Configuration.xml"
+$regResult = $null
+
+if (Test-Path $configXmlPath) {
+	$configDoc = New-Object System.Xml.XmlDocument
+	$configDoc.PreserveWhitespace = $true
+	$configDoc.Load($configXmlPath)
+
+	$nsMgr = New-Object System.Xml.XmlNamespaceManager($configDoc.NameTable)
+	$nsMgr.AddNamespace("md", "http://v8.1c.ru/8.3/MDClasses")
+
+	$childObjects = $configDoc.SelectSingleNode("//md:Configuration/md:ChildObjects", $nsMgr)
+	if ($childObjects) {
+		$existing = $childObjects.SelectNodes("md:Role", $nsMgr)
+		$alreadyExists = $false
+		foreach ($r in $existing) {
+			if ($r.InnerText -eq $roleName) {
+				$alreadyExists = $true
+				break
+			}
+		}
+
+		if ($alreadyExists) {
+			$regResult = "already"
+		} else {
+			$roleElem = $configDoc.CreateElement("Role", "http://v8.1c.ru/8.3/MDClasses")
+			$roleElem.InnerText = $roleName
+
+			if ($existing.Count -gt 0) {
+				# Insert after last existing <Role>
+				$lastRole = $existing[$existing.Count - 1]
+				$newWs = $configDoc.CreateWhitespace("`n`t`t`t")
+				$childObjects.InsertAfter($newWs, $lastRole) | Out-Null
+				$childObjects.InsertAfter($roleElem, $newWs) | Out-Null
+			} else {
+				# No existing roles — insert before closing whitespace
+				$lastChild = $childObjects.LastChild
+				if ($lastChild.NodeType -eq [System.Xml.XmlNodeType]::Whitespace) {
+					$newWs = $configDoc.CreateWhitespace("`n`t`t`t")
+					$childObjects.InsertBefore($newWs, $lastChild) | Out-Null
+					$childObjects.InsertBefore($roleElem, $lastChild) | Out-Null
+				} else {
+					$childObjects.AppendChild($configDoc.CreateWhitespace("`n`t`t`t")) | Out-Null
+					$childObjects.AppendChild($roleElem) | Out-Null
+					$childObjects.AppendChild($configDoc.CreateWhitespace("`n`t`t")) | Out-Null
+				}
+			}
+
+			# Save
+			$cfgSettings = New-Object System.Xml.XmlWriterSettings
+			$cfgSettings.Encoding = New-Object System.Text.UTF8Encoding($true)
+			$cfgSettings.Indent = $false
+			$stream = New-Object System.IO.FileStream($configXmlPath, [System.IO.FileMode]::Create)
+			$writer = [System.Xml.XmlWriter]::Create($stream, $cfgSettings)
+			$configDoc.Save($writer)
+			$writer.Close()
+			$stream.Close()
+
+			$regResult = "added"
+		}
+	} else {
+		$regResult = "no-childobj"
+	}
+} else {
+	$regResult = "no-config"
+}
+
+# --- 13. Summary ---
+
+Write-Host "[OK] Role '$roleName' compiled"
+Write-Host "     UUID: $uuid"
+Write-Host "     Metadata: $metadataPath"
+Write-Host "     Rights:   $rightsPath"
+Write-Host "     Objects: $($parsedObjects.Count), Rights: $totalRights, Templates: $templateCount"
+switch ($regResult) {
+	"added"       { Write-Host "     Configuration.xml: <Role>$roleName</Role> added to ChildObjects" }
+	"already"     { Write-Host "     Configuration.xml: <Role>$roleName</Role> already registered" }
+	"no-childobj" { Write-Warning "Configuration.xml found but <ChildObjects> not found" }
+	"no-config"   { Write-Warning "Configuration.xml not found at $configXmlPath — register manually" }
+}

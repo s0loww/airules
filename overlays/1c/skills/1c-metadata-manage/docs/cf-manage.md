@@ -1,5 +1,7 @@
 # 1C Configuration Manage — Init, Edit, Info, Validate
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Comprehensive configuration management: create scaffold, edit properties/composition, analyze structure, validate correctness.
 
 ---
@@ -7,11 +9,7 @@ Comprehensive configuration management: create scaffold, edit properties/composi
 ## 1. Init — Create Configuration Scaffold
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-init.ps1 -Name "<Name>" [-OutputDir "<path>"]
-
-# Apply: actually create the files
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-init.ps1 -Name "<Name>" [-OutputDir "<path>"] -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool cf-init -Name "<Name>" [-OutputDir "<path>"]
 ```
 
 Creates minimal configuration structure: `Configuration.xml`, `Languages/Русский.xml`, and basic directory structure.
@@ -21,7 +19,7 @@ Creates minimal configuration structure: `Configuration.xml`, `Languages/Рус�
 ## 2. Edit — Modify Configuration Properties
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/cf-edit.ps1 -ConfigPath '<path>' -Operation <op> -Value '<value>' -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool cf-edit -ConfigPath '<path>' -Operation <op> -Value '<value>'
 ```
 
 | Parameter | Description |
@@ -31,7 +29,6 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scr
 | `Value` | Value (batch via `;;`) |
 | `DefinitionFile` | JSON file with operation array |
 | `NoValidate` | Skip auto-validation |
-| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ### Operations
 
@@ -44,21 +41,19 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scr
 | `remove-defaultRole` | `Role.Name` or `Name` | Remove default role |
 | `set-defaultRoles` | Names via `;;` | Replace default roles list |
 
-Full property reference: [cf-edit-reference.md](skills/1c-metadata-manage/tools/1c-cf-manage/cf-edit-reference.md).
+Full property reference: [cf-edit-reference.md](../tools/1c-cf-manage/cf-edit-reference.md).
 
 ### Examples
 
 ```powershell
-# Change version and vendor — dry run first (prints the plan, no changes)
+# Change version and vendor
 ... -Operation modify-property -Value "Version=1.0.0.1 ;; Vendor=Company"
-# Then apply
-... -Operation modify-property -Value "Version=1.0.0.1 ;; Vendor=Company" -Apply
 
 # Add objects
-... -Operation add-childObject -Value "Catalog.Товары ;; Document.Заказ" -Apply
+... -Operation add-childObject -Value "Catalog.Товары ;; Document.Заказ"
 
 # Default roles
-... -Operation set-defaultRoles -Value "ПолныеПрава ;; Администратор" -Apply
+... -Operation set-defaultRoles -Value "ПолныеПрава ;; Администратор"
 ```
 
 ---
@@ -100,32 +95,59 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scr
 
 Exit code: 0 = OK, 1 = errors.
 
+### Complete dump integrity
+
+For a **complete hierarchical Designer XML dump**, run the read-only composition
+check after `cf-validate` (or `cfe-validate` for an extension):
+
+```powershell
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-cf-manage/scripts/dump-validate.ps1 -ConfigPath "<dump-directory>" -Format Json
+```
+
+`ConfigPath` also accepts `Configuration.xml`. `Format` is `Text` by default or
+`Json` for automation. Optional `OutFile` saves the same result as UTF-8 with BOM;
+it must be outside the checked dump, so a report cannot overwrite its sources.
+The command does not repair, delete or regenerate any source file.
+
+Coverage:
+
+- Declared root metadata objects and recursively declared nested subsystems:
+  missing descriptor files, orphan descriptor files, duplicate declarations,
+  unknown composition types, invalid names, unreadable XML and mismatched names.
+- Each scanned descriptor's format version against `Configuration.xml`.
+- Object references in configuration `Default*` properties and subsystem
+  `Content`. Nested subsystem references resolve to their own descriptor.
+- Optional `ConfigDumpInfo.xml`: root/format, version and records whose owning
+  metadata object is absent. Attribute/module records are resolved to their
+  owner; their individual existence is outside this check. Absence of
+  `ConfigDumpInfo.xml` alone is not an error.
+
+JSON has `schema_version: 1`, `status` (`valid`, `invalid`, `error`), `root`,
+`objects_checked` and `findings`. Each finding has stable `kind`, `severity`,
+relative `path`, qualified `object` and human-readable `message`. Consumers use
+`kind`, never parse `message`. Main integrity codes are `missing-file`,
+`orphan-file`, `duplicate-entry`, `unknown-type`, `version-mismatch`,
+`dangling-reference`, `dump-info-version` and `dump-info-extra`; malformed input
+and an incomplete scan also return findings. Exit 0 means no findings within
+this coverage; exit 1 means findings or an incomplete scan.
+
+Do not run this on a partial export or automatically during intermediate
+scaffolding: unexported objects would correctly appear as missing. This is a
+separate check from per-object/schema validation, UUID checking and platform
+loading. It does not inspect forms/templates internals, BSL, all metadata
+references or extension applicability. Supplier configurations under `Ext` are
+not traversed. Object ordering remains the responsibility of `cf-validate` /
+`cfe-validate`; there is no new alphabetical-order requirement.
+
 ---
 
 ## Typical Workflow
 
 ```
-1c-cf-manage init        — create configuration scaffold (mutation: requires -Apply)
-1c-cf-manage edit        — set properties, add objects (mutation: requires -Apply)
+1c-cf-manage init        — create configuration scaffold
+1c-cf-manage edit        — set properties, add objects
 1c-cf-manage validate    — check correctness
 1c-cf-manage info        — view structure summary
 ```
 
-Mutating steps (`init`, `edit`) run as dry run by default: they print the plan and exit. Pass `-Apply` to write changes.
-
-## MCP Integration
-
-- **get_object_dossier** — Comprehensive structural passport of existing configuration objects (structure, forms, dependencies, code, roles) in one call.
-- **metadatasearch** — Explore existing configuration structure, verify object names.
-- **get_metadata_details** — Get full object structure for existing configuration objects.
-- **metadatasearch** (`names_only=true`) — Find similar configuration objects as XML reference examples.
-- **get_xsd_schema** — Get XSD schema for configuration XML. Use before generating Configuration.xml.
-- **verify_xml** — Validate generated configuration XML against XSD.
-- **compare_base_and_extension** — Compare configuration objects with their extension counterparts when working with configurations that have extensions.
-- **docsearch** — Platform documentation on configuration properties.
-
-## SDD Integration
-
-When creating a new configuration as part of a project, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Create initial specs in `openspec/specs/` describing configuration purpose, compatibility, and scope.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

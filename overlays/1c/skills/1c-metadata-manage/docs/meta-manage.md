@@ -1,5 +1,7 @@
 # 1C Metadata Manage — Compile, Edit, Info, Remove, Validate
 
+> **airules:** writing tools run through `tools/_common/Invoke-1CEdit.ps1 -Tool <name>`. Every call below is a **DryRun** (the diff or the plan is printed, nothing is written) until `-Apply` is added; a writing script called directly exits 3. Passwords go as `-PasswordEnv <VAR>`, never `-Password`. Details: `docs/edit-preview.md`.
+
 Operations for creating, modifying, analyzing, removing, and validating 1C metadata objects from configuration XML export.
 
 ---
@@ -13,14 +15,9 @@ Takes a JSON definition of a metadata object and generates XML + modules in the 
 |-----------|-------------|
 | `JsonPath` | Path to the JSON definition file |
 | `OutputDir` | Root directory of the configuration export (where `Catalogs/`, `Documents/`, etc. are located) |
-| `Apply` | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
-
-# Apply: actually generate XML and register the object
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>" -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool meta-compile -JsonPath "<json>" -OutputDir "<ConfigDir>"
 ```
 
 `OutputDir` — directory containing type subfolders (`Catalogs/`, `Documents/`, ...) and `Configuration.xml`.
@@ -41,9 +38,9 @@ Constant, DefinedType, CommonModule, ScheduledJob, EventSubscription, DocumentJo
 
 ## JSON DSL — Quick Reference
 
-The quick reference below is the whole DSL documentation shipped with this
-version; for anything it does not cover, read the parser in
-`tools/1c-meta-compile/scripts/meta-compile.ps1` rather than guessing.
+Full `meta-edit` operation reference is split across three files in `tools/1c-meta-edit/`: [`json-dsl.md`](../tools/1c-meta-edit/json-dsl.md) (combined operations, key/type synonyms, supported object table), [`properties-reference.md`](../tools/1c-meta-edit/properties-reference.md) (object property operations), and [`child-operations.md`](../tools/1c-meta-edit/child-operations.md) (child-element operations).
+
+The **complete `meta-compile` DSL grammar** — every object type with its type-specific keys, all property spellings, version-dependent properties (format 2.20 / platform 8.3.27 included) — is vendored verbatim as [`meta-dsl-spec.md`](../tools/1c-meta-compile/meta-dsl-spec.md) (Russian, upstream original). The quick reference below covers the common cases; read the spec when a key is missing here or the compiler rejects a construct.
 
 ### Root Structure
 
@@ -178,6 +175,17 @@ Context shortcuts: `"server"` → Server+ServerCall, `"client"` → ClientManage
 - `{OutputDir}/{TypePlural}/{Name}/Ext/Flowchart.xml` — route map (BusinessProcess)
 - `Configuration.xml` — automatic registration in `<ChildObjects>`
 
+## Placement in `Configuration.xml`
+
+Registration adds exactly one `<Kind>Name</Kind>` line; the rest of the file is kept byte-for-byte (BOM, EOL, declaration case, `<Tag/>` form, indentation). Where the line goes inside its own kind group is `NEW_OBJECT_POSITION` in `.dev.env`:
+
+| Value | Placement |
+|-------|-----------|
+| `end` (default / empty) | After the last object of the same kind — what Configurator does |
+| `byName` | Alphabetically inside the kind group, by the deterministic 1C-tree comparator (standard АПК:1108) |
+
+Regardless of the value: a group of a kind **not yet present** in the file is inserted in canonical kind order rather than appended to the end of the block, and the order-sensitive kinds (`Subsystem`, `CommandGroup`, `CommonAttribute`, `Language`) are never sorted by name. Objects already registered are never moved. Parameter reference — `rules/dev-standards-core.md → NEW_OBJECT_POSITION`.
+
 ## Verification
 
 ```
@@ -195,17 +203,13 @@ Atomic modification operations on existing metadata object XML files.
 ### Inline Mode (simple operations)
 
 ```powershell
-# Dry run (default): prints the plan, writes nothing
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -ObjectPath "<path>" -Operation <op> -Value "<val>"
-
-# Apply: actually modify the object XML
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -ObjectPath "<path>" -Operation <op> -Value "<val>" -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool meta-edit -ObjectPath "<path>" -Operation <op> -Value "<val>"
 ```
 
 ### JSON Mode (complex/combined operations)
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>" -Apply
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool meta-edit -DefinitionFile "<json>" -ObjectPath "<path>"
 ```
 
 | Parameter | Description |
@@ -215,13 +219,12 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-edit/scr
 | Value | Value for inline operation |
 | DefinitionFile | JSON file with operations (alternative to Operation) |
 | NoValidate | Skip meta-validate after editing |
-| Apply | Apply changes; without it the script prints the plan and exits (dry run) |
 
 ## Operations — Summary Table
 
 Batch via `;;` in all operations. Detailed syntax in linked reference files.
 
-### Child Elements — [child-operations.md](skills/1c-metadata-manage/tools/1c-meta-edit/child-operations.md)
+### Child Elements — [child-operations.md](../tools/1c-meta-edit/child-operations.md)
 
 | Operation | Value Format | Example |
 |-----------|-------------|---------|
@@ -231,8 +234,9 @@ Batch via `;;` in all operations. Detailed syntax in linked reference files.
 | `add-resource` | `Name: Type` | `"Сумма: Number(15,2)"` |
 | `add-enumValue` | `Name` | `"Value1 ;; Value2"` |
 | `add-column` | `Name: Type` | `"Тип: EnumRef.ТипыДокументов"` |
-| `add-command` | `Name` | `"ItemCommand"` |
-| `add-form` / `add-template` | — | refused (exit 1): use `form-add.ps1` / `add-template.ps1`, which create the files |
+| `add-command` | `Name` | `"Command1"` |
+| ~~`add-template`~~ | — | **refused (exit 2)** before any write, including mixed JSON and accepted key aliases — use `add-template.ps1` with an object XML path and explicit `TemplateType`, see [template-manage.md](template-manage.md) |
+| ~~`add-form`~~ | — | **refused (exit 2)** in every accepted key spelling (`add` / `Add` / `добавить`, `forms` / `формы`), checked across the whole definition before any write — use `form-add`, see [form-manage.md](form-manage.md) |
 | `add-ts-attribute` | `TS.Name: Type` | `"Товары.Скидка: Number(15,2)"` |
 | `remove-*` | `Name` | `"OldAttribute ;; AnotherOne"` |
 | `remove-ts-attribute` | `TS.Name` | `"Товары.ObsoleteAttr"` |
@@ -242,7 +246,7 @@ Batch via `;;` in all operations. Detailed syntax in linked reference files.
 
 Positional insert: `"Склад: CatalogRef.Склады >> after Организация"`.
 
-### Object Properties — [properties-reference.md](skills/1c-metadata-manage/tools/1c-meta-edit/properties-reference.md)
+### Object Properties — [properties-reference.md](../tools/1c-meta-edit/properties-reference.md)
 
 | Operation | Value Format | Example |
 |-----------|-------------|---------|
@@ -254,32 +258,30 @@ Positional insert: `"Склад: CatalogRef.Склады >> after Организ
 | `set-owners` / `set-registerRecords` / `set-basedOn` / `set-inputByString` | Replace entire list | `"Catalog.Орг ;; Catalog.Контр"` |
 | `remove-owner` / `remove-registerRecord` / ... | Remove from list | `"Catalog.Контрагенты"` |
 
-### JSON DSL — [json-dsl.md](skills/1c-metadata-manage/tools/1c-meta-edit/json-dsl.md)
+### JSON DSL — [json-dsl.md](../tools/1c-meta-edit/json-dsl.md)
 
 For combined operations (add + remove + modify in one file), key/type synonyms, supported object table.
 
 ## Quick Examples
 
 ```powershell
-# Add attributes — dry run first (prints the plan, no changes)
+# Add attributes
 -Operation add-attribute -Value "Комментарий: String(200) ;; Сумма: Number(15,2) | index"
-# Then apply
--Operation add-attribute -Value "Комментарий: String(200) ;; Сумма: Number(15,2) | index" -Apply
 
 # Add tabular section with attributes
--Operation add-ts -Value "Товары: Ном: CatalogRef.Ном | req, Кол: Number(15,3), Цена: Number(15,2)" -Apply
+-Operation add-ts -Value "Товары: Ном: CatalogRef.Ном | req, Кол: Number(15,3), Цена: Number(15,2)"
 
 # Remove attribute
--Operation remove-attribute -Value "ObsoleteAttribute" -Apply
+-Operation remove-attribute -Value "ObsoleteAttribute"
 
 # Rename + change type
--Operation modify-attribute -Value "OldName: name=NewName, type=String(500)" -Apply
+-Operation modify-attribute -Value "OldName: name=NewName, type=String(500)"
 
 # Modify object properties
--Operation modify-property -Value "CodeLength=11 ;; DescriptionLength=150" -Apply
+-Operation modify-property -Value "CodeLength=11 ;; DescriptionLength=150"
 
 # Catalog owners
--Operation set-owners -Value "Catalog.Контрагенты ;; Catalog.Организации" -Apply
+-Operation set-owners -Value "Catalog.Контрагенты ;; Catalog.Организации"
 ```
 
 ## Verification
@@ -358,7 +360,7 @@ Safely removes an object from a 1C configuration XML export. Before deletion, ch
 ## Usage
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-remove/scripts/meta-remove.ps1 -ConfigDir "<path>" -Object "Catalog.Товары"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool meta-remove -ConfigDir "<path>" -Object "Catalog.Товары"
 ```
 
 ## Parameters
@@ -367,9 +369,9 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-remove/s
 |-----------|:--------:|-------------|
 | ConfigDir | yes | Root directory of the export (where Configuration.xml is) |
 | Object | yes | Type and name: `Catalog.Товары`, `Document.Заказ`, etc. |
-| Apply | no | Perform the removal. Without it — dry run: only shows what would be deleted, no changes |
+| DryRun | no | Only show what would be deleted, no changes |
 | KeepFiles | no | Don't delete files, only unregister |
-| Force | no | Delete despite found references (bypass the reference check) |
+| Force | no | Delete despite found references |
 
 ## What It Does
 
@@ -400,17 +402,17 @@ References from Configuration.xml, ConfigDumpInfo.xml, and subsystems are NOT bl
 ## Examples
 
 ```powershell
-# Dry run — check references (default, no changes)
-... -ConfigDir src/cf -Object "Catalog.Obsolete"
+# Dry run — check references
+... -ConfigDir src/cf -Object "Catalog.Obsolete" -DryRun
 
 # Delete object with no references
-... -ConfigDir src/cf -Object "Catalog.Obsolete" -Apply
+... -ConfigDir src/cf -Object "Catalog.Obsolete"
 
 # Force delete despite references
-... -ConfigDir src/cf -Object "Catalog.Obsolete" -Apply -Force
+... -ConfigDir src/cf -Object "Catalog.Obsolete" -Force
 
 # Only unregister (keep files)
-... -ConfigDir src/cf -Object "Report.Old" -KeepFiles -Apply
+... -ConfigDir src/cf -Object "Report.Old" -KeepFiles
 ```
 
 Exit code: 0 = success, 1 = errors or references found.
@@ -447,16 +449,26 @@ powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/1c-meta-validate
 | # | Check | Severity |
 |---|-------|----------|
 | 1 | XML well-formedness + root structure | ERROR |
-| 2 | InternalInfo / GeneratedType | ERROR / WARN |
+| 1e | Root `version` equals `Configuration.xml` (when one is found above the object) | ERROR |
+| 2 | InternalInfo / GeneratedType — every category of the kind present, name exactly `<Type><Category>.<Name>` | ERROR / WARN |
 | 3 | Properties — Name, Synonym | ERROR / WARN |
 | 4 | Properties — enum property values | ERROR |
 | 5 | StandardAttributes | ERROR / WARN |
 | 6 | ChildObjects — allowed element types | ERROR |
+| 6a–6d | Form registrations — scalar reference, descriptor on disk, parseable, same name | ERROR |
+| 6e | Form descriptors and `Ext/Form.xml` carry the `Configuration.xml` version | ERROR |
+| 6f | `Default*Form` / `Auxiliary*Form` — `<Kind>.<Name>.Form.<Form>` of a declared form (or an existing `CommonForm`); object, folder, record and list slots point at a form of that role | ERROR |
+| 6g | A form of the object binds `Description` / `Code` only when `DescriptionLength` / `CodeLength` > 0 | ERROR |
+| 6h | The default object form shows a mandatory `Description` (length > 0, `ShowError`) or some module assigns it | WARN |
 | 7 | Attributes/Dimensions/Resources — UUID, Name, Type | ERROR |
-| 8 | Name uniqueness | ERROR |
+| 8 | Name uniqueness — case-insensitive; attributes, tabular sections, dimensions and resources share one namespace | ERROR |
 | 9 | TabularSections — internal structure | ERROR / WARN |
 | 10 | Cross-property consistency | ERROR / WARN |
 | 11 | HTTPService/WebService — nested structure | ERROR |
+| 12 | Forbidden properties per kind (InformationRegister: `Periodicity`, `DefaultRecordSetForm`) | ERROR |
+| 16a | Type spelled with an export folder name (`cfg:Catalogs.X` instead of `cfg:CatalogRef.X`) | ERROR |
+
+Checks 13–19 are not listed individually: method references, journal columns, commands, reference-type existence, `MDObjectRef` shape, version-dependent properties, `LineNumberLength`. Both runtimes (`.ps1` / `.py`) print the same messages.
 
 Exit code: 0 = all checks passed, 1 = errors found.
 
@@ -476,7 +488,7 @@ Exit code: 0 = all checks passed, 1 = errors found.
 ## Verification Workflow
 
 ```
-1c-meta-compile <JsonPath> <OutputDir> -Apply       — generate XML (dry run without -Apply)
+1c-meta-compile <JsonPath> <OutputDir>              — generate XML
 1c-meta-validate <OutputDir>/<Type>/<Name>.xml      — check result
 1c-meta-info <OutputDir>/<Type>/<Name>.xml          — visual summary
 ```
@@ -492,37 +504,16 @@ Exit code: 0 = all checks passed, 1 = errors found.
 ## Typical Workflow
 
 ```
-1c-meta-compile <JsonPath> <OutputDir> -Apply    — create object from JSON (dry run without -Apply)
+1c-meta-compile <JsonPath> <OutputDir>     — create object from JSON
 1c-meta-validate <ObjectPath>              — validate generated XML
 1c-meta-info <ObjectPath>                  — review structure
-1c-meta-edit <ObjectPath> -Operation ... -Apply  — modify as needed (dry run without -Apply)
+1c-meta-edit <ObjectPath> -Operation ...   — modify as needed
 1c-meta-validate <ObjectPath>              — validate after editing
-1c-meta-remove -ConfigDir <path> -Object -Apply  — remove when obsolete (dry run without -Apply)
+1c-meta-remove -ConfigDir <path> -Object   — remove when obsolete
 ```
 
+MCP evidence set (`rules/tooling-playbooks.md`): `get_xsd_schema` with `object_type` = the metadata type (`Справочник`, `Документ`, `РегистрСведений`, …) before generating, `verify_xml` on the result.
+
 ---
-## MCP Integration
 
-- **get_object_dossier** — Comprehensive structural passport in one call: structure, forms, subscriptions, roles, dependencies, code modules, business info. Use as the first step before creating/modifying/removing objects.
-- **metadatasearch** — Verify object names don't conflict, find objects to remove and their relationships. Use `object_type` filter to narrow results.
-- **get_metadata_details** — Get full object structure: attribute types, tabular parts, synonyms, properties. Use for verifying attribute types and references.
-- **metadatasearch** (`names_only=true`) — Find similar metadata objects for XML reference before generating new XML.
-- **get_xsd_schema** — Get XSD schema for the metadata type to validate generated XML structure.
-- **verify_xml** — Validate generated or modified metadata XML against XSD before committing.
-- **search_code** — Find BSL code references to objects (prefer over `codesearch` and Grep; supports semantic/fulltext/hybrid search with detail levels L0–L3).
-- **codesearch** — Find code references in raw BSL files (fallback when `search_code` is not available).
-- **trace_impact** — Recursive multi-level impact analysis before removal or modification (preferred over `graph_dependencies` for deep dependency chains).
-- **find_objects_using_object** — Find all objects referencing the given object in their attributes/dimensions/resources before removal.
-- **find_usages_of_object** — Attribute-level reference analysis: which specific attributes reference the object.
-- **graph_dependencies** — Flat dependency overview (who uses this / what it uses).
-- **docsearch** — Look up platform documentation for metadata type properties and valid property values when investigating validation errors.
-- **business_search** — Semantic search of related objects when creating configuration objects.
-- **answer_metadata_question** — Natural-language questions about object structure (meta-info provides more detailed structural analysis).
-- **check_1c_code** — Verify BSL code in object modules after fixing structural issues (syntax, logic, performance).
-- **review_1c_code** — Check code style and ITS standards compliance in object modules.
-
-## SDD Integration
-
-When creating or modifying configuration objects as part of a larger feature, update SDD artifacts if present (see `rules/sdd-integrations.md` for detection):
-
-- **OpenSpec**: Add or update spec deltas in `openspec/changes/<change-id>/specs/` describing the new object, its attributes, and purpose.
+Scripts vendored from Nikolay-Shirokov/cc-1c-skills; sync history — `docs/CHANGELOG.md`.

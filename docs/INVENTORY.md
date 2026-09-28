@@ -23,7 +23,7 @@ python ci/simulate_install.py --emit-inventory
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 214 |
+| файлов в цели | 246 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -51,7 +51,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `openspec/` | 5 |
 | `tools/` | 38 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 97 |
+| `.claude/skills/` | 129 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -146,7 +146,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `openspec-explore` | core | Enter explore mode - a thinking partner for exploring ideas, investigating problems, and clarify |
 | `openspec-propose` | core | Propose a new change with all artifacts generated in one step |
 | `powershell-windows` | core | Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7 |
-| `1c-metadata-manage` | 1c | 1C metadata management — create, edit, validate, and remove configuration objects (catalogs, doc |
+| `1c-metadata-manage` | 1c | Create, edit, validate and remove 1C metadata — objects, managed forms, SKD, MXL, roles, EPF/ERF |
 | `1c-tj-analysis` | 1c | Analyse a 1C technological log (ТЖ): what the log actually recorded, the slowest server calls an |
 | `ibcmd-ibsrv` | 1c | Build, update and serve local 1C test infobases without Designer: ibcmd for create / import / ap |
 | `img-grid-analysis` | 1c | Overlay a numbered grid on an image to determine column proportions for layout generation |

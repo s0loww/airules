@@ -1,29 +1,25 @@
-﻿<#
-.SYNOPSIS
-	Создание каркаса внешней обработки 1С (EPF)
-
-.PARAMETER Apply
-	Применить изменения. Без этого флага скрипт работает в режиме DryRun:
-	показывает список файлов, которые были бы созданы, и завершается без изменений.
-
-.EXAMPLE
-	.\init.ps1 -Name "МояОбработка" -SrcDir src
-
-.EXAMPLE
-	.\init.ps1 -Name "МояОбработка" -SrcDir src -Apply
-#>
+﻿# epf-init v1.1 — Init 1C external data processor scaffold
+# Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
 	[Parameter(Mandatory)]
 	[string]$Name,
 
 	[string]$Synonym = $Name,
 
-	[string]$SrcDir = "src",
-
-	[switch]$Apply
+	[string]$SrcDir = "src"
 )
 
+# airules gate (inserted by ci/sync_metadata_manage.py): this tool writes, so it
+# runs only through _common/Invoke-1CEdit.ps1 - DryRun by default, -Apply to write.
+if ($env:AIRULES_1C_GATE -ne '1') {
+	[Console]::Error.WriteLine("airules: epf-scaffold/init writes - run it as: tools/_common/Invoke-1CEdit.ps1 -Tool epf-scaffold/init <same arguments>  (DryRun by default, -Apply to write)")
+	exit 3
+}
+
+
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 
 $uuid1 = [guid]::NewGuid().ToString()
 $uuid2 = [guid]::NewGuid().ToString()
@@ -67,15 +63,6 @@ $processorDir = Join-Path $SrcDir $Name
 if (Test-Path $rootFile) {
 	Write-Error "Файл уже существует: $rootFile"
 	exit 1
-}
-
-# --- DryRun gate (script-contract: mutations only under explicit -Apply) ---
-if (-not $Apply) {
-	Write-Host "DRY RUN: would create external data processor '$Name':" -ForegroundColor Yellow
-	Write-Host "  $rootFile"
-	Write-Host "  $(Join-Path (Join-Path $processorDir 'Ext') 'ObjectModule.bsl')"
-	Write-Host "No changes made. Re-run with -Apply to create the files."
-	exit 0
 }
 
 if (-not (Test-Path $SrcDir)) {
