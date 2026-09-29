@@ -38,6 +38,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.dirname(HERE)
 STACK = "1c"
 
+
+def _node_18():
+    """Node >= 18 on PATH (core/install/layout.md: condition of the archify skill)."""
+    try:
+        out = subprocess.run(["node", "--version"], capture_output=True, text=True).stdout
+        return int(out.strip().lstrip("v").split(".")[0]) >= 18
+    except (OSError, ValueError):
+        return False
+
+
+# Skills that need an external run-time: installed only when the check passes.
+RUNTIME_SKILLS = {"archify": _node_18}
+
 # Ответы интервью (§2). Фиксированные: симулятор проверяет процедуру, а не
 # качество ответов.
 ANSWERS = {
@@ -145,6 +158,9 @@ def build(target, problems):
                 continue
             for name in os.listdir(base):
                 src = os.path.join(base, name)
+                # layout.md: skills with an external run-time install only when it is present
+                if sub == "skills" and name in RUNTIME_SKILLS and not RUNTIME_SKILLS[name]():
+                    continue
                 if os.path.isdir(src):
                     shutil.copytree(src, os.path.join(dst, name), dirs_exist_ok=True)
                 else:

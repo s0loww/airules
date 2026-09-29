@@ -15,6 +15,11 @@
 *.txt text eol=lf
 *.example text eol=lf
 *.feature text eol=lf
+# Вендорные скиллы (core/skills/archify): JS, HTML-шаблоны, лицензия.
+*.mjs text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+LICENSE text eol=lf
 VERSION text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf

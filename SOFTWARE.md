@@ -25,6 +25,8 @@
 | OpenSpec CLI | скиллы `openspec-*`, правило `sdd-integrations` | <https://github.com/Fission-AI/OpenSpec> |
 | rtk (сжатие вывода команд) | правило `tool-output-economy` | репо: <https://github.com/rtk-ai/rtk>; релизы (Windows: `rtk-x86_64-pc-windows-msvc.zip`): <https://github.com/rtk-ai/rtk/releases> |
 | ripgrep | нужен только для `rtk rg` (часть фильтров rtk) | <https://github.com/BurntSushi/ripgrep/releases> |
+| Node.js ≥ 18 | скилл `archify` (схемы HTML/PNG); без Node скилл не ставится. npm-пакеты не нужны | <https://nodejs.org/en/download> |
+| Chrome или Edge | только PNG-экспорт и `visual-check` скилла `archify` | <https://www.google.com/chrome/> |
 
 Примечания к rtk: телеметрия opt-in (по умолчанию выключена); автоперехват —
 только глобальный `rtk init -g` по решению пользователя; проектный `rtk init`

@@ -19,11 +19,11 @@ python ci/simulate_install.py --emit-inventory
 |---|---|
 | версия | 0.9.2 |
 | правил | 51 |
-| скиллов | 10 |
+| скиллов | 11 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 214 |
+| файлов в цели | 279 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -51,7 +51,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `openspec/` | 5 |
 | `tools/` | 38 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 97 |
+| `.claude/skills/` | 162 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -140,7 +140,8 @@ Read, живёт в истории и первым уходит при сжат�
 <!-- generated:skills -->
 | Скилл | Слой | Что делает |
 |---|---|---|
-| `mermaid-diagrams` | core | Practical guide for creating human-readable and agent-parseable diagrams using Mermaid |
+| `archify` | core | Create validated architecture, workflow, sequence, data-flow and lifecycle diagrams as standalon |
+| `mermaid-diagrams` | core | Practical guide for creating human-readable and agent-parseable diagrams using Mermaid inside Ma |
 | `openspec-apply-change` | core | Implement tasks from an OpenSpec change |
 | `openspec-archive-change` | core | Archive a completed change in the experimental workflow |
 | `openspec-explore` | core | Enter explore mode - a thinking partner for exploring ideas, investigating problems, and clarify |
