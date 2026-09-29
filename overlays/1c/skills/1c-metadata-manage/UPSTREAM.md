@@ -23,7 +23,8 @@ Mechanical changes, all re-applied by the sync script:
 
 ## Resync procedure
 
-1. `git -C D:\AI_Projects\_ref\ai_rules_1c pull`
+1. `git pull` in the maintainer's clone of comol/ai_rules_1c (default `--upstream` of the
+   sync script)
 2. `python ci/sync_metadata_manage.py --check` — errors mean an unclassified new
    tool or a patch whose anchor moved: classify it / fix or drop the patch;
 3. `python ci/sync_metadata_manage.py` — writes, updates the pin above;

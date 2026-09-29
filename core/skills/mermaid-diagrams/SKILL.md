@@ -1,6 +1,6 @@
 ---
 name: mermaid-diagrams
-description: "Practical guide for creating human-readable and agent-parseable diagrams using Mermaid. Includes conservative, renderer-compatible templates and when-to-use guidance."
+description: "Practical guide for creating human-readable and agent-parseable diagrams using Mermaid inside Markdown (specs, docs, PR text). Includes conservative, renderer-compatible templates and when-to-use guidance. Standalone interactive diagrams (HTML/PNG, linked diagram sets) — the archify skill."
 ---
 
 # Mermaid Diagrams Skill

@@ -374,6 +374,16 @@ The orchestrator owns the lifecycle of every launch:
   work with another role or yourself.
 - A long-running subagent with no intermediate signs of work (no new files,
   logs, state changes) is a candidate for forced stop, not for waiting.
+- **A report is a claim, not a fact.** Numbers, hashes, pass counts and
+  "all green" in a report are re-checked from the files or a command run
+  before they go into a summary for the user (with many launches — a sample
+  of them, plus one end-to-end check). What a subagent "saw" about a
+  neighbour's work mid-run is not evidence: the neighbour may not have been
+  done yet.
+- **Parallel launches never share temporary files.** Each writes only into
+  its own subfolder of the scratch directory (or with a unique prefix), and
+  the task says so: in a shared folder one agent reads another's leftover
+  verdict file as its own "passed".
 
 ## Pipeline anti-patterns
 

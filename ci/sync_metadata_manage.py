@@ -259,7 +259,9 @@ def rewrite_doc(text):
     text = text.replace("`-Password`", "`-PasswordEnv <VAR>`")
     text = text.replace('/P"<password>"', '/P"***"')
     # Machine paths in examples (repository rule machine-paths).
-    text = re.sub(r'(?i)C:\\Bases', '<bases-dir>', text)
+    # One or two backslashes: plain paths and JSON-escaped ones ("C:\\Bases\\X").
+    for folder, placeholder in (("Bases", "<bases-dir>"), ("WS", "<workspace>"), ("backup", "<backup-dir>")):
+        text = re.sub(r'(?i)[A-Z]:(\\{1,2})' + folder + r'\b', placeholder, text)
     # Upstream rule / command references -> our installed rules, or a neutral pointer.
     for old, new in DOC_REFS:
         text = text.replace(old, new)

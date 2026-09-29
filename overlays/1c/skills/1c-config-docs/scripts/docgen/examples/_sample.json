@@ -1,0 +1,357 @@
+{
+  "_comment": "Sample exercising every block type (bilingual es/ru). Keys starting with _ are comments. Build with --out to a scratch dir.",
+  "id": "sample",
+  "base": "00_Muestra",
+  "title": {
+    "es": "Documento de muestra",
+    "ru": "Образец документа"
+  },
+  "subtitle": {
+    "es": "Todos los tipos de bloque del generador",
+    "ru": "Все типы блоков генератора"
+  },
+  "source": {
+    "commit": "b1a4b0cf",
+    "date": "2026-09-28"
+  },
+  "blocks": [
+    {
+      "type": "toc",
+      "levels": "1-3"
+    },
+    {
+      "type": "h1",
+      "text": {
+        "es": "1. Texto",
+        "ru": "1. Текст"
+      },
+      "anchor": "texto"
+    },
+    {
+      "type": "p",
+      "text": {
+        "es": "Párrafo normal con `Documento.Venta` en código, **negrita**, un enlace externo [1C:Empresa](https://1c.ru) y uno interno a la [sección de tablas](#tablas). Escape: \\`no es código\\`.",
+        "ru": "Обычный абзац с `Документ.Продажа` в коде, **жирным**, внешней ссылкой [1С:Предприятие](https://1c.ru) и внутренней на [раздел таблиц](#tablas). Экранирование: \\`не код\\`."
+      }
+    },
+    {
+      "type": "p",
+      "italic": true,
+      "text": {
+        "es": "Párrafo en cursiva.\nSegunda línea tras salto.",
+        "ru": "Абзац курсивом.\nВторая строка после переноса."
+      }
+    },
+    {
+      "type": "h2",
+      "text": {
+        "es": "1.1 Listas",
+        "ru": "1.1 Списки"
+      }
+    },
+    {
+      "type": "bullets",
+      "items": [
+        {
+          "es": "Primer punto",
+          "ru": "Первый пункт"
+        },
+        {
+          "text": {
+            "es": "Punto con hijos",
+            "ru": "Пункт с вложенными"
+          },
+          "children": [
+            {
+              "es": "Hijo con `CommonModule.Ventas`",
+              "ru": "Вложенный с `CommonModule.Ventas`"
+            },
+            "Language-neutral child: AccumulationRegister.Consolidacion"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "numbered",
+      "items": [
+        {
+          "es": "Paso uno",
+          "ru": "Шаг один"
+        },
+        {
+          "text": {
+            "es": "Paso dos",
+            "ru": "Шаг два"
+          },
+          "children": [
+            {
+              "es": "Subpaso a",
+              "ru": "Подшаг a"
+            },
+            {
+              "es": "Subpaso b",
+              "ru": "Подшаг b"
+            }
+          ]
+        },
+        {
+          "es": "Paso tres",
+          "ru": "Шаг три"
+        }
+      ]
+    },
+    {
+      "type": "numbered",
+      "items": [
+        {
+          "es": "Segunda lista: reinicia en 1",
+          "ru": "Второй список: нумерация с 1"
+        }
+      ]
+    },
+    {
+      "type": "h3",
+      "text": {
+        "es": "1.1.1 Nivel tres",
+        "ru": "1.1.1 Третий уровень"
+      }
+    },
+    {
+      "type": "p",
+      "text": {
+        "es": "Encabezado de tercer nivel arriba.",
+        "ru": "Выше — заголовок третьего уровня."
+      }
+    },
+    {
+      "type": "h1",
+      "text": {
+        "es": "2. Tablas",
+        "ru": "2. Таблицы"
+      },
+      "anchor": "tablas"
+    },
+    {
+      "type": "table",
+      "headers": [
+        {
+          "es": "Objeto",
+          "ru": "Объект"
+        },
+        {
+          "es": "Tipo",
+          "ru": "Вид"
+        },
+        {
+          "es": "Descripción",
+          "ru": "Описание"
+        }
+      ],
+      "widths": [
+        "30%",
+        "20%",
+        "50%"
+      ],
+      "mono": [
+        0
+      ],
+      "rows": [
+        [
+          "Document.Venta",
+          {
+            "es": "Documento",
+            "ru": "Документ"
+          },
+          {
+            "es": "Venta de bienes con **IVA**",
+            "ru": "Продажа товаров с **НДС**"
+          }
+        ],
+        [
+          "AccumulationRegister.Consolidacion",
+          {
+            "es": "Registro de acumulación",
+            "ru": "Регистр накопления"
+          },
+          {
+            "es": "Consolidación de fruta",
+            "ru": "Консолидация фрукта"
+          }
+        ],
+        [
+          "Catalog.Contrapartes",
+          {
+            "es": "Catálogo",
+            "ru": "Справочник"
+          },
+          {
+            "es": "Clientes y proveedores",
+            "ru": "Клиенты и поставщики"
+          }
+        ]
+      ]
+    },
+    {
+      "type": "h2",
+      "text": {
+        "es": "2.1 Tabla ancha en horizontal",
+        "ru": "2.1 Широкая таблица на альбомной странице"
+      },
+      "landscape": true
+    },
+    {
+      "type": "table",
+      "landscape": true,
+      "headers": [
+        "Nombre 1C",
+        {
+          "es": "Español",
+          "ru": "Испанский"
+        },
+        {
+          "es": "Ruso",
+          "ru": "Русский"
+        },
+        {
+          "es": "Estado",
+          "ru": "Статус"
+        },
+        {
+          "es": "Subsistemas",
+          "ru": "Подсистемы"
+        },
+        {
+          "es": "Tipo",
+          "ru": "Тип"
+        }
+      ],
+      "widths": [
+        2800,
+        2600,
+        2600,
+        1200,
+        2800,
+        2570
+      ],
+      "mono": [
+        0,
+        4,
+        5
+      ],
+      "rows": [
+        [
+          "AsignacionDeCupos",
+          "Asignacion de cupos",
+          "Распределение квот",
+          {
+            "es": "nuevo",
+            "ru": "новый"
+          },
+          "Bananero.Embarque",
+          "DocumentRef.AsignacionDeCupos"
+        ],
+        [
+          "Contrapartes",
+          "Contrapartes",
+          "Контрагенты",
+          {
+            "es": "adaptado",
+            "ru": "доработан"
+          },
+          "Compras, Ventas",
+          "CatalogRef.Contrapartes"
+        ]
+      ]
+    },
+    {
+      "type": "h1",
+      "text": {
+        "es": "3. Notas",
+        "ru": "3. Примечания"
+      }
+    },
+    {
+      "type": "note",
+      "kind": "info",
+      "title": {
+        "es": "Información",
+        "ru": "Информация"
+      },
+      "lines": [
+        {
+          "es": "Nota informativa con `código`.",
+          "ru": "Информационное примечание с `кодом`."
+        },
+        {
+          "es": "Segunda línea.",
+          "ru": "Вторая строка."
+        }
+      ]
+    },
+    {
+      "type": "note",
+      "kind": "warn",
+      "lines": [
+        {
+          "es": "Advertencia sin título: se usa la etiqueta por defecto.",
+          "ru": "Предупреждение без заголовка: подставляется метка по умолчанию."
+        }
+      ]
+    },
+    {
+      "type": "h1",
+      "text": {
+        "es": "4. Diagramas",
+        "ru": "4. Схемы"
+      }
+    },
+    {
+      "type": "diagram",
+      "href": "bl-00-panorama.architecture.html",
+      "caption": {
+        "es": "Vista general del contorno bananero",
+        "ru": "Обзор бананового контура"
+      }
+    },
+    {
+      "type": "diagram",
+      "href": "bn-01-cupos.dataflow.html",
+      "caption": {
+        "es": "Diagrama sin PNG: solo enlace",
+        "ru": "Схема без PNG: только ссылка"
+      }
+    },
+    {
+      "type": "pagebreak"
+    },
+    {
+      "type": "h1",
+      "text": {
+        "es": "5. Glosario",
+        "ru": "5. Глоссарий"
+      }
+    },
+    {
+      "type": "glossary",
+      "rows": [
+        {
+          "es": "Contabilizar",
+          "ru": "Провести",
+          "note": {
+            "es": "Nunca «Publicar».",
+            "ru": "Никогда не «Publicar»."
+          }
+        },
+        {
+          "es": "Cupo",
+          "ru": "Квота"
+        },
+        {
+          "es": "Retención",
+          "ru": "Удержание",
+          "note": "SRI"
+        }
+      ]
+    }
+  ]
+}

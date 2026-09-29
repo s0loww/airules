@@ -1,0 +1,21 @@
+{
+  "name": "1c-config-docs-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Config-driven toolchain of the 1c-config-docs skill: 1C metadata inventory, DOCX generator (mono- or bilingual), archify PNG export, navigation pages.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "inventory": "node inventory.mjs",
+    "build": "node docgen/build.mjs",
+    "reference": "node docgen/reference.mjs",
+    "export-png": "node export-png.mjs",
+    "nav": "node make-nav.mjs",
+    "test": "node --test tests/callgraph.test.mjs tests/make-clear.test.mjs"
+  },
+  "dependencies": {
+    "docx": "9.8.0"
+  }
+}

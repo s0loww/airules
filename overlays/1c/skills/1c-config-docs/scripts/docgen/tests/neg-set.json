@@ -1,0 +1,9 @@
+{
+  "_comment": "NEGATIVE fixture: unknown set id, and set + outDir together, missing title language. build must exit 1.",
+  "id": "neg-set",
+  "base": "00_Neg_set",
+  "set": "no-such-set",
+  "outDir": "../out-sample",
+  "title": { "es": "Solo español" },
+  "blocks": [ { "type": "p", "text": "x" } ]
+}

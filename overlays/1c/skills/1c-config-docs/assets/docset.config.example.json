@@ -1,0 +1,99 @@
+{
+  "$comment": "Образец конфига комплекта документации (все поля — scripts/README.md, раздел «Конфиг»). Скопировать, заменить <...>, лишнее удалить. Пути абсолютные или относительно файла конфига; factsDir/pngDir/contentDir/reportDir и sets[].dir — относительно outputRoot. Ключи, начинающиеся с $ или _, — комментарии. Образец двуязычный с двумя наборами: общий комплект и подробный по одному контуру; для одного языка удалить languages.secondary и языковые ключи второго языка.",
+  "project": { "en": "<Configuration name>", "ru": "<Имя конфигурации>" },
+
+  "source": {
+    "repo": "<path to the repository with the configuration dump>",
+    "ref": "<branch or tag to document>",
+    "$ref": "что документировать: ветка-интегратор, а не обязательно текущая ветка рабочего дерева (SKILL.md, фаза 0)",
+    "worktree": "<path to a read-only worktree of ref, e.g. ../_wt/<project>-docs>",
+    "srcRoot": "src",
+    "baseline": "<commit of the vendor dump>",
+    "$baseline": "база сравнения для статусов new/modified; по умолчанию первый коммит, тронувший srcRoot. Выгрузка расширения (.cfe: в Configuration.xml есть ConfigurationExtensionPurpose) распознаётся сама: статус — собственный/заимствованный (ObjectBelonging), а изменения с базы — отдельная колонка",
+    "compareAlso": [],
+    "$compareAlso": "необязательно: другие ветки, с которыми сверить состав объектов",
+    "$commit": "необязательно: короткий коммит для титулов/навигации; по умолчанию git rev-parse --short=8 HEAD ворктри"
+  },
+
+  "languages": {
+    "primary":   { "code": "en", "suffix": "en" },
+    "secondary": { "code": "ru", "suffix": "ru" },
+    "$primary": "ведущий язык: имена файлов, подписи блоков схем; synonymFallback — язык синонима, если своего нет, напр. [\"en\"]"
+  },
+  "normalizeTranslations": [],
+  "$normalizeTranslations": "языки, чьи правки не считать доработкой объекта (массовый коммит переводов — SKILL.md, фаза 1), напр. [\"ru\"]",
+  "inventory": { "summaryLanguage": "ru" },
+
+  "outputRoot": "<path to the documentation output, e.g. docs/documentation>",
+  "factsDir": "_facts",
+  "buildDir": "_build",
+  "pngDir": "_png",
+  "contentDir": "_build/docgen/content",
+  "$reportDir": "необязательно: куда писать last-build.json / last-reference.json / make-nav-report.json / fill-png-report.json / make-clear-report.json / lifecycle-report.json; по умолчанию <buildDir>/reports или _reports. Сборка с --out пишет отчёт рядом с выходом",
+  "$factsDir": "сюда же пишут callgraph.mjs (callgraph.json, callgraph-summary.md); здесь же необязательный purposes.json аналитиков — назначение объектов одной строкой для справочника: { \"Catalog.Имя\": \"текст\" | { \"en\": \"…\", \"ru\": \"…\" } }",
+
+  "sets": [
+    {
+      "id": "base",
+      "dir": ".",
+      "diagramPrefix": "base-",
+      "title": { "en": "<Configuration name>", "ru": "<Имя конфигурации>" },
+      "lead": {
+        "en": "The configuration as it is in the code: documents by area and interactive diagrams",
+        "ru": "Логика конфигурации в том виде, как она есть в коде: документы по участкам и интерактивные схемы"
+      },
+      "navTitle": { "en": "<Configuration name> · general set", "ru": "<Имя конфигурации> · общий комплект" },
+      "about": {
+        "en": "<one line: which areas the set covers>",
+        "ru": "<одна строка: какие участки покрывает комплект>"
+      },
+      "internalDocs": ["91_Known_limitations"],
+      "$internalDocs": "base документов «для внутреннего использования» (реестр ограничений и дефектов): плашка на странице, пометка в README, make-clear по умолчанию их не копирует",
+      "readmeIntro": { "ru": "<абзац для README набора: что это за комплект и для кого>" },
+      "staleWhen": [
+        { "ru": "<когда комплект устаревает: какие объекты, регистры, маршруты данных при изменении требуют пересборки>" },
+        { "ru": "закрыто или найдено ограничение из документа 91 — реестр ограничений и ссылки на него из документов участков;" }
+      ]
+    },
+    {
+      "id": "contour",
+      "dir": "<contour>",
+      "diagramPrefix": "ct-",
+      "title": { "en": "<Contour name>", "ru": "<Имя контура>" },
+      "lead": {
+        "en": "<one line: what the contour does end to end>",
+        "ru": "<одна строка: что контур делает от начала до конца>"
+      },
+      "navTitle": { "en": "<Contour name> · detailed set", "ru": "<Имя контура> · подробный комплект" },
+      "about": {
+        "en": "<one line: the stages covered>",
+        "ru": "<одна строка: какие стадии покрыты>"
+      },
+      "readmeIntro": { "ru": "<абзац для README набора>" },
+      "staleWhen": [
+        { "ru": "<какие объекты контура при изменении требуют пересборки>" }
+      ]
+    }
+  ],
+
+  "reference": {
+    "base": "90_Object_reference",
+    "$base": "имя файла без суффикса языка: Unicode-буквы и цифры плюс _ . - (кириллица допустима: 90_Справочник_объектов); без пробелов, без <>:\"/\\|?*, не на точку, не CON/PRN/AUX/NUL/COM1-9/LPT1-9",
+    "id": "object-reference",
+    "contentFile": "generated/90-reference.json",
+    "set": "base",
+    "$legacyNamePattern": "необязательно: регэксп имени устаревших объектов, напр. \"^(Удалить|Obsolete)\" — статус «устаревший»",
+    "kindDetails": true,
+    "$kindDetails": "по умолчанию true: таблицы свойств видов — подписки (источники, событие, обработчик), регламентные задания (метод, использование, предопределённое), константы (тип), общие модули (контекст, строк); false — прежний вид справочника"
+  },
+
+  "nav": { "readmeLanguage": "ru" },
+
+  "$uiStrings": "необязательно: переопределение или новый язык, напр. {\"pt\": {\"page\": \"Página\", …, \"lang\": {\"pt\": {\"Name\": \"Português\"}}, \"kinds\": {…}}}",
+
+  "archify": "<path to archify/bin/archify.mjs>",
+  "$archify": "CLI archify для схем; контракт схем использует поля узла link/description — нужна сборка archify с ними",
+  "clearCopy": "_clear",
+  "$clearCopy": "экспортная копия make-clear.mjs, путь относительно outputRoot (\"_clear\", \"../<project>_clear\"); не может совпадать с каталогом набора или содержать его",
+  "$date": "необязательно: дата на титулах, YYYY-MM-DD; по умолчанию сегодня"
+}

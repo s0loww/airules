@@ -17,7 +17,7 @@
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <config xmlns="http://v8.1c.ru/v8/tech-log">
-  <log location="D:\techlog\slow" history="48">
+  <log location="<techlog-dir>\slow" history="48">
     <event>
       <eq property="name" value="CALL"/>
       <ge property="durationus" value="1000000"/>

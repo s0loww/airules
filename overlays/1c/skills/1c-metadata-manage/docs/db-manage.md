@@ -50,12 +50,12 @@ File is placed at the project root (next to `.git/`).
       "id": "dev",
       "name": "Development",
       "type": "file",
-      "path": "C:\\Bases\\MyApp_Dev",
+      "path": "<bases-dir>\\MyApp_Dev",
       "user": "Admin",
       "password": "",
       "aliases": ["dev", "разработка"],
       "branches": ["dev", "develop", "feature/*"],
-      "configSrc": "C:\\WS\\myapp\\cfsrc"
+      "configSrc": "<workspace>\\myapp\\cfsrc"
     },
     {
       "id": "test",
@@ -367,7 +367,7 @@ Run `-DryRun` first to inspect the exact scope. Resolve deletions, renames, miss
 ### 9. Dump Infobase to DT (backup / rollback point)
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool db-dump-dt -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -OutputFile "C:\backup\base.dt"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool db-dump-dt -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -OutputFile "<backup-dir>\base.dt"
 ```
 
 Dumps the **whole infobase** — configuration **plus data**, settings and users. Unlike `db-dump-cf` (configuration only), a `.dt` is a full snapshot: this is the backup / rollback point, not a metadata export.
@@ -383,7 +383,7 @@ Take a DT dump before any irreversible operation: `db-load-dt`, a CF load over a
 ### 10. Load Infobase from DT
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool db-load-dt -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -InputFile "C:\backup\base.dt"
+powershell.exe -NoProfile -File skills/1c-metadata-manage/tools/_common/Invoke-1CEdit.ps1 -Tool db-load-dt -InfoBasePath "<bases-dir>\MyDB" -UserName "Admin" -InputFile "<backup-dir>\base.dt"
 ```
 
 > **Irreversible.** Loading a `.dt` **completely overwrites the infobase** — configuration *and* all data. Whatever is in the base now is lost. `db-update` afterwards is **not** needed: the database configuration is already in sync inside the snapshot.
