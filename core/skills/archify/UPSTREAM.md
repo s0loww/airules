@@ -1,7 +1,8 @@
 # Upstream of `archify`
 
 - Upstream: <https://github.com/tt-a1i/archify> (MIT, see `LICENSE`)
-- Vendored from our fork: `D:\AI_Projects\diag_builder`, branch `detail-link`
+- Vendored from our fork: <https://github.com/s0loww/diag_builder> (private), branch
+  `detail-link`; local clone `D:\AI_Projects\diag_builder` (remote `fork`; `origin` = upstream)
 - Pinned fork commit: `85215d389bb31f6eae820b2fe3a0202dcf474c83`
 - Synced by: `ci/sync_archify.py` (airules repository, maintainer tool)
 
