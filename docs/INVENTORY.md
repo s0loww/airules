@@ -19,11 +19,11 @@ python ci/simulate_install.py --emit-inventory
 |---|---|
 | версия | 0.9.2 |
 | правил | 51 |
-| скиллов | 11 |
+| скиллов | 12 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 279 |
+| файлов в цели | 322 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -51,7 +51,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `openspec/` | 5 |
 | `tools/` | 38 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 162 |
+| `.claude/skills/` | 205 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -147,6 +147,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `openspec-explore` | core | Enter explore mode - a thinking partner for exploring ideas, investigating problems, and clarify |
 | `openspec-propose` | core | Propose a new change with all artifacts generated in one step |
 | `powershell-windows` | core | Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7 |
+| `1c-config-docs` | 1c | - |
 | `1c-metadata-manage` | 1c | 1C metadata management — create, edit, validate, and remove configuration objects (catalogs, doc |
 | `1c-tj-analysis` | 1c | Analyse a 1C technological log (ТЖ): what the log actually recorded, the slowest server calls an |
 | `ibcmd-ibsrv` | 1c | Build, update and serve local 1C test infobases without Designer: ibcmd for create / import / ap |

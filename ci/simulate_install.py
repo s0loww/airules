@@ -49,7 +49,7 @@ def _node_18():
 
 
 # Skills that need an external run-time: installed only when the check passes.
-RUNTIME_SKILLS = {"archify": _node_18}
+RUNTIME_SKILLS = {"archify": _node_18, "1c-config-docs": _node_18}
 
 # Ответы интервью (§2). Фиксированные: симулятор проверяет процедуру, а не
 # качество ответов.

@@ -73,6 +73,14 @@ instead of requesting everything at once.
   re-run the command raw, or read the proxy's full-output copy (rtk tee
   recovery stores it on failures; `rtk config` shows the tee mode and path).
 - Exit codes pass through the proxy; a failing command stays failing.
+- **An empty search result through the proxy is not evidence of absence.**
+  A filter can drop every match line (observed with wrapped `grep`); before
+  concluding "not found", "not used", "no callers" — re-run raw
+  (`rtk proxy <cmd>`) or use the host's own search tool.
+- **A pipe hides the exit code.** `cmd | tail -n 20` reports `tail`'s code,
+  not `cmd`'s — a failed run looks clean. Trim output without a pipe where
+  the verdict matters, or read the command's own status (`${PIPESTATUS[0]}`
+  in bash, `$LASTEXITCODE` of the command in PowerShell).
 
 ## Environment notes
 

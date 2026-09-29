@@ -28,6 +28,11 @@
 | Node.js ≥ 18 | скилл `archify` (схемы HTML/PNG); без Node скилл не ставится. npm-пакеты не нужны | <https://nodejs.org/en/download> |
 | Chrome или Edge | только PNG-экспорт и `visual-check` скилла `archify` | <https://www.google.com/chrome/> |
 
+Скилл оверлея 1С `1c-config-docs` (документация конфигурации по коду): Node ≥ 18,
+пакет `docx` (`npm ci` в `scripts/` скилла при первом использовании), скилл `archify`
+из core, Chrome/Edge для PNG, PowerShell для `verify-docx`, MS Word — по желанию
+(open-check оглавления и PDF).
+
 Примечания к rtk: телеметрия opt-in (по умолчанию выключена); автоперехват —
 только глобальный `rtk init -g` по решению пользователя; проектный `rtk init`
 в airules-раскладке не использовать (грабля — `core/install/layout.md`);

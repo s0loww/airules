@@ -38,7 +38,19 @@ TEXT_EXTENSIONS = (
     ".json",
     ".toml",
     ".txt",
+    ".mjs",
+    ".js",
 )
+
+# Never scanned: installed dependencies of a skill's scripts (npm ci) are not ours.
+SKIP_DIRS = ("node_modules",)
+
+# Script code (skills' JS): only the rules about what code may leak or hardwire apply.
+# The prose/config rules (effort "max", model names, install paths) would read every
+# Math.max and identifier as a violation.
+CODE_EXTENSIONS = (".mjs", ".js")
+CODE_RULES = ("creds-password", "creds-p-flag", "creds-token", "creds-echo",
+              "machine-paths", "domain-names", "stack-in-core")
 
 # Per-line marker that suppresses a single rule on that line.
 ALLOW_MARKER = "airules:allow"
@@ -114,6 +126,10 @@ def _build_rules():
             "id": "machine-paths",
             "regex": (
                 r"(?i)(?:[A-Za-z]:[\\/](Work|Users|projects|bases|WS|repos|Temp|dev)\b"
+                # any drive-rooted folder path, either slash (D:/AI_Projects/…, E:\x\…),
+                # except the standard install roots and <placeholder> segments
+                r"|(?<![\w$%])[A-Za-z]:[\\/]+(?![\\/])(?!(?:Program Files(?: \(x86\))?|Windows|ProgramData|<)(?:[\\/\"'\s]|$))"
+                r"(?=[^\\/\s\"'<>|*?]*[\\/])"
                 r"|\\\\[A-Za-z0-9_.$-]+\\[A-Za-z0-9_.$-]+"
                 r"|(?<![\w./-])/(home|mnt)/)"
             ),
@@ -353,8 +369,11 @@ def scan_file(path, rel_path, rules):
         )
         return
     lines = text.splitlines()
+    is_code = os.path.splitext(rel_path)[1].lower() in CODE_EXTENSIONS
     for rule in rules:
         if not _rule_applies_to_path(rule, rel_path):
+            continue
+        if is_code and rule["id"] not in CODE_RULES:
             continue
         if _is_exception(rule, rel_path):
             continue
@@ -638,7 +657,8 @@ def collect_install_failures(base_dir):
 
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
-    for root, _dirs, files in os.walk(base_dir):
+    for root, dirs, files in os.walk(base_dir):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for name in files:
             if os.path.splitext(name)[1].lower() in TEXT_EXTENSIONS:
                 yield os.path.join(root, name)

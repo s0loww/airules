@@ -50,3 +50,4 @@
 | формы, метаданные, СКД, макеты / forms, metadata | `forms` + скилл `1c-metadata-manage` | metadata-manager |
 | распакованные исходники, `*.obj.bsl`, `*.elem.json`, сборка бинарника / v8unpack sources | `v8unpack-source-structure` | developer |
 | правила обмена, конвертация данных, ПКО/ПКС, объект не найден при загрузке / data conversion rules | `kd2-exchange-rules` (XML-правила) или `kd31-exchange-rules` (EnterpriseData) | developer |
+| задокументировать конфигурацию / подсистему / контур по коду, комплект docx и схем / document the configuration | скилл `1c-config-docs` (веер агентов — только по явному запросу) | (orchestrator) → `1c-analytic-deep` |

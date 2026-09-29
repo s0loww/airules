@@ -108,6 +108,15 @@ ROLES.md, agent-template.md), `core/templates/AGENTS.md`, `core/commands/*`,
 
 ## Разное
 
+- **Документация конфигурации (`1c-config-docs`, `archify`)** — встроено 2026-09-29
+  (ветки `airules/archify` → `airules/config-docs`). Хвосты: абсолютные пути в README
+  набора и `inventory.json` комплекта (коммитятся в проект); частичный успех с
+  exit 0 в `reference`/`callgraph`; тело скилла на русском (языковая политика —
+  английские тела); description ~600 байт; проверки поведения веера (роли по фазам,
+  отказ от встроенных агентов) эвалами не покрыты. `ci/check_layers.py` теперь
+  сканирует `.mjs`/`.js` (только правила кредсов, путей, доменов, стека),
+  пропускает `node_modules/`, ловит любые пути от корня диска.
+
 - Из раскатки 0.6.0 на KA2/BL (2026-08-04): (а) у
   `overlays/1c/tools/rtk-filters.example.toml` нет install-пути в ONBOARD §5 —
   тот же класс, что был у commands (файл не доезжает до цели; доставку решить
