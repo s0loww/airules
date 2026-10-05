@@ -4,7 +4,9 @@ Not a general client: it speaks just the initialize / tools/list / tools/call
 subset, over JSON-RPC with the streamable-HTTP transport, and unwraps an
 SSE-framed reply when the server sends one. Standard library only.
 """
+import itertools
 import json
+import threading
 import time
 import urllib.request
 
@@ -34,17 +36,28 @@ class Client(object):
 
     def __init__(self, url, timeout=120):
         self.url = url
+        # JSON-RPC id must be unique per in-flight request within a session.
+        # A fixed id let two concurrent calls to one backend collide: the
+        # backend answered one of them and left the other stream open forever
+        # (keep-alive, so the read timeout never fired). Agents that issue tool
+        # calls in parallel (Grok Build does by default) hung on it for good.
+        self._ids = itertools.count(1)
+        self._ids_lock = threading.Lock()
         # Read per call, so the facade can tighten it after construction from
         # the registry entry without the factory having to know about it.
         self.timeout = timeout
         self.session_id, _ = _post(url, {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "jsonrpc": "2.0", "id": self._next_id(), "method": "initialize",
             "params": {"protocolVersion": self.PROTOCOL, "capabilities": {},
                        "clientInfo": {"name": "facade-capture", "version": "1"}}},
                                    timeout=min(timeout, 30))
 
+    def _next_id(self):
+        with self._ids_lock:
+            return next(self._ids)
+
     def tools(self):
-        _, reply = _post(self.url, {"jsonrpc": "2.0", "id": 2,
+        _, reply = _post(self.url, {"jsonrpc": "2.0", "id": self._next_id(),
                                     "method": "tools/list", "params": {}}, self.session_id)
         return reply.get("result", {}).get("tools", [])
 
@@ -52,7 +65,7 @@ class Client(object):
         """Returns (seconds, status, text). Never raises on a server-side error."""
         started = time.time()
         try:
-            _, reply = _post(self.url, {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            _, reply = _post(self.url, {"jsonrpc": "2.0", "id": self._next_id(), "method": "tools/call",
                                         "params": {"name": name, "arguments": arguments}},
                              self.session_id, timeout=self.timeout)
         except Exception as exc:                     # noqa: BLE001 - capture tool
