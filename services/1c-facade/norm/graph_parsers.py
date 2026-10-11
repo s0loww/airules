@@ -173,6 +173,7 @@ def parse_search_code(text):
 # ------------------------------------------------------------------- dossier
 
 _DS_HEAD = re.compile(r"^#\s*Досье:\s*(?P<id>\S+)(?:\s*\[конфигурация:\s*(?P<cfg>[^\]]+)\])?", re.M)
+_DS_404 = re.compile(r"^Объект\s+'(?P<id>[^']+)'\s+не найден", re.M)
 _DS_SECTION = re.compile(r"^(?P<lvl>#{2,3})\s*(?P<title>.+?)(?:\s*\((?P<n>\d+)\))?\s*$")
 _DS_ATTR = re.compile(r"^\s*\d+\.\s+(?P<name>\S+)\s+—\s+(?P<type>.+?)\s*$")
 _DS_TAB = re.compile(r"^\s*\d+\.\s+(?P<name>\S+)(?:\s*[\[(](?P<syn>[^\])]*)[\])])?\s*$")
@@ -193,6 +194,10 @@ def parse_dossier(text):
     text = text.strip()
     head = _DS_HEAD.search(text)
     if not head:
+        missing = _DS_404.search(text)
+        if missing:
+            return ParseResult(status="not_found",
+                               note="object not known to graph: " + missing.group("id"))
         return ParseResult(status="unparsed", note="dossier header not recognised")
     root = head.group("id")
     res = ParseResult(resolved_id=root, note=head.group("cfg"))

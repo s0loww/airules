@@ -125,13 +125,27 @@ def parse_metadata_details(text):
         return _refused_or_unparsed(text, "metadata_details")
     root = data.get("full_path") or data.get("name")
     attrs = data.get("attributes") or []
-    res = ParseResult(resolved_id=root, status="ok" if attrs else "empty")
+    tabular = data.get("tabular_parts") or {}
+    res = ParseResult(resolved_id=root, status="ok" if attrs or tabular else "empty")
     res.note_section("attributes", None, len(attrs))
     for a in attrs:
         res.records.append(Record(
             id=root + "." + a.get("name", ""), kind="attribute", name=a.get("name"),
             owner=root, text=a.get("type"),
             src=Src(backend=BACKEND, tool="get_metadata_details", tier="indexed")))
+    # columns of tabular sections: the dossier names a section but not the types
+    # of its columns, so without these a caller cannot describe a section at all
+    columns = 0
+    for part, items in tabular.items():
+        owner = root + "." + part
+        for c in items or []:
+            res.records.append(Record(
+                id=owner + "." + c.get("name", ""), kind="attribute", name=c.get("name"),
+                owner=owner, text=c.get("type"),
+                src=Src(backend=BACKEND, tool="get_metadata_details", tier="indexed")))
+            columns += 1
+    if tabular:
+        res.note_section("tabular_columns", None, columns)
     return res
 
 

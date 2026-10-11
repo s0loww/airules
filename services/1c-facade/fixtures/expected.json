@@ -598,7 +598,7 @@
   "status": "ok"
  },
  "code_metadata_details__ok": {
-  "count": 19,
+  "count": 20,
   "declared": null,
   "records": [
    {
@@ -828,6 +828,18 @@
      "tool": "get_metadata_details"
     },
     "text": "Строка(38, Переменная)"
+   },
+   {
+    "id": "Справочники.ДоговорыКонтрагентов.инт_ПродуктПрограмма.ПродуктПрограмма",
+    "kind": "attribute",
+    "name": "ПродуктПрограмма",
+    "owner": "Справочники.ДоговорыКонтрагентов.инт_ПродуктПрограмма",
+    "src": {
+     "backend": "code",
+     "tier": "indexed",
+     "tool": "get_metadata_details"
+    },
+    "text": "СправочникСсылка.инт_ПродуктПрограмма"
    }
   ],
   "resolved_id": "Справочники.ДоговорыКонтрагентов",
@@ -835,6 +847,10 @@
    "attributes": {
     "declared": -1,
     "parsed": 19
+   },
+   "tabular_columns": {
+    "declared": -1,
+    "parsed": 1
    }
   },
   "status": "ok"

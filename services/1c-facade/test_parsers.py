@@ -135,8 +135,10 @@ def invariants(res):
     # cross-backend agreement: both describe the same object's attributes
     ds = res["graph_dossier__ok"]
     md = res["code_metadata_details__ok"]
-    ds_attrs = sum(1 for r in ds.records if r.kind == "attribute")
-    md_attrs = sum(1 for r in md.records if r.kind == "attribute")
+    # the object's own attributes: details also carry the columns of tabular
+    # sections (owner = the section), which the dossier does not list
+    ds_attrs = sum(1 for r in ds.records if r.kind == "attribute" and r.owner == ds.resolved_id)
+    md_attrs = sum(1 for r in md.records if r.kind == "attribute" and r.owner == md.resolved_id)
     eq("dossier vs details: attribute count agrees", ds_attrs, md_attrs)
 
     # with the resolver supplying a canonical id, both backends agree on rel.to --

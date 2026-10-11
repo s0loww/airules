@@ -453,16 +453,48 @@ class Facade(object):
             ("graph", "get_object_dossier", args),
             ("code", "get_metadata_details", {"object_name": id}),
         ])
-        if text:
-            envelope.merge(graph_parsers.parse_dossier(text), "graph")
-        if detail:
-            envelope.merge(code_parsers.parse_metadata_details(detail), "code")
+        dossier = graph_parsers.parse_dossier(text) if text else None
+        details = code_parsers.parse_metadata_details(detail) if detail else None
+        if self._describe_part(envelope, project, id, dossier, details):
+            return
+        if dossier:
+            envelope.merge(dossier, "graph")
+        if details:
+            envelope.merge(details, "code")
         # a bare common-module name is a module in itself: its structure is
         # the description, whether or not it was asked for by section
         if "modules" in local or "." not in (id or ""):
             self._describe_modules(envelope, project, self._module_paths(project, id), id)
         if "form" in local:
             self._describe_form(envelope, project, id, "")
+
+    def _describe_part(self, envelope, project, id, dossier, details):
+        """A tabular section or one of its columns, described through its owner.
+
+        Neither backend knows `Документы.X.Строки` as an object: the graph says
+        "не найден", code offers look-alikes. The columns and their types live
+        in the owner's metadata details, so when the id itself is unknown the
+        owners are tried -- one level up for a section, two for a column -- and
+        only the records at or under the requested id are kept.
+        """
+        found = any(r is not None and r.status in ("ok", "empty") for r in (dossier, details))
+        parts = (id or "").split(".")
+        if found or len(parts) < 3:
+            return False
+        for cut in (1, 2):
+            if len(parts) - cut < 2:
+                break
+            owner = ".".join(parts[:-cut])
+            detail = self._ask(envelope, project, "code", "get_metadata_details",
+                               {"object_name": owner})
+            parsed = code_parsers.parse_metadata_details(detail) if detail else None
+            if parsed is None or parsed.status != "ok":
+                continue
+            kept = [r for r in parsed.records if r.id == id or r.id.startswith(id + ".")]
+            if kept:
+                envelope.extend(kept)
+                return True
+        return False
 
     def _module_paths(self, project, owner):
         try:
