@@ -1,0 +1,28 @@
+events[3]:
+  - type: start
+    total_files: 1
+    version: 0.2.81
+    line_base: 1
+  - type: file
+    path: /app/.temp/tmpaf7l4zps/src/module.bsl
+    diagnostics[5]{code,message,severity,start_line,start_column,end_line,end_column}:
+      CodeOutOfRegion,Процедура находится вне области (#Область/#Region). Весь код модуля должен быть организован в области для лучшей структуры.,Hint,1,10,1,14
+      UnusedLocalMethod,"Неиспользуемый локальный метод \"Тест\"",Warning,1,10,1,14
+      SemicolonPresence,Пропущена точка с запятой в конце выражения,Information,2,6,2,7
+      DeprecatedPlatformApi,"Используйте \"ОбщегоНазначения.СообщитьПользователю\" вместо устаревшего \"Сообщить\"",Warning,4,4,4,12
+      ParseError,"Ожидалось 'КонецЕсли', встречено КонецПроцедуры",Critical,5,0,5,0
+    metrics:
+      functions: 1
+      complexity: 2
+      cognitive_complexity: 1
+    diagnostic_asides[2]{diagnostic,field,value}:
+      1,tags,Unnecessary
+      3,tags,Deprecated
+  - type: done
+    elapsed_secs: 0.047909972
+    total_files: 1
+    total_diagnostics: 5
+    failed_files: 0
+    baseline:
+      state: disabled
+      complete: true

@@ -26,6 +26,10 @@ DST = os.path.join(HERE, "fixtures")
 # Ordered: longer keys first so a prefix never eats a longer match.
 MAP = (
     ("БалтийскийЛизинг", "ДемоКонфигурация"),
+    ("Project_BKI_Extension", "Demo_Extension"),
+    ("КонтурБКИ", "ДемоРасширение"),
+    ("Project_BL_Extension", "Demo_Base_Extension"),
+    ("УправлениеЛизингом", "ДемоУправление"),
     ("mail2.nomos.fil", "smtp.example.invalid"),
     ("web_SAP", "web_ERP"),
     ("БЛ_", "ДЕМО_"),

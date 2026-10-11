@@ -8,6 +8,7 @@ import itertools
 import json
 import threading
 import time
+import urllib.error
 import urllib.request
 
 
@@ -36,6 +37,10 @@ class Client(object):
 
     def __init__(self, url, timeout=120):
         self.url = url
+        # Read per call, so the facade can tighten it after construction from
+        # the registry entry without the factory having to know about it.
+        self.timeout = timeout
+        self._lock = threading.Lock()
         # JSON-RPC id must be unique per in-flight request within a session.
         # A fixed id let two concurrent calls to one backend collide: the
         # backend answered one of them and left the other stream open forever
@@ -43,31 +48,53 @@ class Client(object):
         # calls in parallel (Grok Build does by default) hung on it for good.
         self._ids = itertools.count(1)
         self._ids_lock = threading.Lock()
-        # Read per call, so the facade can tighten it after construction from
-        # the registry entry without the factory having to know about it.
-        self.timeout = timeout
-        self.session_id, _ = _post(url, {
-            "jsonrpc": "2.0", "id": self._next_id(), "method": "initialize",
-            "params": {"protocolVersion": self.PROTOCOL, "capabilities": {},
-                       "clientInfo": {"name": "facade-capture", "version": "1"}}},
-                                   timeout=min(timeout, 30))
+        self.session_id = None
+        self._open(None)
 
     def _next_id(self):
         with self._ids_lock:
             return next(self._ids)
 
+    def _open(self, stale):
+        """Open a session -- unless another thread already replaced `stale`."""
+        with self._lock:
+            if self.session_id is not None and self.session_id != stale:
+                return
+            self.session_id, _ = _post(self.url, {
+                "jsonrpc": "2.0", "id": self._next_id(), "method": "initialize",
+                "params": {"protocolVersion": self.PROTOCOL, "capabilities": {},
+                           "clientInfo": {"name": "facade-capture", "version": "1"}}},
+                                       timeout=min(self.timeout, 30))
+
+    def _session_post(self, payload, timeout):
+        """POST within the session, reopening it once if the server forgot it.
+
+        The comol images of 27.09.2026 drop a session idle for 30 minutes
+        (`idle_ttl=1800s`) and answer its id with 404, as the MCP transport
+        prescribes; the client is then to initialize again. A facade keeps one
+        session per backend for days, so without this every backend fell silent
+        half an hour after the facade last used it."""
+        session = self.session_id
+        try:
+            return _post(self.url, payload, session, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+        self._open(session)
+        return _post(self.url, payload, self.session_id, timeout=timeout)
+
     def tools(self):
-        _, reply = _post(self.url, {"jsonrpc": "2.0", "id": self._next_id(),
-                                    "method": "tools/list", "params": {}}, self.session_id)
+        _, reply = self._session_post({"jsonrpc": "2.0", "id": self._next_id(),
+                                       "method": "tools/list", "params": {}}, self.timeout)
         return reply.get("result", {}).get("tools", [])
 
     def call(self, name, arguments):
         """Returns (seconds, status, text). Never raises on a server-side error."""
         started = time.time()
         try:
-            _, reply = _post(self.url, {"jsonrpc": "2.0", "id": self._next_id(), "method": "tools/call",
-                                        "params": {"name": name, "arguments": arguments}},
-                             self.session_id, timeout=self.timeout)
+            _, reply = self._session_post({"jsonrpc": "2.0", "id": self._next_id(), "method": "tools/call",
+                                           "params": {"name": name, "arguments": arguments}},
+                                          self.timeout)
         except Exception as exc:                     # noqa: BLE001 - capture tool
             return time.time() - started, "FAIL", type(exc).__name__ + ": " + str(exc)
         elapsed = time.time() - started

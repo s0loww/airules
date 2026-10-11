@@ -1,0 +1,20 @@
+events[3]:
+  - type: start
+    total_files: 1
+    version: 0.2.81
+    line_base: 1
+  - type: file
+    path: /app/.temp/tmpnc7j1sjw/src/module.bsl
+    diagnostics: []
+    metrics:
+      functions: 1
+      complexity: 1
+      cognitive_complexity: 0
+  - type: done
+    elapsed_secs: 0.048648212
+    total_files: 1
+    total_diagnostics: 0
+    failed_files: 0
+    baseline:
+      state: disabled
+      complete: true

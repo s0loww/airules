@@ -64,6 +64,25 @@ class BackendStatus(object):
         return out
 
 
+def indexing_now(text):
+    """Whether a backend's status reply says a pass is running right now.
+
+    Graph images of 27.09.2026 answer in an envelope with an explicit
+    `any_running`. They also report `source_refresh.running`, which only means
+    the hourly re-scan loop is alive -- matched as `"running": true`, it made a
+    healthy backend look like it was rebuilding forever. Older replies carry no
+    such flag and keep the plain match."""
+    try:
+        payload = json.loads(text)
+    except (ValueError, TypeError):
+        payload = None
+    if isinstance(payload, dict):
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+        if isinstance(data.get("any_running"), bool):
+            return data["any_running"]
+    return bool(re.search(r'"running"\s*:\s*true', text or "", re.IGNORECASE))
+
+
 DOCKER_SOCKET = os.environ.get("FACADE_DOCKER_SOCKET", "/var/run/docker.sock")
 
 
@@ -263,7 +282,7 @@ class Health(object):
             return None, False
         if status != "OK":
             return None, False
-        running = bool(re.search(r'"running"\s*:\s*true', text, re.IGNORECASE))
+        running = indexing_now(text)
         stamp = _find_timestamp(text)
         age = None if stamp is None else max(0.0, time.time() - stamp)
         return age, running

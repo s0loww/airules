@@ -123,6 +123,12 @@ def parse_metadata_details(text):
     data = _data(text)
     if data is None:
         return _refused_or_unparsed(text, "metadata_details")
+    if data.get("status") == "ambiguous":
+        # images from 27.09.2026 no longer pick one of two homonyms (a common
+        # module and a catalog) silently; the qualified name resolves it
+        candidates = [c.get("full_path") for c in data.get("candidates") or []]
+        return ParseResult(status="not_found", note="metadata_details: ambiguous name, one of: "
+                           + ", ".join(c for c in candidates if c))
     root = data.get("full_path") or data.get("name")
     attrs = data.get("attributes") or []
     tabular = data.get("tabular_parts") or {}

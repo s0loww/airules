@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "norm"))
 
 import registry as registry_mod                  # noqa: E402
-from health import BackendStatus                 # noqa: E402
+from health import BackendStatus, indexing_now   # noqa: E402
 from resolver import Resolver, owner_of          # noqa: E402
 from verbs import Facade, grep_usages            # noqa: E402
 from envelope import Envelope                    # noqa: E402
@@ -292,6 +292,10 @@ def checks():
        {r.src.backend for r in env.records if r.src}, {"graph", "code"})
     eq("parallel fan-out reports coverage in request order",
        [b["name"] for b in env.coverage.backends], ["graph", "code"])
+    del CALLS[:]
+    facade.find("отправка почты")
+    eq("find(kind=any): a phrase is no routine name -- straight to the text search",
+       sorted(c[1] for c in CALLS), ["codesearch", "search_code"])
 
     slow = Facade(facade.registry, AlwaysUpHealth(), SlowReplayClient,
                   resolver_factory=lambda _p: facade.resolver(facade.registry.get()))
@@ -533,6 +537,65 @@ def checks():
     for t in threads:
         t.join()
     eq("four concurrent callers build the index once", len(built), 1)
+
+    # -- graph pages ----------------------------------------------------
+    class PagedGraph(object):
+        """A graph 4.x cutting its answer in two pages behind a cursor."""
+        def __init__(self, _url):
+            self.asked = []
+
+        def call(self, tool, args):
+            self.asked.append(dict(args))
+            head = {"contract_version": "2.0", "total": 3}
+            if "cursor" not in args:
+                body = dict(head, returned=2, cursor="p2",
+                            text="Цепочка вызовов 'Х (М)' (direction=callers, depth=1) — 3 процедур:\n\n"
+                                 "  Глубина 1:\n    - А (М / CommonModule)\n    - Б (М / CommonModule)\n")
+            else:
+                body = dict(head, returned=1, cursor=None, text="    - В (М / CommonModule)\n")
+            return 0.0, "OK", json.dumps(body, ensure_ascii=False)
+
+    paged_backend = registry_mod.Backend("graph", "http://paged.invalid/mcp/")
+    paged = Facade(facade.registry, AlwaysUpHealth(), PagedGraph)
+    elapsed, outcome, text = paged._call_paged(paged_backend, "graph", "trace_call_chain", {"routine_name": "Х"})
+    joined = json.loads(text)
+    eq("graph pages behind a cursor are followed and joined",
+       (joined["returned"], joined["total"], joined["text"].count("    - ")), (3, 3, 3))
+    eq("the continuation is asked with the cursor and the original arguments",
+       paged.client(paged_backend).asked[-1], {"routine_name": "Х", "cursor": "p2"})
+
+    # -- expired sessions -----------------------------------------------
+    import urllib.error
+    import mcp_client
+    live = {"session": None, "opened": 0}
+
+    def fake_post(url, payload, session_id=None, timeout=120):
+        if payload["method"] == "initialize":
+            live["opened"] += 1
+            live["session"] = "s%d" % live["opened"]
+            return live["session"], {"result": {}}
+        if session_id != live["session"]:
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        return None, {"result": {"content": [{"type": "text", "text": "ok"}]}}
+
+    real_post, mcp_client._post = mcp_client._post, fake_post
+    try:
+        client = mcp_client.Client("http://expiring.invalid/mcp")
+        live["session"] = "dropped-by-idle-ttl"          # the server forgot it
+        _, status, text = client.call("any", {})
+        eq("an expired session is reopened and the call answered, not a 404",
+           (status, text, live["opened"]), ("OK", "ok", 2))
+    finally:
+        mcp_client._post = real_post
+
+    # -- index state of backends --------------------------------------
+    alive_loop = json.dumps({"contract_version": "2.0", "data": {
+        "any_running": False, "source_refresh": {"enabled": True, "running": True}}})
+    eq("graph 4.x: a live re-scan loop is not a pass in progress",
+       indexing_now(alive_loop), False)
+    eq("graph 4.x: an explicit any_running is believed",
+       indexing_now(alive_loop.replace('"any_running": false', '"any_running": true')), True)
+    eq("older replies keep the plain match", indexing_now('{"reindex": {"running": true}}'), True)
 
     return out
 

@@ -1,0 +1,1 @@
+{"status": "success", "data": {"results": [], "search_layer": "vector+bm25", "origin_filter": {"applied": false, "value": "all"}, "items_total": 0, "items_returned": 0, "truncated": false, "next_cursor": null, "detail_level": "full", "index_identity": "gen:20260928T111101Z-9b04cc74"}}

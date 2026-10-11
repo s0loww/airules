@@ -6,11 +6,46 @@ deterministic, pinned by fixtures, free. Every parser reports the count the
 server declared in its own header next to what we actually parsed -- a mismatch
 means the image changed the format and fixtures must be re-captured
 (facade/capture.py).
+
+Images from 27.09.2026 wrap that same prose in a JSON envelope
+(`contract_version` 2.x): the prose under `text`, next to `total`/`returned`
+and deprecation notes. The envelope is unwrapped before parsing; a page shorter
+than `total` is reported, never passed off as the whole answer -- these images
+page by `max_items`/`cursor` and ignore `limit`.
 """
+import functools
+import json
 import re
 from record import Record, Loc, Rel, Src, ParseResult, rel_path
 
 BACKEND = "graph"
+
+
+def _unwrap(text):
+    """(prose, total, returned) -- prose as is for images without the envelope."""
+    stripped = (text or "").lstrip()
+    if not stripped.startswith("{"):
+        return text, None, None
+    try:
+        payload = json.loads(stripped)
+    except ValueError:
+        return text, None, None
+    if not isinstance(payload, dict) or "contract_version" not in payload \
+            or not isinstance(payload.get("text"), str):
+        return text, None, None
+    return payload["text"], payload.get("total"), payload.get("returned")
+
+
+def _enveloped(parse):
+    @functools.wraps(parse)
+    def wrapper(text, *args, **kwargs):
+        prose, total, returned = _unwrap(text)
+        res = parse(prose, *args, **kwargs)
+        if isinstance(total, int) and isinstance(returned, int) and returned < total:
+            short = "graph returned %d of %d items" % (returned, total)
+            res.note = res.note + "; " + short if res.note else short
+        return res
+    return wrapper
 
 
 def _directive(tail):
@@ -45,6 +80,7 @@ _CC_DIRECTIVE = re.compile(r"\[([^\]]*)\]")
 _CC_SIG = re.compile(r"^\s*Сигнатура:\s*(?P<sig>.+?)\s*$")
 
 
+@_enveloped
 def parse_call_chain(text, direction="callers", root_id=None):
     text = text.strip()
     m404 = _CC_404.search(text)
@@ -99,6 +135,7 @@ _US_ITEM = re.compile(
     r"^\s*\d+\.\s+(?P<qual>[^\s\[]+)\s*\[(?P<akind>[^\]]+)\]\s*\(Тип:\s*(?P<type>[^)]+)\)")
 
 
+@_enveloped
 def parse_usages(text):
     text = text.strip()
     mnone = _US_NONE.search(text)
@@ -138,6 +175,7 @@ _SC_SIG = re.compile(r"^\s*Signature:\s*(?P<sig>.+?)\s*$")
 _SC_FILE = re.compile(r"^\s*File:\s*(?P<path>.+?):(?P<line>\d+)\s*$")
 
 
+@_enveloped
 def parse_search_code(text):
     text = text.strip()
     head = _SC_HEAD.search(text)
@@ -175,7 +213,11 @@ def parse_search_code(text):
 _DS_HEAD = re.compile(r"^#\s*Досье:\s*(?P<id>\S+)(?:\s*\[конфигурация:\s*(?P<cfg>[^\]]+)\])?", re.M)
 _DS_404 = re.compile(r"^Объект\s+'(?P<id>[^']+)'\s+не найден", re.M)
 _DS_SECTION = re.compile(r"^(?P<lvl>#{2,3})\s*(?P<title>.+?)(?:\s*\((?P<n>\d+)\))?\s*$")
-_DS_ATTR = re.compile(r"^\s*\d+\.\s+(?P<name>\S+)\s+—\s+(?P<type>.+?)\s*$")
+# the type is missing for some attributes in images of 27.09.2026: the line is
+# just the number and the name
+_DS_ATTR = re.compile(r"^\s*\d+\.\s+(?P<name>\S+)(?:\s+—\s+(?P<type>.+?))?\s*$")
+# the dossier lists at most 50 dependencies per direction and folds the rest
+_DS_ELIDED = re.compile(r"^\s*\.\.\.\s*и ещё\s+(?P<n>\d+)")
 _DS_TAB = re.compile(r"^\s*\d+\.\s+(?P<name>\S+)(?:\s*[\[(](?P<syn>[^\])]*)[\])])?\s*$")
 _DS_DEP = re.compile(r"^\s*\d+\.\s+(?P<qual>\S+)\s*\((?P<via>[^,)]+),\s*(?P<kind>[^)]+)\)")
 _DS_ROUTINE = re.compile(r"^\s*-\s*(?:Процедура|Функция)\s+(?P<name>[^\s(]+)\s*\((?P<args>.*)\)\s*$")
@@ -190,6 +232,7 @@ _SECTION_BY_TITLE = (
 )
 
 
+@_enveloped
 def parse_dossier(text):
     text = text.strip()
     head = _DS_HEAD.search(text)
@@ -207,9 +250,18 @@ def parse_dossier(text):
     counters = {}
     module_type = None
 
+    elided = {}
+
     def close(sec, dec):
         if sec:
-            res.note_section(sec, dec, counters.get(sec, 0))
+            parsed = counters.get(sec, 0)
+            folded = elided.get(sec, 0)
+            # a list the server folded itself is complete as printed: the
+            # count checks against what was listed plus what it said it left out
+            res.note_section(sec, dec - folded if dec is not None and folded else dec, parsed)
+            if folded:
+                more = "%s: the dossier lists %d of %d, the rest via usages" % (sec, parsed, parsed + folded)
+                res.note = res.note + "; " + more if res.note else more
 
     for line in text.splitlines():
         ms = _DS_SECTION.match(line)
@@ -251,6 +303,10 @@ def parse_dossier(text):
                     src=Src(BACKEND, "get_object_dossier")))
                 counters[section] = counters.get(section, 0) + 1
         elif section in ("downstream", "upstream"):
+            folded = _DS_ELIDED.match(line)
+            if folded:
+                elided[section] = elided.get(section, 0) + int(folded.group("n"))
+                continue
             m = _DS_DEP.match(line)
             if m:
                 # downstream: they reference root; upstream: root references them

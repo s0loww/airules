@@ -18,6 +18,7 @@ Usage:
 import io
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -70,6 +71,38 @@ CASES = {
     "platform_syntax__issues":   P.parse_syntax,
     "platform_templates__ok":    P.parse_templates,
     "platform_template__one":    lambda t: P.parse_templates(t, "get_template"),
+    # graph/code images of 27.09.2026, captured on a small extension
+    "graph_call_chain__callers__v4": lambda t: G.parse_call_chain(t, "callers"),
+    "graph_call_chain__callees__v4": lambda t: G.parse_call_chain(t, "callees"),
+    "graph_call_chain__deep__v4":    lambda t: G.parse_call_chain(t, "callers"),
+    "graph_call_chain__empty__v4":   lambda t: G.parse_call_chain(t, "callers"),
+    "graph_usages__ok__v4":          G.parse_usages,
+    "graph_usages__empty__v4":       G.parse_usages,
+    "graph_search_code__ok__v4":     G.parse_search_code,
+    "graph_dossier__ok__v4":         G.parse_dossier,
+    "graph_dossier__folded__v4":     G.parse_dossier,
+    "code_call_hierarchy__ok__v4":   lambda t: C.parse_call_hierarchy(t, "callers"),
+    "code_search_function__ok__v4":  C.parse_search_function,
+    "code_metadata_details__ok__v4": C.parse_metadata_details,
+    "code_metadata_details__ambiguous__v4": C.parse_metadata_details,
+    "code_dependencies__reverse__v4": lambda t: C.parse_dependencies(t, "reverse"),
+    "code_search_forms__ok__v4":     C.parse_search_forms,
+    "code_search_forms__empty__v4":  C.parse_search_forms,
+    "code_form_layout__ok__v4":      C.parse_form_layout,
+    "code_module_structure__ok__v4": C.parse_module_structure,
+    "code_module_structure__missing__v4": C.parse_module_structure,
+    "code_metadatasearch__ok__v4":   C.parse_metadatasearch,
+    "code_metadatasearch__names__v4": C.parse_metadatasearch,
+    "code_metadatasearch__empty__v4": C.parse_metadatasearch,
+    "code_codesearch__ok__v4":       C.parse_codesearch,
+    # layouts of the comol images of 27.09.2026 (docs JSON 4.1, syntax TOON)
+    "platform_docsearch__ok__v4":    P.parse_docs,
+    "platform_docinfo__ok__v4":      lambda t: P.parse_docs(t, "docinfo"),
+    "platform_docinfo__missing__v4": lambda t: P.parse_docs(t, "docinfo"),
+    "platform_syntax__issues__v4":   P.parse_syntax,
+    "platform_syntax__clean__v4":    P.parse_syntax,
+    "platform_templates__ok__v4":    P.parse_templates,
+    "platform_template__one__v4":    lambda t: P.parse_templates(t, "get_template"),
 }
 
 
@@ -212,6 +245,72 @@ def invariants(res):
        len(tpl.records), load("platform_templates__ok").count("**Template:**"))
     eq("templates: get_template JSON parses too",
        [r.id for r in res["platform_template__one"].records], ["template:1"])
+
+    # -- graph/code, images of 27.09.2026 ------------------------------
+    def declared(name):
+        # the count the server printed in the prose inside its envelope
+        prose = json.loads(load(name))["text"]
+        return int(re.search(r"—\s*(\d+)\s+процедур", prose).group(1))
+    for case in ("callers", "callees"):
+        name = "graph_call_chain__%s__v4" % case
+        eq("v4 graph %s: the envelope is unwrapped, every declared routine parsed" % case,
+           (res[name].status, len(res[name].records)), ("ok", declared(name)))
+    eq("v4 graph: an unknown routine is not_found, not unparsed",
+       res["graph_call_chain__empty__v4"].status, "not_found")
+    eq("v4 graph: nothing unparsed on the envelope",
+       [n for n in res if n.startswith("graph_") and n.endswith("__v4")
+        and res[n].status == "unparsed"], [])
+    page = json.loads(load("graph_call_chain__callers__v4"))
+    page["total"] = page["returned"] + 5
+    eq("v4 graph: a page shorter than total is reported, never passed off as whole",
+       "of %d items" % page["total"] in (G.parse_call_chain(json.dumps(page, ensure_ascii=False),
+                                                           "callers").note or ""), True)
+    folded = res["graph_dossier__folded__v4"]
+    eq("v4 graph dossier: typeless attributes and folded dependency lists are no drift",
+       folded.drift, [])
+    eq("v4 graph dossier: a folded list says how much it left out",
+       [n for n in (folded.note or "").split("; ") if "the dossier lists" in n],
+       ["downstream: the dossier lists 50 of 59, the rest via usages",
+        "upstream: the dossier lists 50 of 53, the rest via usages"])
+    eq("v4 code: details by the qualified name keep every attribute",
+       (res["code_metadata_details__ok__v4"].status,
+        sum(1 for r in res["code_metadata_details__ok__v4"].records
+            if r.owner == res["code_metadata_details__ok__v4"].resolved_id)),
+       ("ok", len(json.loads(load("code_metadata_details__ok__v4"))["data"]["attributes"])))
+    amb = res["code_metadata_details__ambiguous__v4"]
+    eq("v4 code: an ambiguous bare name is not_found and names every candidate",
+       (amb.status, len((amb.note or "").split("one of: ")[-1].split(", "))),
+       ("not_found", len(json.loads(load("code_metadata_details__ambiguous__v4"))["data"]["candidates"])))
+
+    # -- platform servers, images of 27.09.2026 ------------------------
+    eq("v4 docinfo: an exact name gives one article",
+       [r.id for r in res["platform_docinfo__ok__v4"].records], ["doc:ТаблицаЗначений.Найти"])
+    eq("v4 docinfo: a miss is not_found, the nearest documents are not an answer",
+       (res["platform_docinfo__missing__v4"].status,
+        len(res["platform_docinfo__missing__v4"].records)), ("not_found", 0))
+    ds4 = json.loads(load("platform_docsearch__ok__v4"))
+    eq("v4 docsearch: one record per result",
+       len(res["platform_docsearch__ok__v4"].records), len(ds4["results"]))
+    syn4 = res["platform_syntax__issues__v4"]
+    eq("v4 syntax: every diagnostic of the TOON table is read",
+       (syn4.status, len(syn4.records)), ("ok", 5))
+    eq("v4 syntax: the parse error keeps its 1-based line",
+       [(r.name, r.loc.line) for r in syn4.records if r.owner == "Critical"], [("ParseError", 5)])
+    eq("v4 syntax: quoted messages with escaped quotes survive",
+       [r.text for r in syn4.records if r.name == "UnusedLocalMethod"],
+       ['Неиспользуемый локальный метод "Тест"'])
+    eq("v4 syntax: a clean module is empty, not unparsed",
+       res["platform_syntax__clean__v4"].status, "empty")
+    broken = load("platform_syntax__issues__v4").replace("diagnostics[5]", "diagnostics[6]")
+    eq("v4 syntax: rows short of the header are unparsed, never clean",
+       P.parse_syntax(broken).status, "unparsed")
+    tpl4 = res["platform_templates__ok__v4"]
+    eq("v4 templates: ids are the numbers get_template takes",
+       [r.id for r in tpl4.records if not r.id[len("template:"):].isdigit()], [])
+    eq("v4 templates: every template is found",
+       len(tpl4.records), load("platform_templates__ok__v4").count("**Template:**"))
+    eq("v4 templates: get_template JSON parses",
+       [r.id for r in res["platform_template__one__v4"].records], ["template:4229"])
 
     # every record must validate against the schema
     bad = []

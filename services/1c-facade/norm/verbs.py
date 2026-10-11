@@ -114,6 +114,45 @@ class Facade(object):
                 client = self._clients.setdefault(backend.url, client)
         return client
 
+    def _call_paged(self, backend, kind, tool, args):
+        """One backend call; for graph, the pages behind it as well.
+
+        Graph images of 27.09.2026 cut every answer at 200 items whatever
+        `max_items` asks for, and hand back a `cursor`; the next page continues
+        the same prose where the first stopped. The pages are fetched and their
+        text joined into one envelope, so the parsers see the whole answer.
+        Past _GRAPH_PAGES the envelope keeps `returned` short of `total`, and
+        the parser reports it -- a cut answer is never passed off as whole."""
+        client = self.client(backend)
+        elapsed, outcome, text = client.call(tool, args)
+        if kind != "graph" or outcome != "OK":
+            return elapsed, outcome, text
+        try:
+            first = json.loads(text)
+        except (ValueError, TypeError):
+            return elapsed, outcome, text
+        if not isinstance(first, dict) or not first.get("cursor") \
+                or not isinstance(first.get("text"), str):
+            return elapsed, outcome, text
+        texts, returned, cursor = [first["text"]], first.get("returned") or 0, first["cursor"]
+        pages = 1
+        while cursor and pages < _GRAPH_PAGES:
+            more_elapsed, more_outcome, more = client.call(tool, dict(args, cursor=cursor))
+            elapsed += more_elapsed
+            try:
+                page = json.loads(more) if more_outcome == "OK" else None
+            except (ValueError, TypeError):
+                page = None
+            if not isinstance(page, dict) or not isinstance(page.get("text"), str):
+                break
+            texts.append(page["text"])
+            returned += page.get("returned") or 0
+            cursor = page.get("cursor")
+            pages += 1
+        joined = "\n".join(t.rstrip("\n") for t in texts)
+        merged = dict(first, text=joined, returned=returned, cursor=cursor)
+        return elapsed, outcome, json.dumps(merged, ensure_ascii=False)
+
     def _query(self, project, kind, tool, args):
         """Call one backend. Returns (text or None, coverage events).
 
@@ -141,7 +180,7 @@ class Facade(object):
                               ": " + status.detail if status.detail else "")))
             return None, events
         try:
-            elapsed, outcome, text = self.client(backend).call(tool, args)
+            elapsed, outcome, text = self._call_paged(backend, kind, tool, args)
         except Exception as exc:                     # noqa: BLE001 - session open
             events.append(("backend", (kind, "down"), {"detail": type(exc).__name__}))
             events.append(("note", "%s.%s: no session — %s" % (kind, tool, exc)))
@@ -364,7 +403,13 @@ class Facade(object):
         return self._finish(envelope, units)
 
     def _find_one(self, envelope, project, query, kind, exact, limit):
-        if kind in ("routine", "any"):
+        # A routine name has no whitespace, so under `any` a phrase goes straight
+        # to the text search. Since the images of 27.09.2026 the backend's
+        # function search matches loosely and answers a phrase with look-alike
+        # names -- taken as a routine hit, that ended the search before the
+        # graph was asked.
+        routine_like = kind == "routine" or (kind == "any" and not re.search(r"\s", (query or "").strip()))
+        if routine_like:
             # The resolver is authoritative here: it holds every declaration in
             # the export, while the backend's function search has measured gaps.
             # The backend is still asked -- it carries the body -- and the two
@@ -985,6 +1030,10 @@ _NAME_LIKE = re.compile(r"^[A-Za-zА-Яа-яЁё_][\wА-Яа-яЁё]*(?:\.[A-Za-
 
 # Sections the facade handles itself rather than passing to the graph dossier.
 _OWN_SECTIONS = {"modules", "form"}
+
+# Graph pages followed per call: 200 items each, so up to 4 000 -- a dossier of
+# the largest ERP catalog fits; beyond that the answer is reported as cut.
+_GRAPH_PAGES = 20
 
 # `Справочники.X.Форма.Y` -- the resolver's spelling of a form -- plus the
 # spellings a caller is likely to type.
