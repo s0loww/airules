@@ -263,6 +263,13 @@ def domain_routes():
     return "\n".join(l for l in lines if l.startswith("| ") and "`" in l)
 
 
+def long_cache_roles():
+    """Роли, которым раскладка ставит часовой кэш промпта (layout §1, шаг 7)."""
+    m = re.search(r"^  long_cache_roles:\s*\[([^\]]*)\]",
+                  read(dist("core", "install", "model-map.yaml")), re.M)
+    return [x.strip() for x in m.group(1).split(",") if x.strip()] if m else []
+
+
 def render_agents(target, roles, problems):
     layout = read(dist("core", "install", "layout.md"))
     disc = re.search(r"```\n(## Дисциплина исполнения.*?)```", layout, re.S)
@@ -280,8 +287,9 @@ def render_agents(target, roles, problems):
         if not os.path.isfile(body_path):
             problems.append(("BLOCK", "roles", "нет тела роли " + r["role"]))
             continue
+        cache = "experimental:\n  cacheTtl: 1h\n" if r["role"] in long_cache_roles() else ""
         head = ("---\nname: {role}\ndescription: {purpose}\nmodel: {model}\n"
-                "effort: {effort_value}\ntools: {tools}\n---\n\n").format(**r)
+                "effort: {effort_value}\ntools: {tools}\n" + cache + "---\n\n").format(**r)
         body = read(body_path).split("---", 2)[-1].lstrip("\n")
         text = head + body + "\n\n" + (disc.group(1) if disc else "")
         text += "\n\n```\n" + profiles.get("Claude common", "") + "```\n"
@@ -400,6 +408,10 @@ def verify(target):
     check("model и effort заполнены",
           all(re.search(r"^model:\s*\S+", t, re.M) and re.search(r"^effort:\s*\S+", t, re.M)
               for t in texts.values()))
+    cached = sorted(f[:-3] for f, t in texts.items() if re.search(r"^  cacheTtl:\s*1h\s*$", t, re.M))
+    check("часовой кэш — у ролей с долгими командами и только у них",
+          bool(long_cache_roles()) and cached == sorted(long_cache_roles()),
+          "в карте: {0}; в раскладке: {1}".format(sorted(long_cache_roles()), cached)[:160])
     check("верхняя ступень (max) никому не проставлена",
           not [f for f, t in texts.items() if re.search(r"^effort:\s*max\s*$", t, re.M)])
     check("у ro-ролей нет пишущих инструментов",

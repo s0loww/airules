@@ -137,18 +137,31 @@ Success criteria:
 Write zone: <allowed files/directories only>
 Read-only boundaries: <may inspect but not change; or "none">
 
+Impact map (5-15 nodes the task really touches; not exhaustive):
+- <file :: routine or object> — change | check: <what to do>
+- ...
+- Differs from the sample in: <what the sample did not have to touch; or "no sample">
+- Price of one check round: <deployment + smoke, minutes>
+- Before the first deployment search the name-keyed lists by the name of a
+  neighbouring entity and check every occurrence.
+
 Context to use:
 - Files or docs to inspect first: <paths and why>
 - Upstream Handoff: <included verbatim below / none>
 
 Verification:
 <commands and expected evidence>
+You carry the test loop yourself: cheap check → deployment to the test
+environment → targeted test → full regression. A red gate has three fix
+iterations (a fix plus a re-run of the same gate; syntax failures do not
+count); after the third, stop and report.
 
 Stop rules:
 Stop and report if scope expands, write zones conflict, verification fails
-unexpectedly, required context is missing, or the task would require
-destructive actions, production/live mutations, deploys, force-push, paid
-external calls, or writes outside the assigned zone.
+beyond the iteration budget, required context is missing, or the task would require
+destructive actions, production/live mutations, deploys anywhere but the
+assigned test environment, force-push, paid external calls, or writes
+outside the assigned zone.
 
 Output:
 - If another implementing subagent continues this change after you: open the

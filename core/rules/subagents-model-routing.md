@@ -22,10 +22,31 @@ model-specific behavior lives there, not in role bodies.
 
 ## Effort
 
-Effort is a **property of the role**, resolved the same way as the model:
+Effort is a **default of the role**, resolved the same way as the model:
 role `effort` → `claude.effort` in the model map → concrete value
 (`ROLES.md`, "Effort semantics"). It is a separate axis from the tier — same model, more
 or less deliberation — so two roles on one tier legitimately differ.
+
+The default can be overridden for one launch, and so can the model: both are
+launch parameters and win over the agent definition. Who may override what:
+
+1. an explicit instruction for the task — any role, any step of the scale;
+2. the session command of orchestration mode — main-flow roles only;
+3. otherwise the role default.
+
+Name the effort explicitly when you pass it: the launch tool applies it only
+on an explicit request of the user or of a rule, never on its own judgment.
+A continued agent keeps the model and effort it was launched with.
+
+Two axes decide what to ask for, and neither is the size of the task:
+
+- **Is there an executing oracle?** With tests or a gate at hand the executor
+  runs at `medium` and lets the oracle find the misses. Without one the first
+  attempt decides — that is where the higher tier and effort pay.
+- **What does one check round cost?** Seconds — write and run. Minutes (a
+  deployment, a full regression) — the orchestrator prepares an impact map
+  first (`subagent-pipeline.md`, "Impact map") and names the price of a round
+  in the task.
 
 Two things stay outside the registry:
 
@@ -73,18 +94,22 @@ cheaper than a subagent launch (see the payback rule of thumb in
 run hands the *report path* (not the pasted log) to the fixing role, which
 owns the run-read-fix loop in its own context.
 
-## Orchestrator economy mode
+Script and tooling work — automation scripts, utilities, test harness code —
+has a **fixed tier**: the medium one, whatever the session command names as
+the main-flow executor (`orchestration.scripts` in the model map). The check
+round there costs seconds, and the medium tier closes such work in full.
 
-If the main agent's model belongs to the `orchestrator` tier **and that tier
-is a class above `high`**, or the user enables the mode explicitly —
-`orchestrator-economy.md` applies: execution goes to subagents on the regular
-tiers as much as possible, the orchestrator keeps decisions, specs and
-verification.
+## Orchestration mode
 
-In the shipped map `orchestrator` and `high` are the same model (the lead
-agent *is* the heavy implementer), so the automatic trigger does not fire and
-the mode stays manual — the delegation rules below are the operating default
-instead.
+The user turns the mode on with a session command and names the main-flow
+executor in it — `orchestrator-economy.md`. With the mode on, execution goes
+to subagents and the orchestrator keeps the task statement, the decisions and
+the acceptance. With the mode off, the delegation rules below are the
+operating default.
+
+The mode does not switch itself on in the shipped map: `orchestrator` and
+`high` are the same model there, so there is no cheaper class to fall back to
+by reflex.
 
 ## Rights discipline
 
@@ -105,7 +130,13 @@ orchestrator does itself.
   count low; a fan-out of workers is a deliberate decision, not a reflex.
 - Heavy multi-file implementation is **not** a delegation case by default:
   it is dense, cross-linked, and cheaper done directly than specified,
-  handed over and reconciled.
+  handed over and reconciled. Orchestration mode reverses this default on the
+  user's command: the main flow then goes to the named executor with an
+  impact map.
+- A fan-out of parallel reviewers or workers over one question is launched
+  **only on the user's command**. It is the tool for claims that must be
+  checked against a source independently — more deliberation in one pass
+  does not protect from an error all passes would share.
 
 Task decomposition, final decisions and result integration stay with the
 orchestrator. Scouting subagents' reports are not trusted blindly — key

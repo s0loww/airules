@@ -78,6 +78,17 @@ COMPACT_NOTICE = (
 # Emitted at the start of a fresh context (SessionStart, source "startup" or
 # "clear") when open handoff documents exist. Deliberately an offer: a stale
 # handoff picked up silently is worse than none.
+# The lead agent's orchestration state (rules/orchestrator-economy.md). The
+# hook cannot tell a lead session from a subagent — the payload carries no
+# agent id on compaction — so it names the file and the addressee and injects
+# nothing of the state itself.
+ORCHESTRATION_STATE = os.path.join("var", "tmp", "orchestration.json")
+ORCHESTRATION_NOTICE = (
+    "Orchestration mode state is recorded in var/tmp/orchestration.json. "
+    "Lead agent of the session: re-read it before delegating anything. "
+    "Subagent: this line is not for you."
+)
+
 HANDOFF_GLOB = os.path.join("var", "tmp", "handoff-*.md")
 HANDOFF_MAX_AGE_DAYS = 30
 HANDOFF_NOTICE = (
@@ -368,8 +379,12 @@ def main(argv):
             # отличить «хук впрыснул текст» от «модель помнит этот текст».
             import datetime
 
-            print("[rule-inject {0}] {1}".format(
-                datetime.datetime.now().strftime("%H:%M:%S"), COMPACT_NOTICE))
+            stamp = datetime.datetime.now().strftime("%H:%M:%S")
+            print("[rule-inject {0}] {1}".format(stamp, COMPACT_NOTICE))
+            root = (os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd")
+                    or os.path.dirname(os.path.dirname(script_dir)))
+            if os.path.isfile(os.path.join(root, ORCHESTRATION_STATE)):
+                print("[rule-inject {0}] {1}".format(stamp, ORCHESTRATION_NOTICE))
         return 0
 
     payload = json.load(sys.stdin)

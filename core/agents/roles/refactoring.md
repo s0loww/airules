@@ -1,7 +1,7 @@
 ---
 name: refactoring
 description: "Refactoring, dead code removal, duplicate consolidation, tech debt reduction; applies performance edits per performance-optimizer recommendations. Call for cleaning up and improving code structure without behavior changes. Триггеры: рефакторинг, мёртвый код, дубли, техдолг, чистка."
-tier: medium
+tier: high
 tools: rw
 ---
 

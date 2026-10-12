@@ -148,7 +148,9 @@ The plan must satisfy the acceptance criteria before stage 3:
   (stable identifiers preserved where the format carries them, data-store
   writes and migrations, permission grants).
 - The plan is reviewed by the user. User approval is a hard gate; do not move
-  to stage 3 without it.
+  to stage 3 without it. The one exception is an autonomous run
+  (`autonomous-run.md`): there the per-plan approval is replaced by a
+  recorded standing permission before the run and ratification after it.
 
 For projects on the OpenSpec workflow the plan lives in
 `openspec/changes/<change-name>/tasks.md`, the design in `design.md`. The
@@ -187,6 +189,77 @@ The implementing subagent is responsible for:
 - producing a structured **Handoff** block (see "Stage 3 — Handoff between
   implementing subagents" below) whenever another implementing subagent will
   continue the same change.
+
+#### Impact map
+
+Before handing a **bounded** task to an executor the orchestrator writes a
+short impact map into the task statement: the 5-15 nodes the task really
+touches, with no retelling of the project.
+
+- One node — one line: file, routine or object, what to do with it, marked
+  *change* or *check*.
+- Only what the task touches. A survey of neighbouring places marked "leave
+  alone" does not belong in the map: measured on a real task, a ten-line map
+  saved the executor a quarter of its time and output, a 130-line survey half
+  of that — and cost the orchestrator more to write than it saved.
+- One line on **how this case differs from the sample**, when a sample
+  ("do it like the previous one") is given. A sample that reused an existing
+  entity never touched the name-keyed lists a new entity must be added to.
+- One line with the **price of one check round** (a deployment plus a smoke
+  run takes this many minutes).
+- The last line: *the map is not exhaustive — before the first deployment
+  search the name-keyed lists by the name of a neighbouring entity.* A short
+  map narrows attention; without this line the executor stops at its edge.
+
+The map is a by-product of the analysis the orchestrator has already done for
+the task statement; do not start a separate investigation for it. Fewer than
+five nodes — the task is small and the map is the task statement itself. More
+than fifteen — the task is not bounded; cut it into slices.
+
+#### Tests run inside the implementing launch
+
+By default one launch of the implementing role carries the whole loop: code →
+cheap check (syntax, static) → deployment to the test environment → targeted
+test → full regression → green. The tests it writes stay in the suite. An
+accumulated regression suite is already an independent oracle — it was
+written by earlier sessions, not by this launch — and a separate executor of
+tests adds nothing to it.
+
+`tester` is therefore a role for two occasions, not a stage after every
+implementation:
+
+- **a new area with no oracle yet** — it writes acceptance scenarios from
+  the task statement, before or in parallel with the implementation, and the
+  implementing role runs them;
+- **an independent pass over a slice** by the orchestrator's decision (a
+  regulated area, a disputed acceptance).
+
+A finding of an independent pass goes to a **fresh** implementing agent with
+the finding and the slice handoff — not to the original one woken up. An
+agent idle for longer than its prompt-cache lifetime rewrites its whole
+context on the next call, and then carries it on every call after. Continue
+the original only while it is still warm and the fix is a few calls.
+
+An implementing agent grown to hundreds of thousands of tokens is a sign the
+slice was too large: each of its calls costs a tenth of that context.
+
+#### Red gate budget
+
+A red gate gets **three fix iterations**, then escalation.
+
+- An iteration is one fix attempt followed by a re-run of the same gate.
+  Failures of the cheap check (syntax) do not count.
+- The count is kept per gate of the slice, not per launch: a fresh executor
+  does not reset it.
+- Escalation goes executor → orchestrator, then by mode. In interactive work
+  the orchestrator stops and asks the operator. In an autonomous run it
+  decides and records — change the approach, re-plan, raise the effort, or
+  park the slice in the open-questions register and continue the independent
+  slices (`autonomous-run.md`).
+
+A green targeted smoke closes only the links it exercises. For a new kind of
+entity the acceptance adds what the smoke does not reach by itself: a repeat
+of the operation after the source changed, and a reconciliation of totals.
 
 ### Stage 3 — Handoff between implementing subagents
 
@@ -380,6 +453,14 @@ The orchestrator owns the lifecycle of every launch:
   of them, plus one end-to-end check). What a subagent "saw" about a
   neighbour's work mid-run is not evidence: the neighbour may not have been
   done yet.
+- **What an agent says about itself is not evidence either.** Whether its
+  context was compacted, which tools it has, whether it re-read a rule —
+  check the transcript or the result, not the answer. After a compaction a
+  subagent re-reads the rules it is told to in fewer than half the cases, and
+  the compaction summary may state that it did. Do not build a step on "the
+  subagent will re-read after compaction": keep a subagent's task short of
+  compaction, and put what must not be forgotten where an edit triggers it
+  (the path-matched rule reminder), not in a request to re-read.
 - **Parallel launches never share temporary files.** Each writes only into
   its own subfolder of the scratch directory (or with a unique prefix), and
   the task says so: in a shared folder one agent reads another's leftover

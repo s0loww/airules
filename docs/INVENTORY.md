@@ -18,12 +18,12 @@ python ci/simulate_install.py --emit-inventory
 | | |
 |---|---|
 | версия | 0.10.0 |
-| правил | 51 |
+| правил | 53 |
 | скиллов | 12 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 354 |
+| файлов в цели | 356 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -47,7 +47,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 <!-- generated:tree-counts -->
 | Каталог | Файлов |
 |---|---|
-| `rules/` | 51 |
+| `rules/` | 53 |
 | `openspec/` | 5 |
 | `tools/` | 38 |
 | `.claude/agents/` | 13 |
@@ -71,12 +71,12 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `invariant` | 21 | что всегда верно про код такого вида; привязано к файлу |
 | `case` | 2 | симптом → фикс |
 | `recipe` | 8 | задача → процедура |
-| `process` | 19 | как вести работу: делегирование, память, верификация |
+| `process` | 21 | как вести работу: делегирование, память, верификация |
 | `router` | 1 | навигация к соседним правилам |
 <!-- /generated:genres -->
 
 <!-- generated:rules-core -->
-**Ядро** (19): `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `intent-testing`, `orchestrator-economy`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `test-model`, `tool-output-economy`, `verification-matrix`.
+**Ядро** (21): `autonomous-run`, `autonomous-run-templates`, `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `intent-testing`, `orchestrator-economy`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `test-model`, `tool-output-economy`, `verification-matrix`.
 <!-- /generated:rules-core -->
 
 <!-- generated:rules-overlay -->

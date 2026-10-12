@@ -68,6 +68,14 @@ Scope: <where it applies — project, class of modules, class of queries>
 Verification: <rule/checklist/test where the decision is captured and checked>
 ```
 
+A decision made **without the user** — by the lead agent in an autonomous
+run — is a different record with more fields: who decided, the rejected
+alternative, the impact if rejected, the status ("default applied, awaits
+confirmation") and the urgency. It is written at the moment of the decision
+in the source and later assembled into a ratification package; the fields and
+the shape are in `autonomous-run.md` and `autonomous-run-templates.md`. The
+threshold above does not apply to it: every such decision is recorded.
+
 Do **not** append entries to this file: the installed copy is
 manifest-managed and gets replaced on update — an in-file journal would be
 lost or block the sync forever. Entries live in the locations listed under

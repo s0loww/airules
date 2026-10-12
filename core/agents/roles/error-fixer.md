@@ -1,7 +1,7 @@
 ---
 name: error-fixer
 description: "Fast targeted error fixing: syntax, runtime errors, analyzer warnings. Minimal edits without architectural changes. Call when there is a concrete error/log and the code needs to be brought back to a working state quickly. Триггеры: ошибка, фикс, лог, синтаксис, предупреждение."
-tier: medium
+tier: high
 tools: rw
 override: fast
 ---

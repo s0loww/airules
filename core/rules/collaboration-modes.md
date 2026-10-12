@@ -40,9 +40,9 @@ When: bounded implementation after enough context has been gathered.
 
 Output: changed files, checks performed, residual risk.
 
-Subagents: a writing role (`developer` / `metadata-manager`, tier medium) —
-only with a non-overlapping write scope and an expected edit that is clear
-in advance.
+Subagents: a writing role (`developer` / `metadata-manager`) — only with a
+non-overlapping write scope and an expected edit that is clear in advance;
+the task statement carries an impact map (`subagent-pipeline.md`).
 
 ### Review
 
@@ -84,6 +84,22 @@ normal triage (`debugging-loop.md`, "Scope and scale"). If the minimal fix
 itself touches a stage-1 risk escalator (`subagent-pipeline.md`), the
 follow-up full-cycle pass is mandatory, not optional.
 
+### Autonomous run
+
+Goal: execute an approved multi-day specification without confirming each
+phase.
+
+When: the entry conditions of `autonomous-run.md` hold — specifications with
+executable acceptance, a register of open questions with assumptions, an
+executable gate, isolation in branches — and the user gave a recorded
+permission for it.
+
+Output: interim reports at phase boundaries, slice handoff files, a
+ratification package for every decision made without a human.
+
+Subagents: orchestration mode is normally on (`orchestrator-economy.md`);
+forks are settled by the lead agent, not by a subagent.
+
 ## Choosing a mode
 
 - If the user only asks a question — start in `Exploration`.
@@ -92,3 +108,5 @@ follow-up full-cycle pass is mandatory, not optional.
 - If they ask for a review — `Review`.
 - If they reference `openspec/` — `OpenSpec`.
 - If checks are failing or a production path is blocked — `Emergency fix`.
+- If they ask to carry on for days without confirmations — `Autonomous run`,
+  and only once its entry conditions are met.
