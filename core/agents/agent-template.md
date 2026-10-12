@@ -38,7 +38,9 @@ technical ban.
 - **Execution discipline** — standard block appended by the installer when
   rendering every agent (text — `core/install/layout.md` §4): do the work
   yourself, do not wait for "background" processes, temporary files in
-  `var/tmp/`, stop after the final report.
+  `var/tmp/`, stop after the final report. When a memory server is connected
+  the block gains one more item: search and read only, writing goes through
+  the orchestrator.
 - **Model profile** — appended by the installer after the discipline block,
   per the family of the resolved model (`core/install/model-profiles.md`).
   Model-specific behavior lives only there, never in the role body.

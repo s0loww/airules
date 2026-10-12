@@ -144,6 +144,13 @@ and a bounded retry budget.
   the session: the repository already carries those, and duplicating them
   turns the memory into a second, staler log.
 
+  Reading and writing are split by who runs. A subagent has the memory
+  server's search and read tools only: it queries before its own work and
+  lists what is worth keeping under a separate "For memory" item of its
+  report. The orchestrator writes — after checking the item the way it checks
+  any subagent claim, because what lands in memory is read as established by
+  every later session.
+
   Respect the layer boundary (`AGENTS.md`): rules, agreements, topology and
   paths stay in markdown under git; sessions, incidents and findings go to the
   memory server. A rule written into the memory server is invisible to review
