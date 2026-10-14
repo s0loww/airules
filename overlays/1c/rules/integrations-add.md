@@ -10,8 +10,8 @@ Applies to integration code: HTTP services, REST clients, web services, file exc
 
 ## 1. Before writing code
 
-- Check whether a ready-made solution already exists in БСП via `ssl_search` (subsystems "Интернет-поддержка пользователей", "Обмен данными", "Получение файлов из Интернета", "Цифровая подпись"). The required scheme is often already implemented.
-- Find existing integrations in the configuration via `templatesearch` and `search_code` (semantic mode, queries like "HTTP запрос", "отправка JSON", "парсинг ответа").
+- Check whether a ready-made solution already exists in БСП via the standard-library (БСП) search of the project's MCP profile (subsystems "Интернет-поддержка пользователей", "Обмен данными", "Получение файлов из Интернета", "Цифровая подпись"). The required scheme is often already implemented.
+- Find existing integrations in the configuration via code templates and code search by description (queries like "HTTP запрос", "отправка JSON", "парсинг ответа").
 - Agree the contract with the user explicitly: method, URL/endpoint, payload format, authentication scheme, timeouts, retry policy, and logging.
 
 For the full MCP playbook see `tooling-playbooks.md → Integrations`.
@@ -29,7 +29,7 @@ For the full MCP playbook see `tooling-playbooks.md → Integrations`.
 
 ## 4. Serialization and data contract
 
-- JSON — via platform `ЧтениеJSON` / `ЗаписьJSON` (or the equivalent БСП helper if your БСП version provides one — verify the exact name with `ssl_search` / `docinfo` before use). Manual string assembly is forbidden.
+- JSON — via platform `ЧтениеJSON` / `ЗаписьJSON` (or the equivalent БСП helper if your БСП version provides one — verify the exact name in the standard library or the platform documentation before use). Manual string assembly is forbidden.
 - Numbers, dates and booleans must be validated separately: agree the date format with the receiving side (typically `ISO 8601`), specify decimal precision for numbers explicitly.
 - For XML — `ЧтениеXML` / `ЗаписьXML` plus XSD validation when a schema is available. Manual string parsing is forbidden.
 

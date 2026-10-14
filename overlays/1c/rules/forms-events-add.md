@@ -46,9 +46,9 @@ a duplicate fails compilation.
 
 For the complete and authoritative list of available events, do **not** rely on this table. Use:
 
-- `bsl_scope_members` with `member_type="events"` and the relevant context (e.g. `"УправляемаяФорма"`, `"ПолеФормы"`, `"ТаблицаФормы"`, `"КнопкаФормы"`).
+- The members-of-a-context tool of the platform documentation (events of the context), where the profile exposes one, with the relevant context (e.g. `"УправляемаяФорма"`, `"ПолеФормы"`, `"ТаблицаФормы"`, `"КнопкаФормы"`).
 - A layout-inspection tool on a similar existing form (structural form tool, or reading the form's XML) — every wired-up event is listed under each element with its handler name.
-- `docinfo` / `docsearch` against the platform documentation for the specific form-item type.
+- Platform documentation for the specific form-item type (exact article by name, or search by description).
 - The project's form-search tool, or a semantic code search over the project profile, to locate canonical examples that already use the event you need.
 
 Concrete tool names per category come from the project's MCP profile (root contract `AGENTS.md`).

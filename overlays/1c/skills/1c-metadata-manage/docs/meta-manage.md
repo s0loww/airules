@@ -512,7 +512,7 @@ Exit code: 0 = all checks passed, 1 = errors found.
 1c-meta-remove -ConfigDir <path> -Object   — remove when obsolete
 ```
 
-MCP evidence set (`rules/tooling-playbooks.md`): `get_xsd_schema` with `object_type` = the metadata type (`Справочник`, `Документ`, `РегистрСведений`, …) before generating, `verify_xml` on the result.
+MCP evidence set (`rules/tooling-playbooks.md`): the XSD-schema tool of the profile with `object_type` = the metadata type (`Справочник`, `Документ`, `РегистрСведений`, …) before generating, XML validation on the result.
 
 ---
 

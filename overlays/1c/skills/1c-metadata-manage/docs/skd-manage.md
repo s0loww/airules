@@ -399,7 +399,7 @@ Fails fast (exit 2) when the root element is not `DataCompositionSchema` (e.g. a
 2. **Modify existing DCS**: `1c-skd-edit` with operations → `1c-skd-validate` → `1c-skd-info`
 3. **Analyze structure**: `1c-skd-info` overview → `1c-skd-info -Mode trace -Name <field>` for field calculation chain → `1c-skd-info -Mode query -Name <dataset>` for query text → `1c-skd-info -Mode variant -Name <N>` for variant groupings and filters
 4. **Capture existing DCS as DSL**: `1c-skd-decompile` → edit the JSON → `1c-skd-compile` → `1c-skd-validate` (round-trip, draft)
-5. **MCP evidence set** (`rules/tooling-playbooks.md`): `get_xsd_schema` / `verify_xml` with `object_type="СКД"`
+5. **MCP evidence set** (`rules/tooling-playbooks.md`): the XSD-schema and XML-validation tools of the profile with `object_type="СКД"`
 
 ---
 

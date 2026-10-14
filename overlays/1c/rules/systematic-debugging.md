@@ -69,9 +69,9 @@ Tools to use:
 - **Call-graph navigation** (callers of the failing routine, call hierarchy in the callers direction) to map all the call paths that reach the failing routine.
 - **Reference / usage navigation** (references to the metadata object, code usages, data paths) to map which objects the failing routine depends on (registers it reads, common modules it calls, metadata it touches).
 - **Semantic + exact code search over the project profile** (and `rg` over local `src/`) as a degraded fallback when the call-graph route is unavailable.
-- **`docinfo`** to verify that a built-in function actually does what you assume — many bugs are platform-version-dependent (`ТекущаяДатаСеанса` vs `ТекущаяДата`, `НайтиПоНаименованию` collation, `ПолучитьСтруктуруХраненияБазыДанных` differences across versions).
-- **`its_help` → `fetch_its`** to verify the documented behaviour of the platform mechanism you suspect.
-- **`ask_1c_ai`** as a hint generator (treat as a draft — do not let an AI hint replace the falsifying experiment).
+- **Platform documentation** (an exact article by `Тип.Метод`) to verify that a built-in function actually does what you assume — many bugs are platform-version-dependent (`ТекущаяДатаСеанса` vs `ТекущаяДата`, `НайтиПоНаименованию` collation, `ПолучитьСтруктуруХраненияБазыДанных` differences across versions).
+- **ITS** (search, then the whole article) to verify the documented behaviour of the platform mechanism you suspect.
+- **The AI assistant (Напарник)**, where the profile exposes it, as a hint generator (treat as a draft — do not let an AI hint replace the falsifying experiment).
 
 When the cause is not evident, write down competing ranked hypotheses —
 at least two — before testing. Committing to the first one is anchoring.
@@ -111,7 +111,7 @@ Required:
 - The fix touches only the code paths involved in the confirmed hypothesis (Surgical Changes principle from the root router and `preflight-worktree.md`).
 - A regression guard exists: a query, a `ЖурналРегистрации` event, an `Утверждение`, or — at minimum — a documented manual reproduction step in the change description. When the project has an automated test suite, hold the core bar instead: a regression test written before the fix at a correct seam (`rules/test-discipline.md`).
 - All temporary `ЗаписьЖурналаРегистрации("Debug.*"`, `ПоказатьЗначение`, hard-coded values, breakpoints, and TODO markers introduced in phase 3 are removed.
-- Verification chain runs cleanly: `syntaxcheck` → `check_1c_code` → `review_1c_code` → impact / call-graph analysis against the touched objects (see `verification-matrix.md`).
+- Verification chain runs cleanly: syntax check → correctness check → style review → impact / call-graph analysis against the touched objects (see `verification-matrix.md`).
 - The original reproduction case from phase 1 no longer triggers the symptom.
 
 If the fix requires architectural rework (signature changes in shared common modules, metadata edits, a new register), escalate — call the `1c-architect` or `1c-developer` subagent rather than expanding the scope of the bug fix yourself.

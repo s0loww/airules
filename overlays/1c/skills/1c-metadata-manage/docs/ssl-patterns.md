@@ -21,9 +21,9 @@ Invoke this skill when:
 
 When implementing new functionality:
 
-1. **First, search SSL** — use `ssl_search` MCP tool with keywords describing your need
-   - Example: `ssl_search("фоновое задание прогресс")`
-   - Example: `ssl_search("копирование структуры")`
+1. **First, search SSL** — the standard-library (БСП) search of the project's MCP profile, with keywords describing your need
+   - Example: «фоновое задание прогресс»
+   - Example: «копирование структуры»
 
 2. **Check existing patterns** — use `codesearch` to find how similar tasks are solved in the codebase
 

@@ -226,6 +226,31 @@ def _build_rules():
             "description": "Retired self-verification wording (see docs/LAYERS.md).",
         },
     ]
+    # Direct-server MCP tool names in rules and role bodies. Rules install
+    # verbatim and are never instantiated (core/install/layout.md §3); concrete
+    # tool names come from the root contract's MCP profile. Under the facade
+    # profile these servers are deliberately absent and roles may call only the
+    # facade, so a name here sends the agent after a tool it cannot reach.
+    raw.append(
+        {
+            "id": "mcp-direct-name",
+            "regex": (
+                r"`(?:docinfo|docsearch|its_help|fetch_its|ask_1c_ai|check_1c_code"
+                r"|review_1c_code|syntaxcheck|bsl_scope_members|ssl_search"
+                r"|templatesearch|search_code|codesearch|metadatasearch"
+                r"|get_metadata_details|helpsearch|get_xsd_schema|verify_xml)\b"
+            ),
+            "severity": "error",
+            "layers": ("core", "overlays"),
+            "description": "Direct-server MCP tool name in a rule or role body (name the category).",
+            "md_only_dirs": (
+                os.path.join("core", "rules"),
+                os.path.join("core", "agents"),
+                os.path.join("overlays", "1c", "rules"),
+                os.path.join("overlays", "1c", "agents"),
+            ),
+        }
+    )
     # model-hardcode second flavour: bare opus/sonnet/haiku in core .md rules/agents.
     raw.append(
         {

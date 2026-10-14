@@ -372,7 +372,7 @@ Exit code: `0` — no errors, `1` — errors found.
 1c-role-info <RightsPath>                                — analyze existing role before modification
 ```
 
-MCP evidence set (`rules/tooling-playbooks.md`): `get_xsd_schema` / `verify_xml` with `object_type="Роль"`.
+MCP evidence set (`rules/tooling-playbooks.md`): the XSD-schema and XML-validation tools of the profile with `object_type="Роль"`.
 
 ---
 

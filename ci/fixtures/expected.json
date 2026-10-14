@@ -14,7 +14,8 @@
     "overlays/dirty_echo.ps1": ["creds-echo"],
     "overlays/dirty_install_path.md": ["install-path"],
     "core/rules/dirty_kind_missing.md": ["rule-kind"],
-    "core/rules/dirty_kind_value.md": ["rule-kind"]
+    "core/rules/dirty_kind_value.md": ["rule-kind"],
+    "overlays/1c/rules/dirty_mcp_names.md": ["mcp-direct-name"]
   },
   "clean": [
     "clean/clean_sample.md",
@@ -29,6 +30,7 @@
     "core/rules/dirty_kind_value.md",
     "core/rules/dirty_models.md",
     "core/rules/dirty_stack_terms.md",
-    "core/rules/dirty_verification.md"
+    "core/rules/dirty_verification.md",
+    "overlays/1c/rules/dirty_mcp_names.md"
   ]
 }

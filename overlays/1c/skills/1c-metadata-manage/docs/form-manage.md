@@ -196,7 +196,7 @@ Only when `form-compile` reports an unknown key or rejects a construct — open 
 
 ### Verification
 
-`1c-form-validate <OutputPath>` (section 6) and `1c-form-info <OutputPath>` (section 5); MCP evidence set per `rules/tooling-playbooks.md`: `get_xsd_schema` / `verify_xml` with `object_type="Форма"`.
+`1c-form-validate <OutputPath>` (section 6) and `1c-form-info <OutputPath>` (section 5); MCP evidence set per `rules/tooling-playbooks.md`: the XSD-schema and XML-validation tools of the profile with `object_type="Форма"`.
 
 ---
 

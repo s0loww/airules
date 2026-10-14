@@ -235,6 +235,25 @@ DOC_REFS = [
     ("Slash command: `/check-uuid` (source: `content/commands/check-uuid.md`).",
      "Run it as `tools/_common/Invoke-1CEdit.ps1 -Tool uuid-check` (`-Fix` writes, so it needs `-Apply`)."),
     ("`content/skills/1c-ui-regression/SKILL.md`", "the tester role (`1c-tester`)"),
+    # MCP tool names of the direct servers -> profile categories. Under the facade
+    # profile these servers are absent and roles may call only the facade, so a
+    # concrete name sends the agent after a tool it cannot reach.
+    ("(§1 Query in Loop, §4 Virtual Table Filter in WHERE, §5 Missing ПЕРВЫЕ N,",
+     "(§1 Query in Loop, §5 Virtual Table Filter in WHERE, §6 Missing ПЕРВЫЕ N,"),
+    ("with `metadatasearch` / `get_metadata_details`:",
+     "with the metadata tools of the project's MCP profile (object search and object dossier):"),
+    ("with `codesearch` / `templatesearch`.",
+     "with code search and code templates of the project's MCP profile."),
+    ("using `metadatasearch` and `get_metadata_details` (for exact types and indexes)",
+     "with the metadata tools of the project's MCP profile (the object dossier gives exact types and indexes)"),
+    ("plus `verify_xml` / `syntaxcheck`;",
+     "plus XML validation against the XSD and the syntax check of the project's MCP profile;"),
+    ("`get_xsd_schema` / `verify_xml` with `object_type=",
+     "the XSD-schema and XML-validation tools of the profile with `object_type="),
+    ("`get_xsd_schema` with `object_type` = the metadata type",
+     "the XSD-schema tool of the profile with `object_type` = the metadata type"),
+    ("before generating, `verify_xml` on the result.",
+     "before generating, XML validation on the result."),
 ]
 OVERLAY_RULES = set(
     f[:-3] for f in os.listdir(os.path.join(REPO, "overlays", "1c", "rules")) if f.endswith(".md"))

@@ -342,7 +342,7 @@ Stops after 20 errors by default (configurable via `-MaxErrors`). Summary line w
 2. **Modify existing layout**: `1c-mxl-decompile` to get JSON → analyze/modify JSON → `1c-mxl-compile` → `1c-mxl-validate`
 3. **Before writing fill code**: Run `1c-mxl-info` to understand area names and parameters, then write BSL output code following area order top to bottom
 4. **After generation or editing**: Run `1c-mxl-validate` to find structural errors before building
-5. **MCP evidence set** (`rules/tooling-playbooks.md`): `get_xsd_schema` / `verify_xml` with `object_type="Макет"`
+5. **MCP evidence set** (`rules/tooling-playbooks.md`): the XSD-schema and XML-validation tools of the profile with `object_type="Макет"`
 
 ---
 
