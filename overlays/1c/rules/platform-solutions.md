@@ -204,8 +204,8 @@ For form attributes with reference or composite types — first copy the value t
 
 **Version note.** The callback shape above is the floor — it works everywhere.
 On `{PLATFORM_VERSION}` ≥ 8.3.18 the project standard prefers `Асинх` / `Ждать`
-over `ОписаниеОповещения` (`dev-standards-architecture.md §3`), and mixing the
-two inside one `Асинх` procedure is forbidden. Write the async form there and
+over `ОписаниеОповещения` (`dev-standards-architecture.md §3`); inside an `Асинх`
+procedure use the `*Асинх` variant instead of a callback where one exists. Write the async form there and
 keep the callback for older targets — `async-methods.md` has both shapes.
 
 **Standard.** ITS: "Внешние компоненты, асинхронный интерфейс".

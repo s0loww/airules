@@ -24,7 +24,7 @@ Return compound results via Structure:
 ```
 
 ### "Early Return" Pattern
-Reduce nesting by returning early on precondition failures:
+Reduce nesting by returning early when there is nothing to do. A missing required input is not "nothing to do": it raises or returns a Result-Structure failure, never a default value — a default turns the caller's error into a plausible figure.
 
 ```bsl
 Если Отказ Тогда
@@ -32,17 +32,7 @@ Reduce nesting by returning early on precondition failures:
 КонецЕсли;
 
 Если Не ЗначениеЗаполнено(ДатаДействия) Тогда
-	Возврат ЗначениеПоУмолчанию;
-КонецЕсли;
-```
-
-### "Value Table Search" Pattern
-
-```bsl
-ПараметрыОтбора = Новый Структура("ВидСпецодежды", ТекущаяСтрока.ВидСпецодежды);
-НайденныеСтроки = ТаблицаДанных.НайтиСтроки(ПараметрыОтбора);
-Если НайденныеСтроки.Количество() = 0 Тогда
-	Продолжить;
+	ВызватьИсключение НСтр("ru = 'Не задана дата действия.'");
 КонецЕсли;
 ```
 
@@ -67,15 +57,15 @@ BSL has no strict typing. Check type at function entry when critical:
 
 ```bsl
 Если ТипЗнч(ДокументыИлиСсылка) <> Тип("Массив") Тогда
-	Документы = Новый Массив;
-	Документы.Добавить(ДокументыИлиСсылка);
+	ДокументыКОбработке = Новый Массив;
+	ДокументыКОбработке.Добавить(ДокументыИлиСсылка);
 Иначе
-	Документы = ДокументыИлиСсылка;
+	ДокументыКОбработке = ДокументыИлиСсылка;
 КонецЕсли;
 ```
 
 ### Safe Structure Property Access
-Always check key existence before access:
+Check optional keys with `Свойство(Ключ, Значение)`. A required key (your own Result-Structure, a constructor's output) is accessed directly: if it is missing, the call should fail loudly rather than skip a branch.
 
 ```bsl
 Если ПараметрыОтчета.Свойство("ДатаНачала", ДатаНачала) Тогда
@@ -146,7 +136,8 @@ while you are there.
 | < 8.3.18 | `ОписаниеОповещения` (callback) |
 | ≥ 8.3.18 | `Асинх` / `Ждать` (preferred) |
 
-- Inside `Асинх` procedures use ONLY async analogs. Mixing `Асинх` / `Ждать` with non-async methods is **PROHIBITED**.
+- Inside an `Асинх` procedure, use the `*Асинх` variant wherever one exists instead of a callback-based `Показать*` / `Начать*` call. Ordinary synchronous code and server calls are fine there.
+- The gate is the configuration's compatibility mode, not the installed platform: a configuration running on 8.3.27 in 8.3.14 compatibility mode cannot use `Асинх`. The same applies to the API check in "Platform Version Compatibility".
 - Any dialog calls on the server are **PROHIBITED**.
 - **Treatment: `rules/async-methods.md`** — old-to-new method correspondence, what `Ждать` actually returns, ready shapes for a question on form open / close, file workflows and HTTP (8.3.21+). The trap that costs most: **without `Ждать` an exception inside an async call is silently lost**, so a failing operation looks like a successful one.
 
@@ -156,14 +147,14 @@ while you are there.
 
 ### Security
 - `Выполнить()` and `Вычислить()` — **PROHIBITED** without extreme necessity.
-- **Hardcoded credentials are PROHIBITED** — passwords, tokens, API keys in code are FORBIDDEN. Store via secrets subsystem of БСП or write-protected configuration constants.
+- No credentials (passwords, tokens, API keys) in code. Store them in the БСП secure storage (`ОбщегоНазначения.ЗаписатьДанныеВБезопасноеХранилище` / `ПрочитатьДанныеИзБезопасногоХранилища`). A constant is not a secret store: read rights on constants are routinely granted to roles.
 - **RLS** — design with access restriction requirements in mind.
 
 ### Error Handling
 - String localization — `НСтр("ru = '...'")` with `СтроковыеФункцииКлиентСервер.ПодставитьПараметрыВСтроку()`.
 - Error collection — into a single variable via `Символы.ПС`.
 - Logging — `ПодробноеПредставлениеОшибки(ИнформацияОбОшибке())`, NOT `КраткоеПредставлениеОшибки()`.
-- Empty exception handlers are **PROHIBITED** — always log or re-raise.
+- An exception handler re-raises (`ВызватьИсключение`). Swallowing an error is allowed only where the contract names the specific error being absorbed: log-and-continue hides a failed operation behind a plausible result. Event-log writes follow `rules/logging-strategy.md` and only when the task asks for logging (`dev-standards-core.md §2`).
 
 ### Dates
 - On server — `ТекущаяДатаСеанса()` instead of `ТекущаяДата()`. See `rules/platform-solutions.md §6`.
@@ -188,7 +179,7 @@ while you are there.
   - Incorrect: `Запрос.Выполнить().Выгрузить()` / `Запрос.Выполнить().Выбрать()`.
 - Always use `КАК` aliases for query fields (e.g. `Контрагенты.ИНН КАК ИНН`).
 - **`РАЗРЕШЕННЫЕ` when the query runs in the user's rights context.** Against real tables (catalogs, documents, registers and their virtual tables) under record-level restrictions, a plain `ВЫБРАТЬ` fails with «Недостаточно прав» for a restricted user — even when the rows they cannot see are irrelevant to the result. `ВЫБРАТЬ РАЗРЕШЕННЫЕ` makes the platform filter those rows out instead of failing. Not a blanket rule: it is pointless under `УстановитьПривилегированныйРежим` and on temporary tables, and it silently narrows the result — so never add it to a query whose completeness is the point (reconciliations, totals, integrity checks) without saying so.
-- **Aliases must not be query-language keywords** (runtime error `Ожидается имя`). `Есть`, `Дата`, `Период`, `Значение`, `Выбор`, `Первые`, `Различные`, `Истина`, `В`, `Между`, `Подобно` and the rest of the vocabulary are unusable as `КАК`-names. The classic is an existence check written as `ВЫБРАТЬ ПЕРВЫЕ 1 ИСТИНА КАК Есть` — select a real field with a plain alias and test `РезультатЗапроса.Пустой()` instead. This class **passes static validation and fails only against a live infobase**, so a new or edited query is confirmed by executing it, not by the linter.
+- **Aliases must not be query-language keywords** (runtime error `Ожидается имя`). `Есть`, `Значение`, `Выбор`, `Первые`, `Различные`, `Истина`, `В`, `Между`, `Подобно` and the rest of the vocabulary are unusable as `КАК`-names. The classic is an existence check written as `ВЫБРАТЬ ПЕРВЫЕ 1 ИСТИНА КАК Есть` — select a real field with a plain alias and test `РезультатЗапроса.Пустой()` instead. This class **passes static validation and fails only against a live infobase**, so a new or edited query is confirmed by executing it, not by the linter.
 - **Query alias naming — avoid ambiguous names in JOINs** (runtime error: `Неоднозначное поле`):
   - Table/VT alias **must not** match a field alias in the same query (`КАК КОтгрузке` table + `КАК КОтгрузке` field → fail).
   - Prefer distinct names: table `РезервыКОтгрузке`, field `КОтгрузкеОстаток`, output `КОтгрузке`.
@@ -199,10 +190,10 @@ while you are there.
 - Use `Запрос.УстановитьПараметр()` instead of string concatenation — prevents SQL injection and improves plan caching.
 - For complex data retrieval prefer batch queries with temporary tables over multiple separate queries.
 - Temporary tables — prefixed with `ВТ_`.
-- `ВНУТРЕННЕЕ СОЕДИНЕНИЕ` is preferred over `ЛЕВОЕ СОЕДИНЕНИЕ` when possible.
-- When accessing registers — filter by dimensions first (in virtual table parameters, not in `ГДЕ`).
+- Choose the join by meaning, not by speed: `ЛЕВОЕ СОЕДИНЕНИЕ` keeps rows that have no match, `ВНУТРЕННЕЕ` drops them. Turning a left join into an inner one silently removes rows from totals (contracts without payments, counterparties without movements); do it only when an unmatched row is impossible or must be excluded, and say which.
+- When accessing registers — filter by dimensions first (in virtual table parameters, not in `ГДЕ`). Only dimension conditions move into the parameters: a condition on a resource or attribute inside `СрезПоследних` / `СрезПервых` parameters returns the last record that matches, not the last record — keep such conditions in `ГДЕ`.
 - Do not modify register movements directly — only via the posting mechanism.
-- When a limited result set is needed — use `ПЕРВЫЕ N`.
+- `ПЕРВЫЕ N` only where a partial result is the intent (existence check, preview, top-N), and with `УПОРЯДОЧИТЬ ПО` whenever it matters which rows come back (latest, top-N) — without it the platform returns arbitrary N rows, so "the latest rate" becomes any rate. Never on a selection that feeds a calculation, a total or a report: the cut is silent and the figure is wrong.
 - Index all fields that participate in filters/joins via metadata.
 - **An index is used only when the condition lines up with it.** All the fields of the condition must be in the index, starting from its first field, with no gaps. Given an index `(Организация, Контрагент, Дата)`: a condition on `Организация И Контрагент` uses it; one on `Контрагент И Дата` does not use it at all (the leading field is missing); one on `Организация И Дата` uses only the leading part. This is why "add an index on the field" often changes nothing — the index exists and the condition does not align with it. For temp tables the equivalent is `ИНДЕКСИРОВАТЬ ПО` on the join key.
 
@@ -228,6 +219,8 @@ Use these methods instead:
 | `ОбщегоНазначения.ЗначениеРеквизитаОбъектов` | Same attribute from multiple refs | `ОбщегоНазначения.ЗначениеРеквизитаОбъектов(Контрагенты, "ИНН")` |
 | `ОбщегоНазначения.ЗначенияРеквизитовОбъектов` | Multiple attributes from multiple refs | `ОбщегоНазначения.ЗначенияРеквизитовОбъектов(Контрагенты, "ИНН, КПП")` |
 
+Their `ВыбратьРазрешенные` parameter has the same effect as `РАЗРЕШЕННЫЕ`: references the user cannot read silently drop out. Do not set it where completeness matters.
+
 ### Caching and Batch Retrieval
 
 - Cache repeated reference-attribute lookups via `Соответствие` (Map). Full example — `rules/anti-patterns.md §9 "Missing Caching"`.
@@ -238,9 +231,9 @@ Use these methods instead:
 Mandatory baseline. Detailed anti-pattern catalog with severity — in `rules/anti-patterns.md`. Platform pitfalls (long-running ops, temporary storage, collection search, external components, locks) — in `rules/platform-solutions.md`.
 
 - **Server-side bulk.** Run mass operations on the server; avoid client-server round trips inside loops. Server methods that do not access form data — `&НаСервереБезКонтекста`.
-- **Queries.** Never inside loops — use batch queries and temporary tables. Use `ПЕРВЫЕ N` when only a subset is needed. Index every filter/join field in metadata.
+- **Queries.** Never inside loops — use batch queries and temporary tables. `ПЕРВЫЕ N` — by the rule in §3 "Queries". Index every filter/join field in metadata.
 - **Privileged mode.** `УстановитьПривилегированныйРежим(Истина)` — only when needed and always paired with `УстановитьПривилегированныйРежим(Ложь)`. Check current state via `ПривилегированныйРежим()`.
-- **Caching.** Cache repeated computations — `Соответствие` per call, session parameters per session, information registers cross-session. Reference attributes — via `ОбщегоНазначения.ЗначенияРеквизитов*` with a cache.
+- **Caching.** Cache repeated computations — `Соответствие` per call; per session — a common module with return-value reuse (`*ПовтИсп`). Never cache data that can change during the session (rates, balances, settings being edited): a stale cache returns a plausible wrong figure. Reference attributes — via `ОбщегоНазначения.ЗначенияРеквизитов*` with a cache.
 - **Collections.** Bulk fill — `ЗаполнитьЗначенияСвойств()`. Search: ≤ ~100 elements — `Найти()` / `НайтиПоЗначению()` is fine; ≥ ~1000 elements or inside a loop — index on `Соответствие` (O(1)) or `ТаблицаЗначений.Индексы.Добавить(...)` + `НайтиСтроки()`. See `rules/platform-solutions.md §7`.
 - **Transactions.** Keep them short, no user interaction inside. Account for implicit transactions (e.g. object write).
 

@@ -35,7 +35,7 @@ For the full MCP playbook see `tooling-playbooks.md → Integrations`.
 
 ## 5. Security
 
-- Credentials, tokens, API keys — only via **write-protected configuration constants** or the БСП "Безопасное хранение паролей" subsystem. Hardcoding is forbidden (`dev-standards-architecture.md §3`).
+- Credentials, tokens, API keys — only via the БСП secure storage (`ОбщегоНазначения.ЗаписатьДанныеВБезопасноеХранилище` / `ПрочитатьДанныеИзБезопасногоХранилища`); a constant is not a secret store, read rights on constants are routinely granted. Hardcoding is forbidden (`dev-standards-architecture.md §3`).
 - Validate the token/session before each request; implement token refresh centrally.
 
 ## 6. Idempotency and retries
