@@ -14,7 +14,7 @@ by the installer.
 
 **Mandatory first line of every subagent prompt:** "Do the work yourself with
 your own tools; do not launch other agents and do not wait for background
-processes — you have none; temporary files go to `var/tmp/`; finished the
+processes — you have none; temporary files go to `var/tmp/<your-own-subfolder>/`; finished the
 final report — stop." The full discipline block is rendered into every
 agent definition at install time; in the prompt this one line is enough. Known
 failure without it: the subagent "launches a background task" and waits

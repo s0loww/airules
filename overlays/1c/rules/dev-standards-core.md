@@ -333,10 +333,6 @@ against the syntax reference **before** a deploy cycle, not after. The
 compiler does not catch an invented name: it fails at run time, on the
 contour, and each round trip costs a full deploy.
 
-This is not a style preference — it is the observed cost. A single session
-burned three deploy cycles on plausible-looking names; the real ones differed
-in ways no amount of recall would have produced.
-
 The same applies to metadata of a system being integrated with: names of
 objects, attributes and types are confirmed against the actual structure of
 **both** sides, never assumed from the other one.

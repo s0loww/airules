@@ -87,8 +87,9 @@ failure this rule prevents.
 
 ## Phase 3 — Hypothesise
 
-- Produce **3–5 ranked, falsifiable hypotheses before testing any of them.**
-  A single hypothesis is anchoring bias.
+- Before testing, write down the competing ranked hypotheses — **at least
+  two when the cause is not evident** — each falsifiable. Committing to the
+  first one is anchoring.
 - Format each as: *"If \<X\> is the cause, then \<changing Y\> makes the bug
   disappear / \<changing Z\> makes it worse."* No prediction — not a
   hypothesis; drop it or sharpen it.

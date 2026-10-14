@@ -57,7 +57,7 @@ follows:
 | Design | `architect` (optional review by `arch-reviewer`) | `design.md` |
 | Planning | `planner` | `tasks.md` |
 | Implementation | `developer`, `metadata-manager`, `refactoring`, `error-fixer` (`performance-optimizer` advises read-only) | code + updated deltas + checked-off `tasks.md` |
-| Verification | `tester`; `code-reviewer` **only on an explicit user request** | test results; review verdict when requested |
+| Verification | main agent (closing gate, `verification-matrix`); `tester` only for a new area without an oracle or an independent pass; `code-reviewer` **only on an explicit user request** | gate results; review verdict when requested |
 | Documentation and archiving | `doc-writer`, then the `openspec-archive-change` skill | user documentation; deltas merged into `specs/`, change moved to `changes/archive/` |
 
 ## todo.md — tech-debt format

@@ -125,9 +125,12 @@ orchestrator does itself.
 
 - Do not delegate what you would finish in a few tool calls: the launch
   overhead exceeds the work (payback rule — `orchestrator-economy.md`).
-- Do not use subagents to check or re-check your own work.
-- One subagent closes the task — launch one, not several. Keep the launch
-  count low; a fan-out of workers is a deliberate decision, not a reflex.
+- Do not launch a subagent to re-check what an executing gate already
+  verifies: the implementing subagent runs its own test loop. An independent
+  pass is the orchestrator's call for a regulated area or a disputed
+  acceptance (`subagent-pipeline.md`, "Tests run inside the implementing launch").
+- If one subagent can close the task, launch one; parallel launches are for
+  genuinely independent, sizeable tracks. Keep the launch count low; a fan-out of workers is a deliberate decision, not a reflex.
 - Heavy multi-file implementation is **not** a delegation case by default:
   it is dense, cross-linked, and cheaper done directly than specified,
   handed over and reconciled. Orchestration mode reverses this default on the

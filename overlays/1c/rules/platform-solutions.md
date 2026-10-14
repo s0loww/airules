@@ -91,7 +91,7 @@ For form attributes with reference or composite types — first copy the value t
 
 ## 4. Transactions in event handlers
 
-**Problem.** Nested transactions in `ПередЗаписью` / `ПриЗаписи` of an object lead to a double `НачалоТранзакции` and unexpected rollback behavior.
+**Problem.** Nested transactions in `ПередЗаписью` / `ПриЗаписи` of an object lead to a double `НачатьТранзакцию` and unexpected rollback behavior.
 
 **Symptom.** "Транзакция не активна" on rollback, partially saved data on inner errors, cross-session locks.
 

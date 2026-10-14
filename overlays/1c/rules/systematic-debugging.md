@@ -8,7 +8,7 @@ kind: process
 
 **When to load this file:** any task that involves diagnosing a bug, runtime error, regression, performance regression, or unexpected behavior — whether the parent agent is debugging directly or delegating to the `1c-error-fixer` / `1c-performance-optimizer` subagent.
 
-**Goal:** replace ad-hoc trial-and-error with a structured root-cause loop. Skipping a phase is a defect, the same way as skipping `syntaxcheck` after editing code.
+**Goal:** replace ad-hoc trial-and-error with a structured root-cause loop.
 
 The methodology is adapted from the `systematic-debugging` skill of [obra/superpowers](https://github.com/obra/superpowers) and combined with 1C platform mechanics (debugger, `ЖурналРегистрации`, `ОтчетПоЖурналуРегистрации`, `ПоказатьЗначение`, `СообщитьПользователю`, `Replay` of background jobs, technological log).
 
@@ -22,7 +22,7 @@ If you cannot reproduce the defect deterministically, you have no signal that an
 
 ## The four phases
 
-You MUST complete all four phases in order. Do not jump to phase 4 ("write the fix") before phases 1–3 have produced verifiable artifacts.
+When the cause is not evident, the phases run in order: phase 4 ("write the fix") comes after phases 1–3 have produced verifiable artifacts. A syntax error or a one-line fix with an evident cause is fixed directly; in an outage, restore service first (`debugging-loop.md` → "Scope and scale").
 
 ### Phase 1 — Reproduce
 
@@ -73,9 +73,8 @@ Tools to use:
 - **`its_help` → `fetch_its`** to verify the documented behaviour of the platform mechanism you suspect.
 - **`ask_1c_ai`** as a hint generator (treat as a draft — do not let an AI hint replace the falsifying experiment).
 
-Produce 3–5 ranked hypotheses (2 only when the space is genuinely binary).
-A single hypothesis is anchoring bias — challenge it with a competing one
-even if it feels obviously right.
+When the cause is not evident, write down competing ranked hypotheses —
+at least two — before testing. Committing to the first one is anchoring.
 
 ### Phase 3 — Experiment
 
@@ -84,11 +83,11 @@ Goal: confirm or reject each hypothesis with concrete evidence, **without changi
 Allowed experimental tools (read-only or scoped to a copy of the infobase):
 
 - **debugger watches** (`Просмотр → Локальные`, `Выражение`) at the suspected line.
-- **`ЗаписьЖурналаРегистрации("Debug.<Module>", УровеньЖурналаРегистрации.Информация, , , <Структура>)`** — temporary log lines, removed before the fix is committed.
+- **`ЗаписьЖурналаРегистрации("Debug.<Module>", УровеньЖурналаРегистрации.Информация, , <Структура>)`** — temporary log lines, removed before the fix is committed.
 - **`ПоказатьЗначение(Неопределено, <Объект>)`** for client-side diagnostics; **`СообщитьПользователю` / `Сообщение.Сообщить()`** for server-side.
 - **read-only queries** in the configurator's `Console of queries` (`Консоль запросов`) against the failing data — never mutate.
 - **Query validate → execute** on a data/query MCP server, when one is exposed — parse-check, then execute a falsifying query against the live IB without leaving the agent. Always read-only. Cheap evidence for a data-state hypothesis ("does this register really have a non-zero balance for this dimension set", "does this attribute really equal X for this reference").
-- **Read-only BSL execution** on a data/query MCP server, when exposed — run a small **read-only** BSL fragment to verify a platform-version-specific or metadata-state hypothesis (type checks, `ЗначениеЗаполнено`, `Метаданные.НайтиПоПолномуИмени`, `ПолучитьФункциональнуюОпцию`). Default to read-only; **never** wrap `Записать()` / `Удалить()` / `НачалоТранзакции` / DML in a live-execution call without explicit user consent and a rollback plan — and only on a copy IB. Follow the data MCP server's own safety rules, when that server is exposed, for the full constraints.
+- **Read-only BSL execution** on a data/query MCP server, when exposed — run a small **read-only** BSL fragment to verify a platform-version-specific or metadata-state hypothesis (type checks, `ЗначениеЗаполнено`, `Метаданные.НайтиПоПолномуИмени`, `ПолучитьФункциональнуюОпцию`). Default to read-only; **never** wrap `Записать()` / `Удалить()` / `НачатьТранзакцию` / DML in a live-execution call without explicit user consent and a rollback plan — and only on a copy IB. Follow the data MCP server's own safety rules, when that server is exposed, for the full constraints.
 - **`КопироватьИнформационнуюБазу`** or a SQL snapshot **before** any destructive experiment. The rule is: experiments either run on a copy or do not run at all.
 
 Forbidden during experiments:

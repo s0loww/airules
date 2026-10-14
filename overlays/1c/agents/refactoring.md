@@ -4,7 +4,6 @@ description: "Рефакторинг кода 1С: удаление мёртво
 tier: high
 effort: medium
 tools: rw
-allowParallel: true
 ---
 
 # Агент-рефакторинг 1С

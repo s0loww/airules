@@ -44,9 +44,13 @@
 - **Delegation is the exception, not the default.** Hand a subagent only
   large, genuinely independent, parallelizable work — a wide multi-file
   survey, a separate stream with its own write zone. Do not delegate what you
-  would finish yourself in a few tool calls. Do not use subagents to check or
-  re-check your own work. One subagent closes the task — launch one, not
-  several. Keep the launch count low.
+  would finish yourself in a few tool calls. Do not launch a subagent to
+  re-check what an executing gate already verifies: the implementing subagent
+  runs its own test loop, and an independent pass is your call for a
+  regulated area or a disputed acceptance (`rules/subagent-pipeline.md`).
+  If one subagent can close the task, launch one;
+  parallel launches are for genuinely independent, sizeable tracks. Keep the
+  launch count low.
 
 ## Rule Index (lazy loading)
 
@@ -147,8 +151,8 @@ length is set here, not by the effort tier.
   bulk goes to the answer itself. Asked to explain — give the top-level view
   unless a detailed walkthrough was requested.
 - Before the first tool call, say in one sentence what you are about to do.
-  While working, post a short update only on a real finding or a change of
-  direction. On completion lead with the result: the first sentence answers
+  While working, post a short update when you find something load-bearing or
+  change direction. On completion lead with the result: the first sentence answers
   "what happened" or "what was found", details come after.
 - Match the size of a written document to the task: cover the substance
   without filler, duplicate summaries, or boilerplate. This applies to files
@@ -157,6 +161,3 @@ length is set here, not by the effort tier.
   or the user's decisions. State the correction briefly and move on; fix
   small slips that change nothing silently.
 
-<tone_preference>
-Answers are reasonably brief.
-</tone_preference>

@@ -8,7 +8,7 @@ kind: invariant
 
 The 1C platform offers two locking subsystems (automatic / managed) and an implicit-transaction model around object writes. Most production lock incidents come from mixing the two, opening unintended transactions, or holding locks across user dialogs. This file is the canonical home for those rules.
 
-> **Scope.** This file owns the design rules. The narrow case "set a lock before reading balances during posting" lives as a worked example in `rules/platform-solutions.md §9 → "Managed locks and deadlock prevention"` — that section now points back here for the general theory.
+> **Scope.** This file owns the design rules. The narrow case "set a lock before reading balances during posting" lives as a worked example in `rules/platform-solutions.md §9 → "Managed locks and deadlock prevention"` ; the general theory is here.
 
 ## 1. Lock mode of the configuration
 
@@ -31,14 +31,14 @@ The platform opens its own transaction around:
 - `НаборЗаписей.Записать()` for register record sets.
 - Movement materialization at the end of `ОбработкаПроведения`.
 
-**Inside an object's `ПередЗаписью` / `ПриЗаписи` / `ОбработкаПроведения`, do NOT open your own `НачалоТранзакции` / `ЗафиксироватьТранзакцию`.** The transaction is already there; a nested call fakes a savepoint but disables proper rollback on the outer error. The symptom to recognise it by («Транзакция не активна» on rollback, partial saves) is indexed in `rules/platform-solutions.md §4`; the treatment is here.
+**Inside an object's `ПередЗаписью` / `ПриЗаписи` / `ОбработкаПроведения`, do NOT open your own `НачатьТранзакцию` / `ЗафиксироватьТранзакцию`.** The transaction is already there; a nested call fakes a savepoint but disables proper rollback on the outer error. The symptom to recognise it by («Транзакция не активна» on rollback, partial saves) is indexed in `rules/platform-solutions.md §4`; the treatment is here.
 
 ### Explicit transactions in calling code
 
 When the calling code needs to atomically write several objects or to combine a write with register edits, open the transaction there:
 
 ```bsl
-НачалоТранзакции();
+НачатьТранзакцию();
 
 Попытка
 	Документ.Записать(РежимЗаписиДокумента.Проведение);
@@ -55,9 +55,9 @@ When the calling code needs to atomically write several objects or to combine a 
 		"Проведение." + Документ.Метаданные().Имя + ".Ошибка",
 		УровеньЖурналаРегистрации.Ошибка,
 		Документ.Метаданные(),
-		Документ.Ссылка,
+		ДанныеОшибки,
 		НСтр("ru = 'Не удалось провести документ.'"),
-		ДанныеОшибки);
+		РежимТранзакцииЗаписиЖурналаРегистрации.Независимая);
 
 	ВызватьИсключение;
 КонецПопытки;
@@ -67,7 +67,7 @@ The structured payload (`Данные = Структура`) and the dotted even
 
 Rules:
 
-- The `НачалоТранзакции()` → `Попытка` … `ЗафиксироватьТранзакцию()` → `Исключение` `ОтменитьТранзакцию()` `ВызватьИсключение` `КонецПопытки` shape (see the example above) is the **only** correct pattern. Any deviation (no `Попытка`, no `ОтменитьТранзакцию` in the catch branch, no re-raise) is a defect.
+- The `НачатьТранзакцию()` → `Попытка` … `ЗафиксироватьТранзакцию()` → `Исключение` `ОтменитьТранзакцию()` `ВызватьИсключение` `КонецПопытки` shape (see the example above) is the **only** correct pattern. Any deviation (no `Попытка`, no `ОтменитьТранзакцию` in the catch branch, no re-raise) is a defect.
 - **Diagnose, do not swallow.** Log the error and `ВызватьИсключение` — see `rules/logging-strategy.md §5 → "Error / exception logging"`.
 - **Re-check `ТранзакцияАктивна()`** before second `ОтменитьТранзакцию` only in diagnostics — normally the flow already guarantees it.
 
@@ -170,7 +170,7 @@ Never hold a single transaction across thousands of documents — lock escalatio
 For information registers used as a status log (`СтатусыЗаказов`, `СтатусыИнтеграции`), use a register-record-set write with `НаборЗаписей.Заблокировать()` inside an explicit transaction:
 
 ```bsl
-НачалоТранзакции();
+НачатьТранзакцию();
 
 Попытка
 

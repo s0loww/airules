@@ -121,7 +121,7 @@ Notes:
 ## 7. Performance checklist
 
 - **Indexed filter fields** — every parameter pushed into a query `ГДЕ` must hit an index. Check via the configurator's "Анализ производительности" or `СтруктураХраненияБазыДанных`.
-- **Virtual tables** — filter through parameters (`Остатки(&Период, Условие)`), never through `ГДЕ` after the virtual call. Hard rule from `dev-standards-architecture.md §3 → "Queries"` and `anti-patterns.md §4`.
+- **Virtual tables** — filter through parameters (`Остатки(&Период, Условие)`), never through `ГДЕ` after the virtual call. Hard rule from `dev-standards-architecture.md §3 → "Queries"` and `anti-patterns.md §5`.
 - **`ПЕРВЫЕ N`** when the report is paginated or "top-N" by nature — push the limit into the query, not into the row-formatting hook.
 - **Avoid `ВЫРАЗИТЬ` on the left side of `ГДЕ`** — it disables index usage.
 - **`Объект`-typed datasets** that pull large `ТаблицаЗначений` from BSL are the most common performance trap; consider materializing into a temporary information register if the data must be reused.

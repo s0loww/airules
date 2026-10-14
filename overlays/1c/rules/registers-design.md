@@ -64,7 +64,7 @@ When a register has balances, the platform exposes virtual tables:
 | `СрезПервых(&Период, Условие)` (info reg.) | First record on or after the date. |
 | `СрезПоследних(&Период, Условие)` (info reg.) | Last record on or before the date. |
 
-**Filter virtual tables via parameters, not `ГДЕ` after the call** — hard rule (`rules/anti-patterns.md §4`). Putting the filter into the parameter pushes it into the engine and uses indexes; putting it into `ГДЕ` reads the full virtual table first.
+**Filter virtual tables via parameters, not `ГДЕ` after the call** — hard rule (`rules/anti-patterns.md §5`). Putting the filter into the parameter pushes it into the engine and uses indexes; putting it into `ГДЕ` reads the full virtual table first.
 
 ## 8. Posting / reposting
 

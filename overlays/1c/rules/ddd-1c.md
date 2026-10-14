@@ -59,7 +59,7 @@ All write paths converge at the **object module** — forms are only one entry a
 BSL has no user-defined classes; approximate value objects deliberately:
 
 - Closed value set → `Перечисление`. Reused compound type → `ОпределяемыйТип`. String statuses and numeric magic codes are primitive obsession (`rules/dev-standards-architecture.md §6`).
-- Compound value → structure built by a **constructor function** in the domain module, validated at construction, treated as immutable (use `ЗафиксированнаяСтруктура` to enforce):
+- Compound value → structure built by a **constructor function** in the domain module, validated at construction, treated as immutable (use `ФиксированнаяСтруктура` to enforce):
 
 ```bsl
 // {PREFIX}Периоды

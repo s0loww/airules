@@ -12,11 +12,14 @@ efforts: [low, medium, high, xhigh]
 # стоимости — это потеря, а не размен.
 
 claude:
-  high:   opus
-  medium: sonnet
-  low:    haiku
+  # Явные id, не алиасы: алиас CLI отстаёт от релизов и молча указывает на
+  # прошлое поколение. Профиль модели (model-profiles.md) ищется по вхождению
+  # подстроки, поэтому `claude-opus-5-5` получает профиль Opus.
+  high:   claude-opus-5-5
+  medium: claude-sonnet-5-5
+  low:    claude-haiku-5-5
   # fast не определён: роли с override=fast работают на своём базовом tier
-  orchestrator: opus
+  orchestrator: claude-opus-5-5
   # orchestrator — НЕ тир ролей: это класс модели головного агента. Здесь он
   # СОВПАДАЕТ с high: головной агент интерактивной работы и тяжёлый
   # исполнитель — одна модель. Режим оркестрации поэтому сам не включается —

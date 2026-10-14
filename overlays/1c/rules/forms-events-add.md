@@ -4,7 +4,8 @@ alwaysApply: false
 kind: recipe
 ---
 
-# **IMPORTANT!** — don't forget to add the event hook to the form XML file.
+# A form event handler is registered in the form XML file
+A procedure in the module is never called until the event is listed in the form's `<Events>`.
 The file is usually named `Form.xml` in the parent directory of the module code.
 
 Event hooks in XML look like:

@@ -68,7 +68,7 @@ allowParallel: true
 
 ## Handoff — вердикт и формат
 
-Вердикт: 🔴 **Block** (есть CRITICAL/HIGH) / 🟡 **Concerns** (только MEDIUM) / 🟢 **Approve** (нет CRITICAL/HIGH).
+Вердикт: 🔴 **Block** — есть CRITICAL/HIGH с уверенностью ≥ 75 / 🟡 **Concerns** — прочие CRITICAL/HIGH или MEDIUM ≥ 75 / 🟢 **Approve** — остальное.
 
 ```markdown
 ## Результат ревью

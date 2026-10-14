@@ -12,7 +12,7 @@ wrong where they stand.
 
 ## Checklist — read this first
 
-Everything below is one of these eleven, in detail. If you only need to know
+Everything below is one of these rows, in detail. If you only need to know
 what to look for, this table is the rule; the sections after it are the
 evidence and the corrected form.
 
@@ -23,7 +23,7 @@ evidence and the corrected form.
 | Subquery in SELECT | CRITICAL | Nested `ВЫБРАТЬ` in field list |
 | Ambiguous query alias in JOIN | HIGH | Table alias `КАК X` where field also `КАК X`; `КАК Документ` for Регистратор |
 | Virtual table WHERE | HIGH | Conditions on virtual table results |
-| Missing TOP N | HIGH | Large queries without `ПЕРВЫЕ` |
+| Missing TOP N | HIGH | `ПЕРВЫЕ` missing where only part of the rows is needed (existence check, top-N, preview) |
 | Multiple server calls | HIGH | Sequential `НаСервере` calls from client |
 | `&НаСервере` misuse | HIGH | Server call not needing form context |
 | Missing cache | MEDIUM | Repeated expensive calls with same params |
@@ -123,7 +123,6 @@ evidence and the corrected form.
 
 **Impact:** Runtime query error `Неоднозначное поле "X.Y"` — module fails to compile or execute
 **Severity:** HIGH
-**Discovered in:** модуль балансировки серий (остатки + резервы к отгрузке)
 
 ```bsl
 // ❌ BAD: table alias = field alias → "Неоднозначное поле КОтгрузке.Номенклатура"
@@ -174,6 +173,8 @@ evidence and the corrected form.
 
 **Impact:** Loads all records when only subset needed
 **Severity:** HIGH
+
+Never add `ПЕРВЫЕ` to a selection that feeds a calculation, a total or a report: the cut is silent and the figure is wrong.
 
 ```bsl
 // ❌ HIGH: Loads all records

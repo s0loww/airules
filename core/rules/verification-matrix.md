@@ -32,7 +32,8 @@ supplied by the project profile; below they are described as categories.
 - High-risk change: the closing gate below **is** the bar — tighten it
   (impact analysis, a deeper validator pass) rather than adding a reviewer.
   An independent `code-reviewer` runs on an explicit user request only
-  (`subagent-pipeline.md`, stage 4b).
+  (`subagent-pipeline.md`, stage 4b); an independent `tester` pass over a
+  regulated slice is the orchestrator's call (`subagent-pipeline.md`).
 
 ## Closing gate — full-cycle change
 
@@ -44,9 +45,10 @@ and a bounded retry budget.
 ### Hard gates
 
 1. **Syntax** — every affected module through the project's syntax check
-   tool. Pass: zero `error`-level items. Retry budget: 1 call by default, up
-   to 3 only if the previous run returned a substantive defect. Style-only
-   linter noise does not justify a retry.
+   tool. Pass: zero `error`-level items. Budget: up to 3 fix → re-check rounds,
+   then stop and report the blocker with a diagnosis. This budget is separate
+   from the red-gate budget of tests (`subagent-pipeline.md`, "Red gate
+   budget"). Style-only linter noise does not justify a re-run.
 2. **Logic and performance** — static analysis of every affected module,
    always *after* gate 1 passes. Pass: no `critical` / `error` items.
    In-scope `warning`s (introduced by your change) — fix; pre-existing ones
@@ -161,7 +163,7 @@ and a bounded retry budget.
 
 ### Handover summary — what the user sees
 
-After the gates pass the report contains: (1) **What was done** — 1-3 lines,
+After the gates pass the report contains: (1) **What was done** — the result first,
 no preamble; (2) **Changed files** — each path in backticks, one line;
 (3) **Context sources** — for non-trivial code/metadata changes the sources
 actually used (templates, project code, metadata, platform/standards docs);

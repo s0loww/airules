@@ -132,8 +132,9 @@ When delegating, pick by the shape of the task:
 
 The plan must satisfy the acceptance criteria before stage 3:
 
-- Each task is small enough for an eager junior with no project context:
-  usually 1 file / 1 routine / ≤ ~20 changed lines per task. Exception — a
+- Each task is a verifiable slice one implementing launch closes with its
+  own test loop: exact file paths and routine names, an impact map within
+  5–15 nodes (see "Impact map"); larger — cut it. Exception — a
   wide mechanical refactor planned as expand–contract (the planner's rule):
   a migrate batch may exceed the size bar when it applies **one** uniform
   transformation across sites; batches run sequentially unless provably
@@ -167,8 +168,9 @@ When delegating, pick by the shape of the task:
   extension artifacts, nested collections, fields.
 - **`refactoring`** — dead-code cleanup, deduplication, extraction across
   many modules.
-- **`performance-optimizer`** — when the explicit task is to optimize a slow
-  query / loop / transactional write / report.
+- **`performance-optimizer`** (read-only) — when the task is to optimize a
+  slow query / loop / transactional write / report: it diagnoses and
+  recommends; the edits go to `developer` or `refactoring`.
 - **`error-fixer`** — fixing runtime / syntax errors without architectural
   rework. Runs the `debugging-loop.md` method inside (a stack overlay may
   supply its platform adaptation of the same loop).

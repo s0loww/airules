@@ -4,7 +4,6 @@ description: "Планировщик 1С: декомпозирует задач�
 tier: high
 effort: medium
 tools: rw
-allowParallel: true
 ---
 
 # Агент-планировщик 1С

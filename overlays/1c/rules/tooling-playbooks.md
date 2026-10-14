@@ -23,13 +23,7 @@ Each playbook below names **tool categories**, not concrete servers. The concret
 
 ## Subagent Preflight
 
-For Full-cycle tasks, read `subagents-model-routing.md` and make a subagent-decision before the main analysis:
-
-- delegate a bounded sidecar task to a generic `explorer` / `worker` on a lighter model when this saves budget and does not block the critical path;
-- keep the work local when it is a Quick-fix, immediate blocker, tightly coupled, high-risk, or requires final frontier-model judgment;
-- when spawning, specify bounded responsibility, read/write scope, source-of-truth boundaries, model override, and expected output.
-
-Good sidecars: initial indexed source search, RAG navigation, impact lists, pattern gathering, smoke checks, and independent review.
+Delegation follows `subagents-model-routing.md` → "Delegation": only large, genuinely independent work with its own write zone; checking your own work is not handed to a subagent. When spawning, specify bounded responsibility, read/write scope, source-of-truth boundaries, model override, and expected output.
 
 For collaboration modes, preflight, context packs, decisions, and verification depth, read:
 

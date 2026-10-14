@@ -52,4 +52,4 @@ For the full MCP playbook see `tooling-playbooks.md → Integrations`.
 
 For every new integration module record at the top (or in the metadata-object card): the external system, the contract (URL, method, format), the authentication scheme, the required roles, and a link to the requirements document.
 
-> **Note.** A previous version of this rule suggested prototyping integrations in Python and porting to 1C. That contradicts the root-router project policy: repository code is 1C only. Out-of-1C prototyping is acceptable locally for contract debugging, but Python or other languages do not enter the repository or the production code.
+> Repository code is 1C only. Out-of-1C prototyping is acceptable locally for contract debugging; Python or other languages do not enter the repository or the production code.

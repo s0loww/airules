@@ -20,7 +20,8 @@ generators, and risky automation.
 5. Read the project's source-of-truth rules before editing.
 6. Create a timestamped backup for rules, metadata XML, forms, generators,
    bulk edits, or risky scripts.
-7. Decide whether light subagents can run parallel exploration or review.
+7. Decide whether a wide read-only survey is worth one scouting subagent
+   (`subagents-model-routing.md`, "Delegation").
 8. Name the planned verification before starting the implementation.
 
 ## Backup

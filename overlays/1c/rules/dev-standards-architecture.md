@@ -10,9 +10,7 @@ kind: invariant
 
 ### Code Placement
 - Business logic — **in common modules**, not in form modules
-- Server common modules — suffixes: `*ServerCall`, `*ObjectModule`, `*ManagerModule`
-- Client common modules — suffix: `*Client`
-- Form-related modules — suffix: `*Forms`
+- Common module suffixes follow BSP (`*ВызовСервера`, `*Клиент`, `*КлиентСервер`, `*ПолныеПрава`); layers and their limits — `clean-architecture-1c.md §3`
 - Server object modules — mandatory preprocessor: `#Если Сервер Или ТолстыйКлиентОбычноеПриложение Или ВнешнееСоединение Тогда`
 
 ### "Result-Structure" Pattern
@@ -49,7 +47,7 @@ Reduce nesting by returning early on precondition failures:
 ```
 
 ### Event Subscriptions
-Preferable over modifying typical modules. All subscription methods — via common module `{PREFIX}EventSubscriptions`.
+Preferable over modifying typical modules. All subscription methods — via common module `{PREFIX}ПодпискиНаСобытия`.
 
 ### New Metadata Objects Placement
 Determined by `{NEW_OBJECTS_IN}` parameter from `.dev.env`:
@@ -86,7 +84,7 @@ Always check key existence before access:
 ```
 
 ### Collection Normalization
-Normalize input to a single collection type for uniform processing. Use `CommonClientServer.ValueInArray()` for single-to-array conversion.
+Normalize input to a single collection type for uniform processing. Use `ОбщегоНазначенияКлиентСервер.ЗначениеВМассиве()` for single-to-array conversion.
 
 ## 2. Extensions
 
@@ -97,7 +95,7 @@ Normalize input to a single collection type for uniform processing. Use `CommonC
 
 ### Extension Directives
 - `&Перед` / `&После` — preferred
-- `&Вместо` — only for functions, with mandatory `ПродолжитьВызов()`
+- `&Вместо` — full replacement or a wrapper of a procedure or function; the original runs only via `ПродолжитьВызов()` (see `extension-patterns.md`)
 
 ### Placement Rules (when `{NEW_OBJECTS_IN} = main_configuration`)
 - New metadata objects → main configuration
@@ -190,7 +188,7 @@ while you are there.
   - Incorrect: `Запрос.Выполнить().Выгрузить()` / `Запрос.Выполнить().Выбрать()`.
 - Always use `КАК` aliases for query fields (e.g. `Контрагенты.ИНН КАК ИНН`).
 - **`РАЗРЕШЕННЫЕ` when the query runs in the user's rights context.** Against real tables (catalogs, documents, registers and their virtual tables) under record-level restrictions, a plain `ВЫБРАТЬ` fails with «Недостаточно прав» for a restricted user — even when the rows they cannot see are irrelevant to the result. `ВЫБРАТЬ РАЗРЕШЕННЫЕ` makes the platform filter those rows out instead of failing. Not a blanket rule: it is pointless under `УстановитьПривилегированныйРежим` and on temporary tables, and it silently narrows the result — so never add it to a query whose completeness is the point (reconciliations, totals, integrity checks) without saying so.
-- **Aliases must not be query-language keywords** (runtime error `Ожидается имя`). `Есть`, `Дата`, `Период`, `Значение`, `Выбор`, `Первые`, `Различные`, `Истина`, `В`, `Между`, `Подобно` and the rest of the vocabulary are unusable as `КАК`-names. The classic is an existence check written as `ВЫБРАТЬ ПЕРВЫЕ 1 ИСТИНА КАК Есть` — select a real field with a plain alias and test `Запрос.Выполнить().Пустой()` instead. This class **passes static validation and fails only against a live infobase**, so a new or edited query is confirmed by executing it, not by the linter.
+- **Aliases must not be query-language keywords** (runtime error `Ожидается имя`). `Есть`, `Дата`, `Период`, `Значение`, `Выбор`, `Первые`, `Различные`, `Истина`, `В`, `Между`, `Подобно` and the rest of the vocabulary are unusable as `КАК`-names. The classic is an existence check written as `ВЫБРАТЬ ПЕРВЫЕ 1 ИСТИНА КАК Есть` — select a real field with a plain alias and test `РезультатЗапроса.Пустой()` instead. This class **passes static validation and fails only against a live infobase**, so a new or edited query is confirmed by executing it, not by the linter.
 - **Query alias naming — avoid ambiguous names in JOINs** (runtime error: `Неоднозначное поле`):
   - Table/VT alias **must not** match a field alias in the same query (`КАК КОтгрузке` table + `КАК КОтгрузке` field → fail).
   - Prefer distinct names: table `РезервыКОтгрузке`, field `КОтгрузкеОстаток`, output `КОтгрузке`.

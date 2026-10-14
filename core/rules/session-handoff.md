@@ -22,10 +22,8 @@ different scope.
   session going. Acceptable between phases; **do not compact mid-phase** —
   finish the phase or hand off at its boundary. A compaction loses exactly
   the fine-grained state a phase in flight depends on.
-- Quality drops long before the hard context limit: past roughly the first
-  half of the window ("smart zone", on the order of 100–150k tokens on
-  current large models) reasoning gets dull. Plan the handoff *before* the
-  edge — a handoff written by a degraded session inherits the degradation.
+- Quality drops before the hard context limit. Plan the handoff at a phase
+  boundary, *before* the window is mostly spent — a handoff written by a degraded session inherits the degradation.
 
 ## What goes into the handoff document
 
