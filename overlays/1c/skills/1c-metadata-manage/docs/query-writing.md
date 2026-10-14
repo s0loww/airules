@@ -6,7 +6,7 @@ Covers **writing** new 1C queries: structure, parameters, virtual tables, tempor
 
 For tuning existing queries, joins versus subqueries, composite-type dereferencing, index alignment and DCS specifics — see [query-optimization.md](query-optimization.md).
 
-For project-wide query rules — load the router `rules/dev-standards-architecture.md` first. Authoritative formatting, aliases, parameters, and the no-queries-in-loops ban live in `rules/dev-standards-architecture.md` §3 → "Queries"`; severity catalog — `rules/anti-patterns.md` (§1 Query in Loop, §4 Virtual Table Filter in WHERE, §5 Missing ПЕРВЫЕ N, Batch Query with Temp Table).
+For project-wide query rules — load the router `rules/dev-standards-architecture.md` first. Authoritative formatting, aliases, parameters, and the no-queries-in-loops ban live in `rules/dev-standards-architecture.md` §3 → "Queries"`; severity catalog — `rules/anti-patterns.md` (§1 Query in Loop, §5 Virtual Table Filter in WHERE, §6 Missing ПЕРВЫЕ N, Batch Query with Temp Table).
 
 ## When to Use This Skill
 

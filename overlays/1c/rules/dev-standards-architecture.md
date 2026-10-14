@@ -6,12 +6,28 @@ kind: invariant
 
 # Development Standards — Architecture & Platform
 
+This file owns code placement basics, the Result-Structure pattern, the authoritative query rules (§3 "Queries"), standard-library API stability, reference-attribute access (§4) and code smells (§6). Everything else is owned by a neighbour:
+
+| Topic | Owner |
+|---|---|
+| Layers, module kinds, dependency direction | `clean-architecture-1c.md` |
+| Domain modeling, subscriptions as domain events | `ddd-1c.md` |
+| Style, naming, forbidden constructs, platform-name verification | `dev-standards-core.md` |
+| Extension interceptors, `ПродолжитьВызов`, adopted objects | `extension-patterns.md` |
+| Async shapes, `Ждать`, file and HTTP workflows | `async-methods.md` |
+| What and how to log | `logging-strategy.md` |
+| Transactions and locks | `locks-and-transactions.md` |
+| Access rights, RLS, БСП access subsystem | `access-rights-bsp.md` |
+| Form-module mechanics | `form-module.md`, `forms.md` |
+| Constructs wrong on sight, with severity | `anti-patterns.md` |
+| Platform pitfalls (collections, long operations, temporary storage) | `platform-solutions.md` |
+
 ## 1. Architecture Patterns
 
 ### Code Placement
-- Business logic — **in common modules**, not in form modules
+- Business logic stays out of form modules: invariants in the object module, object-scoped queries in the manager module, cross-object use cases in server common modules — `clean-architecture-1c.md`, `ddd-1c.md`.
 - Common module suffixes follow BSP (`*ВызовСервера`, `*Клиент`, `*КлиентСервер`, `*ПолныеПрава`); layers and their limits — `clean-architecture-1c.md §3`
-- Server object modules — mandatory preprocessor: `#Если Сервер Или ТолстыйКлиентОбычноеПриложение Или ВнешнееСоединение Тогда`
+- Object, manager and record-set modules wrap their body in `#Если Сервер Или ТолстыйКлиентОбычноеПриложение Или ВнешнееСоединение Тогда` … `#Иначе ВызватьИсключение НСтр("ru = 'Недопустимый вызов объекта на клиенте.'"); #КонецЕсли`. Common modules and form modules do not.
 
 ### "Result-Structure" Pattern
 Return compound results via Structure:
@@ -52,8 +68,8 @@ Default: `main_configuration`.
 ### Background Jobs
 Operations taking > 10 seconds — move to background jobs with progress indication. Do not block UI.
 
-### Defensive Type Checking
-BSL has no strict typing. Check type at function entry when critical:
+### Defensive Type Checking and Collection Normalization
+BSL has no strict typing. Where a parameter accepts one value or a collection, normalize it at function entry to one collection type:
 
 ```bsl
 Если ТипЗнч(ДокументыИлиСсылка) <> Тип("Массив") Тогда
@@ -64,6 +80,8 @@ BSL has no strict typing. Check type at function entry when critical:
 КонецЕсли;
 ```
 
+`ОбщегоНазначенияКлиентСервер.ЗначениеВМассиве()` wraps a known single value; it does not check the type, so an array passed to it becomes an array of one array.
+
 ### Safe Structure Property Access
 Check optional keys with `Свойство(Ключ, Значение)`. A required key (your own Result-Structure, a constructor's output) is accessed directly: if it is missing, the call should fail loudly rather than skip a branch.
 
@@ -72,9 +90,6 @@ Check optional keys with `Свойство(Ключ, Значение)`. A requi
 	// используем ДатуНачала
 КонецЕсли;
 ```
-
-### Collection Normalization
-Normalize input to a single collection type for uniform processing. Use `ОбщегоНазначенияКлиентСервер.ЗначениеВМассиве()` for single-to-array conversion.
 
 ## 2. Extensions
 
@@ -121,14 +136,16 @@ and runs, and is still wrong — you are invoking an extension point instead of
 filling it in.
 
 **A plausible method name is not evidence that the method exists.** Names are
-easy to derive by analogy and easy to get wrong; a wrong one fails at compile
-time, and the failure is trivially avoidable. Before calling an unfamiliar
+easy to derive by analogy and easy to get wrong. A wrong common-module method
+fails the syntax check (calls to common modules are resolved statically), unlike
+platform object properties, which fail only at run time
+(`dev-standards-core.md §8`); either way the failure is trivially avoidable. Before calling an unfamiliar
 standard-library method, confirm it in the source — module-structure inspection
 or a text search over the common modules — and check which region it sits in
 while you are there.
 
 ### Async and Modality
-- Modal calls are **PROHIBITED**: `Вопрос()`, `Предупреждение()`, `ВвестиЧисло()`, `ВвестиСтроку()`, `ВвестиДату()`, `ВвестиЗначение()`, `ОткрытьЗначение()` and any other synchronous-blocking dialogs.
+- No modal calls — they block the client and raise an error when the configuration's modality mode is «Не использовать»: `Вопрос()`, `Предупреждение()`, `ВвестиЧисло()`, `ВвестиСтроку()`, `ВвестиДату()`, `ВвестиЗначение()`, `ОткрытьЗначение()` and any other synchronous-blocking dialogs.
 - Approach depends on `{PLATFORM_VERSION}` from `.dev.env`:
 
 | `{PLATFORM_VERSION}` | Approach |
@@ -138,17 +155,18 @@ while you are there.
 
 - Inside an `Асинх` procedure, use the `*Асинх` variant wherever one exists instead of a callback-based `Показать*` / `Начать*` call. Ordinary synchronous code and server calls are fine there.
 - The gate is the configuration's compatibility mode, not the installed platform: a configuration running on 8.3.27 in 8.3.14 compatibility mode cannot use `Асинх`. The same applies to the API check in "Platform Version Compatibility".
-- Any dialog calls on the server are **PROHIBITED**.
+- No dialogs on the server: there is no user there to answer.
 - **Treatment: `rules/async-methods.md`** — old-to-new method correspondence, what `Ждать` actually returns, ready shapes for a question on form open / close, file workflows and HTTP (8.3.21+). The trap that costs most: **without `Ждать` an exception inside an async call is silently lost**, so a failing operation looks like a successful one.
 
 ### Client-Server Interaction
-- **`&НаСервереБезКонтекста` is MANDATORY** for all server methods that do not access form data. `&НаСервере` is allowed only when the method directly reads/writes form attributes or elements.
-- If a method only needs a form attribute value — pass it as a parameter and use `&НаСервереБезКонтекста`.
+- In form and command modules, a server method that does not touch form data is `&НаСервереБезКонтекста`: `&НаСервере` ships the whole form state on every call. If the method needs one attribute value, pass it as a parameter. Mechanics and round-trip budget — `form-module.md`, `anti-patterns.md §7-§8`.
+- Mass operations run on the server; no client-server round trips inside loops.
 
 ### Security
-- `Выполнить()` and `Вычислить()` — **PROHIBITED** without extreme necessity.
+- No `Выполнить()` / `Вычислить()` unless the task cannot be solved otherwise: executing composed code is an injection point and invisible to static checks.
 - No credentials (passwords, tokens, API keys) in code. Store them in the БСП secure storage (`ОбщегоНазначения.ЗаписатьДанныеВБезопасноеХранилище` / `ПрочитатьДанныеИзБезопасногоХранилища`). A constant is not a secret store: read rights on constants are routinely granted to roles.
-- **RLS** — design with access restriction requirements in mind.
+- **RLS** — design with access restriction requirements in mind (`access-rights-bsp.md`).
+- **Privileged mode** — `УстановитьПривилегированныйРежим(Истина)` only when needed, always paired with `УстановитьПривилегированныйРежим(Ложь)`; check the current state via `ПривилегированныйРежим()`. Privileged code lives in `*ПолныеПрава` modules (`clean-architecture-1c.md §3`).
 
 ### Error Handling
 - String localization — `НСтр("ru = '...'")` with `СтроковыеФункцииКлиентСервер.ПодставитьПараметрыВСтроку()`.
@@ -161,7 +179,7 @@ while you are there.
 
 ### Queries — Authoritative Rules
 - Verify metadata attributes (existence, names, types) **before** writing a query — see `rules/tooling-playbooks.md → MCP-first Search`.
-- Look for existing query examples before writing complex queries (`templatesearch`, `search_code`).
+- Look for existing query examples before writing complex queries (code templates and code search — `tooling-playbooks.md → MCP-first Search`).
 - Query text formatting — on a new line at the same indentation level as the variable declaration:
 
 ```bsl
@@ -174,7 +192,7 @@ while you are there.
 |	Справочник.Контрагенты КАК Контрагенты";
 ```
 
-- Always use an intermediate variable for query results. Method chaining is **PROHIBITED**:
+- Keep the query result in a variable — a chained call leaves nothing to check for emptiness or inspect in the debugger:
   - Correct: `РезультатЗапроса = Запрос.Выполнить();`
   - Incorrect: `Запрос.Выполнить().Выгрузить()` / `Запрос.Выполнить().Выбрать()`.
 - Always use `КАК` aliases for query fields (e.g. `Контрагенты.ИНН КАК ИНН`).
@@ -192,19 +210,18 @@ while you are there.
 - Temporary tables — prefixed with `ВТ_`.
 - Choose the join by meaning, not by speed: `ЛЕВОЕ СОЕДИНЕНИЕ` keeps rows that have no match, `ВНУТРЕННЕЕ` drops them. Turning a left join into an inner one silently removes rows from totals (contracts without payments, counterparties without movements); do it only when an unmatched row is impossible or must be excluded, and say which.
 - When accessing registers — filter by dimensions first (in virtual table parameters, not in `ГДЕ`). Only dimension conditions move into the parameters: a condition on a resource or attribute inside `СрезПоследних` / `СрезПервых` parameters returns the last record that matches, not the last record — keep such conditions in `ГДЕ`.
-- Do not modify register movements directly — only via the posting mechanism.
+- Records of a register subordinate to a registrar are written by that registrar's posting (or a correction document), never by a direct `НаборЗаписей.Записать()` from outside it.
 - `ПЕРВЫЕ N` only where a partial result is the intent (existence check, preview, top-N), and with `УПОРЯДОЧИТЬ ПО` whenever it matters which rows come back (latest, top-N) — without it the platform returns arbitrary N rows, so "the latest rate" becomes any rate. Never on a selection that feeds a calculation, a total or a report: the cut is silent and the figure is wrong.
-- Index all fields that participate in filters/joins via metadata.
-- **An index is used only when the condition lines up with it.** All the fields of the condition must be in the index, starting from its first field, with no gaps. Given an index `(Организация, Контрагент, Дата)`: a condition on `Организация И Контрагент` uses it; one on `Контрагент И Дата` does not use it at all (the leading field is missing); one on `Организация И Дата` uses only the leading part. This is why "add an index on the field" often changes nothing — the index exists and the condition does not align with it. For temp tables the equivalent is `ИНДЕКСИРОВАТЬ ПО` on the join key.
+- Add a metadata index for a filter/join field when a plan or a measurement asks for it, and shape it to the condition (next item): an index that does not line up changes nothing and still slows down every write.
+- **An index is used only when the condition lines up with it.** The index serves the condition from its first field onward, for as long as the condition fixes consecutive leading fields; the rest of the condition is checked row by row. Given an index `(Организация, Контрагент, Дата)`: a condition on `Организация И Контрагент` uses it; one on `Контрагент И Дата` does not use it at all (the leading field is missing); one on `Организация И Дата` uses only the leading part. This is why "add an index on the field" often changes nothing — the index exists and the condition does not align with it. For temp tables the equivalent is `ИНДЕКСИРОВАТЬ ПО` on the join key.
 
 ### Cross-Platform Compatibility
-- **COM objects** (`Новый COMОбъект(...)`) are **PROHIBITED** unless explicitly specified in the task.
+- No COM objects (`Новый COMОбъект(...)`) unless the task asks for them: they tie the code to Windows and to the client's installed software.
 - For Excel — use spreadsheet document or БСП, not `Excel.Application`.
 - File paths — use `/` or platform functions; do not hardcode `\`.
 
 ### Platform Version Compatibility
-- Before using any platform API method, verify it exists in `{PLATFORM_VERSION}` from `.dev.env`.
-- Using methods from newer versions without checking is **PROHIBITED**.
+- Check methods and properties of recent platform versions against `{PLATFORM_VERSION}` and the configuration's compatibility mode before using them: a newer method fails only on the target base.
 
 ## 4. Data Access — Reference Attribute Access
 
@@ -223,19 +240,21 @@ Their `ВыбратьРазрешенные` parameter has the same effect as `�
 
 ### Caching and Batch Retrieval
 
-- Cache repeated reference-attribute lookups via `Соответствие` (Map). Full example — `rules/anti-patterns.md §9 "Missing Caching"`.
+- Cache repeated reference-attribute lookups via `Соответствие` (Map) within a call; per session — a common module with return-value reuse (`*ПовтИсп`). Never cache data that can change during the session (rates, balances, settings being edited): a stale cache returns a plausible wrong figure. Full example — `rules/anti-patterns.md §9 "Missing Caching"`.
 - For multiple references prefer batch queries (`ОбщегоНазначения.ЗначенияРеквизитовОбъектов`, or `ВЫБРАТЬ ... ГДЕ Ссылка В (&МассивСсылок)`) over per-reference calls in loops. Temp-table template — `rules/anti-patterns.md → "Batch Query with Temp Table"`.
 
 ## 5. Performance Headlines
 
-Mandatory baseline. Detailed anti-pattern catalog with severity — in `rules/anti-patterns.md`. Platform pitfalls (long-running ops, temporary storage, collection search, external components, locks) — in `rules/platform-solutions.md`.
+Performance rules have their own homes; this section only routes.
 
-- **Server-side bulk.** Run mass operations on the server; avoid client-server round trips inside loops. Server methods that do not access form data — `&НаСервереБезКонтекста`.
-- **Queries.** Never inside loops — use batch queries and temporary tables. `ПЕРВЫЕ N` — by the rule in §3 "Queries". Index every filter/join field in metadata.
-- **Privileged mode.** `УстановитьПривилегированныйРежим(Истина)` — only when needed and always paired with `УстановитьПривилегированныйРежим(Ложь)`. Check current state via `ПривилегированныйРежим()`.
-- **Caching.** Cache repeated computations — `Соответствие` per call; per session — a common module with return-value reuse (`*ПовтИсп`). Never cache data that can change during the session (rates, balances, settings being edited): a stale cache returns a plausible wrong figure. Reference attributes — via `ОбщегоНазначения.ЗначенияРеквизитов*` with a cache.
-- **Collections.** Bulk fill — `ЗаполнитьЗначенияСвойств()`. Search: ≤ ~100 elements — `Найти()` / `НайтиПоЗначению()` is fine; ≥ ~1000 elements or inside a loop — index on `Соответствие` (O(1)) or `ТаблицаЗначений.Индексы.Добавить(...)` + `НайтиСтроки()`. See `rules/platform-solutions.md §7`.
-- **Transactions.** Keep them short, no user interaction inside. Account for implicit transactions (e.g. object write).
+| Topic | Where |
+|---|---|
+| Constructs wrong on sight (query in loop, dot notation, subquery in SELECT, `ПЕРВЫЕ`) — with severity | `anti-patterns.md` |
+| Queries, joins, indexes | §3 "Queries" above |
+| Client-server round trips | §3 "Client-Server Interaction" above |
+| Caching reference attributes | §4 above |
+| Collection search, long operations, temporary storage, external components | `platform-solutions.md` (§7 — collections) |
+| Transactions and locks | `locks-and-transactions.md` |
 
 ## 6. Code Smells
 
@@ -254,5 +273,5 @@ notation on a reference — are a different thing and live in `anti-patterns.md`
 | **Primitive Obsession** | Strings instead of enums, numeric codes instead of references | Use `Enum`, `CatalogRef`, `DefinedType` |
 | **Divergent Change** | One module constantly changed for different reasons | Split module: each handles one responsibility (SRP) |
 | **Shotgun Surgery** | One business logic change requires edits in 5+ places | Consolidate related logic into one common module |
-| **Feature Envy** | Form module method heavily works with data of another object | Move method to the common module of that object |
+| **Feature Envy** | Form module method heavily works with data of another object | Move the method to that object's manager or object module |
 | **Variable Reuse** | One variable stores different values at different stages | Create separate variable for each value |

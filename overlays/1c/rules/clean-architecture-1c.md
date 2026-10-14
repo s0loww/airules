@@ -40,7 +40,7 @@ Allowed call directions: `Форма/Клиент → ВызовСервера �
 | server common module (no suffix) | domain / use case | May read/write DB; never references forms or client context |
 | `*ВызовСервера` | boundary | Thin pass-through the forms call; delegates immediately, no logic of its own |
 | `*Клиент` | UI orchestration | No business branching; decisions come from the server as data |
-| `*ПолныеПрава` | infrastructure | Privileged operations only, paired enable/disable (`rules/dev-standards-architecture.md §5`) |
+| `*ПолныеПрава` | infrastructure | Privileged operations only, paired enable/disable (`rules/dev-standards-architecture.md §3 → Security`) |
 | модуль менеджера | domain | Object-scoped queries and operations (`rules/ddd-1c.md §6`) |
 
 A module whose suffix lies about its content (a `*КлиентСервер` module that queries the DB via a server call, a `*ВызовСервера` module with 200 lines of logic) breaks the reviewer's ability to check direction by name — fix the module, not the name.
@@ -56,7 +56,7 @@ A module whose suffix lies about its content (a `*КлиентСервер` modu
 
 - **A form module is a controller:** collect input, call a use case, render the result. Business branching in a form handler is the classic violation — and every write path that bypasses forms (exchanges, COM, background jobs — a production reality in most bases) silently skips it. Enforcement belongs to the object module (`rules/ddd-1c.md §4`).
 - **An HTTP service module is a controller too:** parse and validate the request, map to a use-case call, serialize the response, map errors to status codes. Domain logic in an HTTP module is unreachable from any other entry point.
-- **One adapter module per external technology/format** (`{PREFIX}ОбменВнешнейСистемой`), endpoints and credentials in settings storage — never hardcoded (`rules/dev-standards-architecture.md §5 → Security`). The external system's vocabulary stays inside the adapter (ACL — `rules/ddd-1c.md §8`).
+- **One adapter module per external technology/format** (`{PREFIX}ОбменВнешнейСистемой`), endpoints and credentials in settings storage — never hardcoded (`rules/dev-standards-architecture.md §3 → Security`). The external system's vocabulary stays inside the adapter (ACL — `rules/ddd-1c.md §8`).
 - Substitutability without polymorphism: when several adapters implement one operation (two providers, two transports), dispatch in **one** place via `Перечисление` + `Выбор` or an event subscription. `Выполнить()` / `Вычислить()` as poor-man's DI is prohibited (security rule).
 
 ## 6. Testability Seams
