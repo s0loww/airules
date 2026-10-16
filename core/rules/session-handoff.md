@@ -70,7 +70,10 @@ this session's in-flight state beyond what a brief can carry.
 - when the work is done — or blocked — sends the report to the coordinating
   session by itself, without waiting for a command: verdict per item in the
   brief's reply format, branch and commit, checks run, what was not verified.
-  The user should not have to relay it;
+  The user should not have to relay it. Address it to the session that
+  started this one by the identifier the environment records (its parent
+  session id), never by a similar-looking title — sibling sessions on the
+  same repository often carry near-identical names;
 - merges into the main branch and pushes only on an explicit command. That
   merge is the one exception to the worktree boundary — the main branch lives
   in the main checkout — so first check that checkout is clean, merge
