@@ -29,6 +29,14 @@ forever for a notification that never comes.
 - **Output contract** — the report ends with success-criteria status (met /
   not met, point by point) and cleanup status (cleaned / blocked with
   reason / not applicable).
+- **Report size** — for any task that reads more than it writes (scouting,
+  surveys, log or transcript reading, reconciliations): "Write the full
+  report to `<report path>`, opening with its base (commit and the paths
+  covered). Return only a summary of up to <N, default 300> words with the
+  facts the decision needs, each with its source, plus the report path."
+  The orchestrator picks the path and records the report in the session map
+  (`session-map.md`). A short bounded task with a short answer needs no
+  file.
 
 The short templates below carry a condensed form of both; the full worker
 contract at the end spells them out — use it for any implementation stream
@@ -169,7 +177,9 @@ Output:
   `subagent-pipeline.md`) — artifacts, public surface, open stubs, locked
   decisions. The parent passes it on verbatim, so it is the next subagent's
   only inventory; anything you leave out, it will rediscover by reading files.
-- Summary; files changed; verification evidence.
+- Summary within the size the task sets (full detail — into the report
+  file the task names, if it names one); files changed; verification
+  evidence.
 - Success criteria status, point by point.
 - Risks, blockers, residual gaps.
 - Cleanup status: cleaned, blocked with reason, or not applicable.

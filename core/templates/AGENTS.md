@@ -50,16 +50,41 @@
   change, any architectural impact, any non-trivial bug. Risk escalators
   that force full-cycle even for a small edit are listed in
   `rules/subagent-pipeline.md`, stage 1. When in doubt, full-cycle wins.
-- **Delegation is the exception, not the default.** Hand a subagent only
-  large, genuinely independent, parallelizable work — a wide multi-file
-  survey, a separate stream with its own write zone. Do not delegate what you
-  would finish yourself in a few tool calls. Do not launch a subagent to
-  re-check what an executing gate already verifies: the implementing subagent
-  runs its own test loop, and an independent pass is your call for a
-  regulated area or a disputed acceptance (`rules/subagent-pipeline.md`).
-  If one subagent can close the task, launch one;
-  parallel launches are for genuinely independent, sizeable tracks. Keep the
-  launch count low.
+- **Keep the lead context clean.** Every call re-reads the whole context, so
+  raw material read once is paid for again on every remaining turn. Hand a
+  subagent the work whose raw material is needed to reach a conclusion but
+  not afterwards: searches, surveys, reading logs, diffs and transcripts,
+  reconciliations, collecting facts across many files. Scouting is a
+  low-tier role. Keep what you reason over: dense implementation, live
+  iteration on a system, decisions, the dialogue with the user. Rule of
+  thumb: more than ~15–20 thousand tokens of raw reading ahead and the
+  session goes on for more than a few turns — delegate; under ~5 tool calls —
+  do it yourself. The report comes back short, with the full text in a file
+  (`rules/session-map.md`); spot-check the one or two facts the decision
+  rests on, not the whole report.
+- Do not launch a subagent to re-check what an executing gate already
+  verifies: the implementing subagent runs its own test loop, and an
+  independent pass is your call for a regulated area or a disputed
+  acceptance (`rules/subagent-pipeline.md`). If one subagent can close the
+  task, launch one. Unprompted, run in parallel at most 2–3 independent
+  scouts; a fan-out over one question is the user's command. Heavy
+  multi-file implementation stays with you unless the user turns on
+  orchestration mode (`rules/orchestrator-economy.md`).
+- **Which mechanism:**
+
+  | Mechanism | When |
+  | --- | --- |
+  | Yourself | under ~5 tool calls; you reason over the details; live iteration |
+  | Subagent | much reading, a short conclusion, no user involvement needed |
+  | Linked session | a self-contained task with its own code edits and dialogue with the user |
+  | Handoff / new session | a change of topic needing no coordination, or the context is already large |
+
+  A lead session running linked tasks is their coordinator: correspondence,
+  decisions, launching and accepting the linked sessions; its heavy reading
+  goes to subagents by default. Child sessions follow the same rules —
+  subagents inside them are fine. Payback numbers —
+  `rules/subagents-model-routing.md`, "Delegation"; linked sessions and
+  handoffs — `rules/session-handoff.md`.
 
 ## Rule Index (lazy loading)
 
@@ -91,8 +116,8 @@ Rule Index at the moment it applies, never preloaded.
 | Trigger (words) | Rule (`rules/…`) | Role |
 | --- | --- | --- |
 | script, automation, DryRun/Apply, data migration / скрипт, миграция данных | `script-contract` | developer |
-| delegation, subagent, model or effort choice / делегирование, субагент | `subagents-model-routing` | (orchestrator) |
-| orchestration mode, executor, resident agents, payback of a launch / оркестрация, исполнитель, резидент | `orchestrator-economy` | (orchestrator) |
+| delegation, subagent, payback of a launch, model or effort choice / делегирование, субагент, окупаемость | `subagents-model-routing` | (orchestrator) |
+| orchestration mode, executor, resident agents / оркестрация, исполнитель, резидент | `orchestrator-economy` | (orchestrator) |
 | autonomous run, work without confirmations, ratification, open questions register / автономный прогон, ратификация, допущение, развилка | `autonomous-run` | (orchestrator) |
 | long command output, compression proxy, rtk / длинный вывод команд | `tool-output-economy` | (any) |
 | spec, behavior change, proposal, OpenSpec / спека, предложение | `sdd-integrations` | analytic / architect |
@@ -104,6 +129,7 @@ Rule Index at the moment it applies, never preloaded.
 | work mode, scouting vs edit, emergency fix / режим работы, разведка | `collaboration-modes` | (orchestrator) |
 | debugging, bug, error reproduction / отладка, баг | `debugging-loop` | error-fixer |
 | session handoff, new session, context limit / передача сессии, хэндофф | `session-handoff` | (orchestrator) |
+| subagent reports, session map, after compaction / отчёты субагентов, карта сессии | `session-map` | (orchestrator) |
 | requirements interview, decision elicitation / интервью, уточнение требований | `decision-interview` | analytic |
 | letter or message in the user's name, forward / письмо от моего имени, ответ, пересылка | `outbound-messages` | (any) |
 | {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
@@ -131,8 +157,8 @@ model-family behavior blocks are rendered into the agent definitions.
 - Delegate bounded independent work (scouting, a separate edit, review);
   decomposition, final decisions and result integration stay with the
   orchestrator. Selection and delegation rules — `subagents-model-routing`.
-- Do not trust scouting subagents' reports blindly — spot-check key facts
-  against the source of truth.
+- Do not trust scouting subagents' reports blindly — spot-check the key
+  facts the decision rests on against the source of truth.
 
 ## MCP
 

@@ -17,13 +17,13 @@ python ci/simulate_install.py --emit-inventory
 <!-- generated:stats -->
 | | |
 |---|---|
-| версия | 0.11.2 |
-| правил | 54 |
+| версия | 0.11.3 |
+| правил | 55 |
 | скиллов | 12 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 358 |
+| файлов в цели | 359 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -47,7 +47,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 <!-- generated:tree-counts -->
 | Каталог | Файлов |
 |---|---|
-| `rules/` | 54 |
+| `rules/` | 55 |
 | `openspec/` | 5 |
 | `tools/` | 39 |
 | `.claude/agents/` | 13 |
@@ -71,12 +71,12 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `invariant` | 21 | что всегда верно про код такого вида; привязано к файлу |
 | `case` | 2 | симптом → фикс |
 | `recipe` | 8 | задача → процедура |
-| `process` | 22 | как вести работу: делегирование, память, верификация |
+| `process` | 23 | как вести работу: делегирование, память, верификация |
 | `router` | 1 | навигация к соседним правилам |
 <!-- /generated:genres -->
 
 <!-- generated:rules-core -->
-**Ядро** (22): `autonomous-run`, `autonomous-run-templates`, `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `intent-testing`, `orchestrator-economy`, `outbound-messages`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `test-model`, `tool-output-economy`, `verification-matrix`.
+**Ядро** (23): `autonomous-run`, `autonomous-run-templates`, `case-book`, `collaboration-modes`, `context-packs`, `debugging-loop`, `decision-interview`, `decisions-log`, `intent-testing`, `orchestrator-economy`, `outbound-messages`, `preflight-worktree`, `script-contract`, `sdd-integrations`, `session-handoff`, `session-map`, `subagent-pipeline`, `subagent-task-templates`, `subagents-model-routing`, `test-discipline`, `test-model`, `tool-output-economy`, `verification-matrix`.
 <!-- /generated:rules-core -->
 
 <!-- generated:rules-overlay -->

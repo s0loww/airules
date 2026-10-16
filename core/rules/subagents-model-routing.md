@@ -1,5 +1,5 @@
 ---
-description: "How to pick the role, tier and model for a subagent. Load when delegating work to subagents or configuring agent definitions. Триггеры: выбор модели, тир, делегирование, роль субагента."
+description: "How to pick the role, tier and model for a subagent. Load when delegating work to subagents, deciding whether a piece of work is worth a launch, or configuring agent definitions. Триггеры: выбор модели, тир, делегирование, роль субагента, окупаемость запуска, экономия контекста, разведчик."
 alwaysApply: false
 kind: process
 ---
@@ -89,8 +89,8 @@ checked against the real logs rather than trusted as a retelling.
 One-shot runs are the exception: launching a ready contract script or a
 test suite that writes a machine-readable report costs the orchestrator
 only the compact verdict — running it directly (in the background) is
-cheaper than a subagent launch (see the payback rule of thumb in
-`orchestrator-economy.md`). What gets delegated is the iteration: a failed
+cheaper than a subagent launch ("Payback of a launch" below). What gets
+delegated is the iteration: a failed
 run hands the *report path* (not the pasted log) to the fixing role, which
 owns the run-read-fix loop in its own context.
 
@@ -119,18 +119,44 @@ temporarily raising the rights of an ro-role.
 
 ## Delegation
 
-Delegate only large, genuinely independent, parallelizable work — a wide
-multi-file survey, a stream with its own write zone. Everything else the
-orchestrator does itself.
+The criterion is the cleanliness of the lead context, not the size of the
+work: delegate what needs raw material to reach a conclusion and does not
+need it afterwards (searches, surveys, logs, diffs, transcripts,
+reconciliations, facts across many files); keep what you reason over (dense
+implementation, live iteration, decisions, the dialogue with the user). The
+mechanism table — the root contract, "Work cycle".
 
-- Do not delegate what you would finish in a few tool calls: the launch
-  overhead exceeds the work (payback rule — `orchestrator-economy.md`).
+**Payback of a launch.** A launch costs a fixed overhead: root contract,
+lazily loaded rules, agent definition and tool schemas. Measured on installed
+roles: about 16 thousand tokens for a read-only role and 20 thousand for a
+writing one once the memory server is narrowed to two tools; a role without
+a tool list starts near 40 thousand. Calibrate against your own numbers.
+Every call of the lead session re-reads its context, so compare over the
+turns that remain, not the task alone:
+
+- doing it yourself ≈ raw volume read × remaining turns;
+- delegating ≈ launch overhead + report size × remaining turns.
+
+Example: 60 thousand of raw reading, 20 turns ahead — 1.2 million yourself
+against 16 thousand + 3 thousand × 20 = 76 thousand delegated. Near the end
+of a session (one or two turns left) the same reading is cheaper done
+yourself. Under ~5 tool calls the work is yours whatever the arithmetic says.
+
+- **The report is short.** A summary within the size the task sets (default:
+  up to ~300 words) plus the path to the full report in a file
+  (`session-map.md`). The full text never comes back through the context.
+- **Spot-check proportionately.** Re-check the one or two facts the decision
+  rests on — a grep, a fragment read, a hash. Re-reading the whole report or
+  its sources gives the saving back. "A report is a claim"
+  (`subagent-pipeline.md`, "Subagent completion control") still holds; this
+  sets its volume, not whether it applies.
 - Do not launch a subagent to re-check what an executing gate already
   verifies: the implementing subagent runs its own test loop. An independent
   pass is the orchestrator's call for a regulated area or a disputed
   acceptance (`subagent-pipeline.md`, "Tests run inside the implementing launch").
-- If one subagent can close the task, launch one; parallel launches are for
-  genuinely independent, sizeable tracks. Keep the launch count low; a fan-out of workers is a deliberate decision, not a reflex.
+- If one subagent can close the task, launch one. Unprompted, at most 2–3
+  independent scouts run in parallel; a fan-out of workers is a deliberate
+  decision, not a reflex.
 - Heavy multi-file implementation is **not** a delegation case by default:
   it is dense, cross-linked, and cheaper done directly than specified,
   handed over and reconciled. Orchestration mode reverses this default on the
@@ -140,13 +166,14 @@ orchestrator does itself.
   **only on the user's command**. It is the tool for claims that must be
   checked against a source independently — more deliberation in one pass
   does not protect from an error all passes would share.
+- A coordinating session (linked sessions running from it) sends its heavy
+  reading to subagents by default; its own context is for correspondence,
+  decisions and accepting results. Child sessions follow the same rules.
 
 Task decomposition, final decisions and result integration stay with the
-orchestrator. Scouting subagents' reports are not trusted blindly — key
-facts are spot-checked against the primary sources.
+orchestrator.
 
-**Why search still goes to a low tier.** Not for the token price: it keeps
-the orchestrator's context clean. Directory walks, grep output and dead-end
+**Why search goes to a low tier.** Not for the token price: it keeps the
+orchestrator's context clean. Directory walks, grep output and dead-end
 reads do not belong in the lead session — they push out what the orchestrator
-actually reasons over. This is the one case where a cheap launch pays for
-itself regardless of the volume of work.
+actually reasons over and are re-read on every later turn.

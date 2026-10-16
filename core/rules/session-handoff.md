@@ -53,6 +53,11 @@ this session's in-flight state beyond what a brief can carry.
    test environment and edits only after approval").
 5. **Reply format** — fixed verdicts per item, e.g. "defect / not a defect /
    not verified".
+6. **Session map** — the path to `var/tmp/session-map-<task>.md`, if the
+   coordinating session keeps one (`session-map.md`): the child reuses its
+   entries after checking their freshness instead of re-reading the sources.
+   A child that cannot see local files (a cloud session) gets the needed
+   entries as content.
 
 **The child session:**
 
@@ -90,7 +95,8 @@ this session's in-flight state beyond what a brief can carry.
    named it, use their wording.
 2. **State of work** — done / in progress / not started, by plan step if a
    plan exists.
-3. **Artifacts by reference** — paths, change ids, commit hashes. **Do not
+3. **Artifacts by reference** — paths, change ids, commit hashes, the
+   session map if one exists (`session-map.md`). **Do not
    duplicate content that already lives in artifacts** (specs, plans,
    workspace documents, commits, diffs): the handoff points, it does not
    retell. Duplicated content drifts from its source and the next session
@@ -145,5 +151,7 @@ task.
 - `preflight-worktree.md` — the receiving session still runs its own
   preflight; a handoff does not exempt it. A linked child session runs it too,
   against its own worktree.
+- `session-map.md` — the index of subagent and child-session reports that
+  a handoff and a linked brief point to.
 - `case-book.md` — an **undiagnosed** failure is handed over here; once the
   cause is known and it will recur, it becomes a case entry instead.

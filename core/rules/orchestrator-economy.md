@@ -1,5 +1,5 @@
 ---
-description: "Orchestration mode: on the user's session command the lead agent hands the main flow of execution to a named executor and keeps the task statement, decisions and acceptance. Covers the command, the role classes it affects, the state file, resident agents, and the payback rule for delegation. Load when the user turns orchestration on or off, names an executor or its effort, or when deciding whether a piece of work is worth a subagent launch. Триггеры: оркестрация, режим оркестратора, исполнитель, режим экономии, резидент, делегирование, дорогая модель"
+description: "Orchestration mode: on the user's session command the lead agent hands the main flow of execution to a named executor and keeps the task statement, decisions and acceptance. Covers the command, the role classes it affects, the state file and resident agents; the payback of a single launch lives in subagents-model-routing. Load when the user turns orchestration on or off, names an executor or its effort, or asks about resident agents. Триггеры: оркестрация, режим оркестратора, исполнитель, режим экономии, резидент, дорогая модель"
 alwaysApply: false
 kind: process
 ---
@@ -141,13 +141,9 @@ Rules while residents are on:
 
 - Trivial edits (quick-fix per the root contract's "Work cycle" boundary) are not
   delegated: the overhead of launching a subagent exceeds the savings.
-- A launch costs a fixed overhead: root contract, lazily loaded rules, agent
-  definition and tool schemas. Measured on installed roles: about 16 thousand
-  tokens for a read-only role and 20 thousand for a writing one once the
-  memory server is narrowed to two tools; a role without a tool
-  list starts near 40 thousand. Calibrate against your own numbers.
-- Delegate a bounded stream only when its expected work volume is at least
-  ~3x that overhead; below that, direct execution wins.
+- Launch overhead and the payback comparison over the remaining turns —
+  `subagents-model-routing.md`, "Delegation". With the mode on the same
+  arithmetic holds; the mode only moves the main flow to the executor.
 - If a tool-output compression proxy is installed (`tool-output-economy.md`),
   scouting subagents wrap their bulk reads with it — the two economies
   stack; the orchestrator's own spot-checks stay raw (verification, not

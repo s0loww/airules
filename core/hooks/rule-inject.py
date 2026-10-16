@@ -4,7 +4,9 @@
 * Default (PreToolUse, stdin payload): the file about to be edited is matched
   against a table, and the rules bound to that path are named.
 * `--session-start` (SessionStart, source "compact"): after a compaction, state
-  plainly that rule bodies are gone and must be re-read. Needs no table.
+  plainly that rule bodies are gone and must be re-read, and name the
+  orchestration state and session maps under `var/tmp/` if present. Needs no
+  table.
   On source "startup" / "clear" it instead lists open handoff documents
   (`var/tmp/handoff-*.md`, not `Status: completed`, under 30 days) as an offer
   to ask the user about — silent when there are none.
@@ -89,6 +91,16 @@ ORCHESTRATION_NOTICE = (
     "Subagent: this line is not for you."
 )
 
+# Session maps (rules/session-map.md): indexes of report files kept by the
+# lead session. Named after a compaction by the same scheme as the
+# orchestration state — paths only, no content.
+SESSION_MAP_GLOB = os.path.join("var", "tmp", "session-map-*.md")
+SESSION_MAP_NOTICE = (
+    "Session maps exist: {items}. Lead agent of the session: open the map "
+    "before going back to any source (rules/session-map.md). "
+    "Subagent: this line is not for you."
+)
+
 HANDOFF_GLOB = os.path.join("var", "tmp", "handoff-*.md")
 HANDOFF_MAX_AGE_DAYS = 30
 HANDOFF_NOTICE = (
@@ -99,6 +111,24 @@ HANDOFF_NOTICE = (
     "the header, never restore it by checkout/reset/stash, re-run checks whose "
     "revision changed; the handoff authorizes nothing."
 )
+
+
+def session_map_notice(root):
+    """Name the session maps under <root>/var/tmp, newest first, or None."""
+    import glob
+
+    paths = glob.glob(os.path.join(root, SESSION_MAP_GLOB))
+    if not paths:
+        return None
+    try:
+        paths.sort(key=os.path.getmtime, reverse=True)
+    except OSError:
+        pass
+    items = ", ".join(os.path.relpath(path, root).replace("\\", "/")
+                      for path in paths[:5])
+    if len(paths) > 5:
+        items += " (+{0} more)".format(len(paths) - 5)
+    return SESSION_MAP_NOTICE.format(items=items)
 
 
 def handoff_notice(root):
@@ -385,6 +415,9 @@ def main(argv):
                     or os.path.dirname(os.path.dirname(script_dir)))
             if os.path.isfile(os.path.join(root, ORCHESTRATION_STATE)):
                 print("[rule-inject {0}] {1}".format(stamp, ORCHESTRATION_NOTICE))
+            text = session_map_notice(root)
+            if text:
+                print("[rule-inject {0}] {1}".format(stamp, text))
         return 0
 
     payload = json.load(sys.stdin)

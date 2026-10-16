@@ -452,7 +452,10 @@ The orchestrator owns the lifecycle of every launch:
 - **A report is a claim, not a fact.** Numbers, hashes, pass counts and
   "all green" in a report are re-checked from the files or a command run
   before they go into a summary for the user (with many launches — a sample
-  of them, plus one end-to-end check). What a subagent "saw" about a
+  of them, plus one end-to-end check). The re-check is proportionate: the
+  one or two facts a decision or a user-facing claim rests on, not a
+  re-read of the whole report or its sources — that gives the delegation's
+  saving back (`subagents-model-routing.md`, "Delegation"). What a subagent "saw" about a
   neighbour's work mid-run is not evidence: the neighbour may not have been
   done yet.
 - **What an agent says about itself is not evidence either.** Whether its
