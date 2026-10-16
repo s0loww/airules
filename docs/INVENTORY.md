@@ -17,7 +17,7 @@ python ci/simulate_install.py --emit-inventory
 <!-- generated:stats -->
 | | |
 |---|---|
-| версия | 0.11.0 |
+| версия | 0.11.1 |
 | правил | 53 |
 | скиллов | 12 |
 | ролей субагентов | 13 |
