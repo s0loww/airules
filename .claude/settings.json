@@ -2,6 +2,19 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/core/hooks/rule-inject.py",
+              "--session-start"
+            ]
+          }
+        ]
+      },
+      {
         "matcher": "compact",
         "hooks": [
           {
