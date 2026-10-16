@@ -59,12 +59,23 @@ this session's in-flight state beyond what a brief can carry.
 - writes only inside its own worktree; never `cd` into another working
   directory (the main checkout, a sibling session's tree) — someone else may
   be working there;
-- merges into the main branch and pushes only on an explicit command, and only
-  after checking that the target working tree is clean.
+- commits to its own branch by itself, without asking: the branch is its
+  workspace, and the coordinating session or the user reviews the result
+  before anything leaves it;
+- when the work is done — or blocked — sends the report to the coordinating
+  session by itself, without waiting for a command: verdict per item in the
+  brief's reply format, branch and commit, checks run, what was not verified.
+  The user should not have to relay it;
+- merges into the main branch and pushes only on an explicit command. That
+  merge is the one exception to the worktree boundary — the main branch lives
+  in the main checkout — so first check that checkout is clean, merge
+  fast-forward only, and touch nothing else there.
 
 **The coordinating session:**
 
 - records what it started: the session name and its branch;
+- treats the child's report as a claim: reviews the diff and re-runs the
+  checks before merging;
 - checks the child's status and reports before drawing conclusions about
   commits that "appeared" — an unexpected commit on a shared branch is first
   checked against the sessions this one started.
