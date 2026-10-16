@@ -1,5 +1,5 @@
 ---
-description: "Handing work over between agent sessions: when to fork a fresh session vs compact the current one, what goes into the handoff document, where it lives and how a new session takes it over. Load when a task outgrows one context window, the user asks to continue elsewhere, or a session starts with a handoff on offer. Триггеры: передача сессии, хэндофф, новая сессия, продолжить с handoff, контекст переполняется, компакт."
+description: "Handing work over between agent sessions: when to fork a fresh session vs compact the current one, what goes into the handoff document, where it lives and how a new session takes it over; a linked session in its own worktree for an independent subtask. Load when a task outgrows one context window, a new unrelated task arrives in a long session, the user asks to continue elsewhere, or a session starts with a handoff on offer. Триггеры: передача сессии, хэндофф, новая сессия, продолжить с handoff, контекст переполняется, компакт, связанная сессия, отдельная сессия под подзадачу, новая задача в длинной сессии."
 alwaysApply: false
 kind: process
 ---
@@ -24,6 +24,50 @@ different scope.
   the fine-grained state a phase in flight depends on.
 - Quality drops before the hard context limit. Plan the handoff at a phase
   boundary, *before* the window is mostly spent — a handoff written by a degraded session inherits the degradation.
+- **A new independent task is a split signal.** When the user brings a task
+  that builds on nothing settled in this session, and the context is already
+  large or the topic is different — offer a linked session (below) or a
+  handoff instead of carrying on here. Every call re-reads the whole context,
+  so the cost of a session grows roughly with the square of its length; a
+  week of unrelated tasks in one window pays for all of them on every turn
+  and ends in compactions that lose the fine state of each.
+
+## Linked session for an independent subtask
+
+Applies only when the environment can start a linked session (a separate
+session in its own worktree, visible to the user and reporting back). Without
+that mechanism, use a handoff document instead.
+
+**When to offer.** In a coordinating session, a self-contained task appears
+that needs its own code edits or its own verification run — and does not need
+this session's in-flight state beyond what a brief can carry.
+
+**The brief is self-contained** — the child sees nothing of this session:
+
+1. **Context and base** — project, component/extension, the commit the work
+   starts from.
+2. **Items** — numbered, each with paths to the modules and routines involved.
+3. **Verification scenario** — per item, how to check it (environment, steps,
+   expected result).
+4. **Constraints** — what not to touch, where not to go (e.g. "no production;
+   test environment and edits only after approval").
+5. **Reply format** — fixed verdicts per item, e.g. "defect / not a defect /
+   not verified".
+
+**The child session:**
+
+- writes only inside its own worktree; never `cd` into another working
+  directory (the main checkout, a sibling session's tree) — someone else may
+  be working there;
+- merges into the main branch and pushes only on an explicit command, and only
+  after checking that the target working tree is clean.
+
+**The coordinating session:**
+
+- records what it started: the session name and its branch;
+- checks the child's status and reports before drawing conclusions about
+  commits that "appeared" — an unexpected commit on a shared branch is first
+  checked against the sessions this one started.
 
 ## What goes into the handoff document
 
@@ -88,6 +132,7 @@ task.
   its anti-patterns (retelling, "see the files above") apply here verbatim.
 - `decisions-log.md` — where locked decisions get recorded durably.
 - `preflight-worktree.md` — the receiving session still runs its own
-  preflight; a handoff does not exempt it.
+  preflight; a handoff does not exempt it. A linked child session runs it too,
+  against its own worktree.
 - `case-book.md` — an **undiagnosed** failure is handed over here; once the
   cause is known and it will recur, it becomes a case entry instead.

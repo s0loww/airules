@@ -16,7 +16,11 @@ generators, and risky automation.
 2. Check the status of the relevant working copy when it is a git
    repository.
 3. Identify unrelated dirty files and do not revert them.
-4. Determine the write scope and the files likely to be affected.
+4. Determine the write scope and the files likely to be affected. In a
+   session started in its own worktree, the scope is that worktree: other
+   working directories (the main checkout, sibling sessions) are read-only,
+   and merging or pushing to the main branch waits for an explicit command
+   (`session-handoff.md`, "Linked session").
 5. Read the project's source-of-truth rules before editing.
 6. Create a timestamped backup for rules, metadata XML, forms, generators,
    bulk edits, or risky scripts.

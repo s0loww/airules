@@ -1,5 +1,5 @@
 ---
-description: "Verification matrix by change type and the closing full-cycle gate, including coverage reconciliation when many inputs must be covered by a set of rules, and the operational-memory bracket around the gates. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить, сверка покрытия, все ли входы покрыты, что уже известно, записать находку в память."
+description: "Verification matrix by change type and the closing full-cycle gate, including coverage reconciliation when many inputs must be covered by a set of rules, and the operational-memory bracket around the gates. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить, сверка покрытия, все ли входы покрыты, что уже известно, записать находку в память, выкат пакета в бой."
 alwaysApply: false
 kind: process
 ---
@@ -29,6 +29,11 @@ supplied by the project profile; below they are described as categories.
 - Metadata/forms: use metadata tools and validators when available.
 - User scenario: add manual / UI smoke if tooling allows.
 - Many varied inputs onto one set of handling rules: add gate E below.
+- Rollout of a batch to production ("ship everything accumulated"): before
+  the rollout, list each change in the batch that was **not** verified on a
+  test environment — including ones you reported as unverified earlier in the
+  session. An earlier "not verified" does not carry over into the rollout
+  approval by itself.
 - High-risk change: the closing gate below **is** the bar — tighten it
   (impact analysis, a deeper validator pass) rather than adding a reviewer.
   An independent `code-reviewer` runs on an explicit user request only

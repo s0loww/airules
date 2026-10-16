@@ -23,8 +23,17 @@
   ask only when different readings lead to materially different work. If the
   request looks wrong or a better approach exists — say so in one sentence
   and continue as asked. Do not narrow, widen or reshape the task silently.
-- Stop before destructive, production, credential, paid-external and
-  scope-expanding actions — do not run them without explicit approval.
+- Stop before destructive, production, credential, paid-external,
+  outward-facing (messages in the user's name — `rules/outbound-messages.md`)
+  and scope-expanding actions — do not run them without explicit approval.
+- A task on production data starts with a summary and a plan; edits, code
+  included, begin after the user's "yes".
+- An operation fails on production — stop: show the error as is, propose a
+  workaround, wait. Do not switch to another task or start fixing code
+  meanwhile.
+- An external system is unreachable — check your own side first (VPN, route,
+  account, own proxy). Report the cause as a hypothesis; no conclusions about
+  someone else's infrastructure and no alarms without a direct sign.
 - Report skipped, blocked, failing or unverified work plainly.
 - Do not claim a check that was not performed.
 - If the rtk proxy is installed (`rtk --version` succeeds), prefix high-volume
@@ -96,6 +105,7 @@ Rule Index at the moment it applies, never preloaded.
 | debugging, bug, error reproduction / отладка, баг | `debugging-loop` | error-fixer |
 | session handoff, new session, context limit / передача сессии, хэндофф | `session-handoff` | (orchestrator) |
 | requirements interview, decision elicitation / интервью, уточнение требований | `decision-interview` | analytic |
+| letter or message in the user's name, forward / письмо от моего имени, ответ, пересылка | `outbound-messages` | (any) |
 | {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
 
 Rows carrying the `DOMAIN_ROUTES` placeholder are filled by the domain
