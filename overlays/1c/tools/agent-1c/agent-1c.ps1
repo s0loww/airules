@@ -6,7 +6,16 @@ param(
     [string]$Command = 'doctor',
 
     [string]$Profile = (Join-Path (Get-Location) 'agent-1c.json'),
-    [switch]$Apply
+    [switch]$Apply,
+
+    # test: как Vanessa подключается к файловой ИБ — напрямую (/F) или через ibsrv
+    # (/WS). Пусто — из профиля vanessa.connection, иначе file.
+    [ValidateSet('', 'file', 'ibsrv')]
+    [string]$Connection = '',
+
+    # test: прогнать Vanessa на невидимом рабочем столе Windows — окна тест-клиента
+    # не появляются на мониторе (lib/hidden-desktop.ps1).
+    [switch]$Hidden
 )
 
 $ErrorActionPreference = 'Stop'
@@ -204,11 +213,47 @@ function Invoke-Doctor {
     if ($vrunner) { Add-Step 'doctor.vanessa-runner' 'ok' $vrunner } else { Add-Step 'doctor.vanessa-runner' 'optional' 'Не установлен' }
 }
 
+function Get-BslFilesWithoutBom {
+    <# Модули .bsl без сигнатуры UTF-8. Такой файл с кириллицей роняет
+       /LoadConfigFromFiles МОЛЧА: пустой лог, нечитаемый код возврата. Расширение
+       грузится целиком, поэтому один файл блокирует деплой всем сразу. У .xml
+       кодировка объявлена внутри файла — сигнатура ему не нужна. #>
+    param([string]$Source)
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($file in (Get-ChildItem -LiteralPath $Source -Recurse -Filter '*.bsl' -File)) {
+        if ($file.Length -eq 0) { continue }  # пустой модуль читать нечем — не ломает
+        $head = New-Object byte[] 3
+        $stream = [System.IO.File]::OpenRead($file.FullName)
+        try { $read = $stream.Read($head, 0, 3) } finally { $stream.Dispose() }
+        if ($read -lt 3 -or $head[0] -ne 0xEF -or $head[1] -ne 0xBB -or $head[2] -ne 0xBF) {
+            $result.Add($file.FullName.Substring($Source.Length).TrimStart('\', '/'))
+        }
+    }
+    return $result.ToArray()
+}
+
+function Format-BomFileList {
+    # Список бывает на десятки файлов: показываем первые, остальное считаем.
+    param([string[]]$Files, [int]$Limit = 10)
+    if ($Files.Count -le $Limit) { return ($Files -join '; ') }
+    return (($Files[0..($Limit - 1)]) -join '; ') + "; и ещё $($Files.Count - $Limit)"
+}
+
 function Invoke-Analyze {
     $bsl = Get-BslExecutable
     if (-not (Test-Path -LiteralPath $bsl)) { throw 'BSL LS не установлен. Сначала выполните bootstrap.' }
     $source = Resolve-ProjectPath $script:ProfileData.sourceDir $script:ProjectRoot
     if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw "Каталог исходников не найден: $source" }
+
+    # Кодировка: анализу сигнатура не нужна — BSL LS читает UTF-8 и без неё, поэтому
+    # здесь предупреждение. Отказ живёт в Invoke-Deploy, где сигнатура решает.
+    $withoutBom = @(Get-BslFilesWithoutBom $source)
+    if ($withoutBom.Count -gt 0) {
+        Add-Step 'analyze.encoding' 'warning' ("Модули .bsl без UTF-8 BOM ($($withoutBom.Count)): " + (Format-BomFileList $withoutBom) + '. Анализу не мешает, но деплой через конфигуратор упадёт без внятной ошибки — исправить до деплоя.')
+    }
+    else {
+        Add-Step 'analyze.encoding' 'ok' 'Все модули .bsl в UTF-8 с сигнатурой'
+    }
     $out = Join-Path $script:RunDir 'bsl'
     New-Item -ItemType Directory -Path $out -Force | Out-Null
     $stdout = Join-Path $out 'stdout.log'
@@ -275,6 +320,18 @@ function Get-ServerDataDir {
     return ($ResolvedPath.TrimEnd('\', '/') + '_ServerData')
 }
 
+function Get-IbsrvDataDir {
+    <# Каталог данных ibsrv — ОТДЕЛЬНЫЙ от каталога ibcmd (Get-ServerDataDir).
+       В общем каталоге сеансы веб-клиента ibsrv, погашенного нештатно, остаются в
+       session-data, и следующий `ibcmd config apply` видит их активными и падает на
+       «Ошибка исключительной блокировки» — при том что живого сервера уже нет.
+       Раздельные каталоги: мусор ibsrv не мешает деплою, а каталог ibsrv можно
+       стереть целиком, не трогая ни базу, ни состояние ibcmd. #>
+    param($Target, [string]$ResolvedPath)
+    if ($Target.ibsrvDataDir) { return Resolve-ProjectPath $Target.ibsrvDataDir $script:ProjectRoot }
+    return ($ResolvedPath.TrimEnd('\', '/') + '_ibsrv')
+}
+
 function Get-IbcmdBaseArgs {
     param([string]$DbPath, [string]$DataDir, $Credentials)
     $list = @(('--db-path="' + $DbPath + '"'), ('--data="' + $DataDir + '"'))
@@ -287,9 +344,52 @@ function Get-ServedIbsrv {
     <# Процессы ibsrv, обслуживающие ЭТУ базу, — по командной строке, а не по
        файлу состояния: файл мог пережить перезагрузку, процесс — нет. #>
     param([string]$DbPath)
-    $needle = $DbPath.TrimEnd('\').ToLowerInvariant()
+    # Путь сравнивается ЦЕЛИКОМ, вместе с закрывающей кавычкой --db-path: подстрока
+    # «<каталог>\ERP» совпала бы и с ibsrv базы «<каталог>\ERP_Sub», и serve/deploy одной
+    # базы гасили бы сервер другой.
+    $needle = ('--db-path="' + $DbPath.TrimEnd('\') + '"').ToLowerInvariant()
     return @(Get-CimInstance Win32_Process -Filter "Name='ibsrv.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -and $_.CommandLine.ToLowerInvariant().Contains($needle) })
+}
+
+function Invoke-IbcmdBounded {
+    <# Вызов ibcmd с потолком по времени. `ibcmd --pid=<pid> session list` без учётки
+       или при подвисшем сервере ждёт бесконечно — прежний stop висел на нём. По
+       истечении срока процесс снимается, вызывающий получает $null и идёт дальше. #>
+    param([string]$Ibcmd, [string[]]$Arguments, [int]$Seconds = 15)
+    $out = [IO.Path]::GetTempFileName(); $err = [IO.Path]::GetTempFileName()
+    try {
+        $p = Start-Process -FilePath $Ibcmd -ArgumentList $Arguments -WindowStyle Hidden -PassThru `
+            -RedirectStandardOutput $out -RedirectStandardError $err
+        [void]$p.Handle  # PS 5.1: без обращения к Handle ExitCode приходит $null
+        if (-not $p.WaitForExit($Seconds * 1000)) {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            return $null
+        }
+        return @(Get-Content -LiteralPath $out -Encoding UTF8 -ErrorAction SilentlyContinue)
+    }
+    finally {
+        Remove-Item -LiteralPath $out, $err -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Get-1CClientIds {
+    return @(Get-Process -Name 1cv8, 1cv8c -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+}
+
+function Wait-New1CClientsExit {
+    <# Дождаться выхода клиентов 1С, появившихся после снимка $Before. vrunner
+       возвращается раньше, чем тест-клиент отпускает файл базы; ibsrv, поднятый в
+       этот зазор, стартует, но на запросы не отвечает. Возвращает число клиентов,
+       не вышедших за срок. #>
+    param([int[]]$Before, [int]$Seconds = 60)
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    do {
+        $fresh = @(Get-1CClientIds | Where-Object { $Before -notcontains $_ })
+        if ($fresh.Count -eq 0) { return 0 }
+        Start-Sleep -Seconds 1
+    } while ((Get-Date) -lt $deadline)
+    return $fresh.Count
 }
 
 function Wait-1CProcessExit {
@@ -304,17 +404,22 @@ function Wait-1CProcessExit {
 
 function Stop-ServedIbsrv {
     <# Штатно закрыть сеансы (ibcmd --pid session terminate) и остановить ibsrv
-       этой базы. Возвращает число остановленных процессов. #>
-    param([string]$DbPath, [string]$Ibcmd)
+       этой базы. Возвращает число остановленных процессов. Вызовы ibcmd - с учёткой
+       базы и с потолком по времени (Invoke-IbcmdBounded): без них stop висел на
+       `session list`, процесс снимали руками, и сеансы оставались в каталоге данных. #>
+    param([string]$DbPath, [string]$Ibcmd, $Credentials = $null)
     $stopped = 0
+    $auth = @()
+    if ($Credentials -and $Credentials.user) { $auth += ('--user=' + (Quote-IfNeeded $Credentials.user)) }
+    if ($Credentials -and $Credentials.password) { $auth += ('--password=' + (Quote-IfNeeded $Credentials.password)) }  # airules:allow creds-password (value from resolved credentials, never logged)
     foreach ($proc in (Get-ServedIbsrv $DbPath)) {
         $procId = [int]$proc.ProcessId
         if ($Ibcmd) {
             try {
-                $listing = & $Ibcmd "--pid=$procId" 'session' 'list' 2>$null
+                $listing = Invoke-IbcmdBounded $Ibcmd (@("--pid=$procId", 'session', 'list') + $auth) 15
                 foreach ($line in @($listing)) {
                     if ([string]$line -match '^\s*session\s*:\s*([0-9a-fA-F-]{36})') {
-                        & $Ibcmd "--pid=$procId" 'session' 'terminate' "--session=$($Matches[1])" '--error-message=agent-1c maintenance' 2>$null | Out-Null
+                        [void](Invoke-IbcmdBounded $Ibcmd (@("--pid=$procId", 'session', 'terminate', "--session=$($Matches[1])", '--error-message="agent-1c maintenance"') + $auth) 15)
                     }
                 }
             } catch { }
@@ -490,6 +595,41 @@ function Invoke-PostDeployProbe {
     }
 }
 
+function Get-ServeEndpoint {
+    <# Адрес и порт ibsrv из профиля (serve.address / serve.port), по умолчанию
+       127.0.0.1:18085. Url — без завершающего слеша. #>
+    $address = '127.0.0.1'; $port = 18085
+    if ($script:ProfileData.serve) {
+        if ($script:ProfileData.serve.address) { $address = [string]$script:ProfileData.serve.address }
+        if ($script:ProfileData.serve.port) { $port = [int]$script:ProfileData.serve.port }
+    }
+    return @{ Address = $address; Port = $port; Url = "http://${address}:$port" }
+}
+
+function Write-IbsrvPublication {
+    <# Файл --config для ibsrv: публикация HTTP-сервисов основной конфигурации и
+       расширений по умолчанию плюс явный список serve.httpServices профиля
+       ([{ name, root }]) — сервисы, которые должны отвечать по заданному корню. #>
+    param([string]$Path)
+    $lines = New-Object System.Collections.ArrayList
+    [void]$lines.Add('http:')
+    [void]$lines.Add('  - base: /')
+    [void]$lines.Add('    http-services:')
+    [void]$lines.Add('      publish-by-default: true')
+    [void]$lines.Add('      publish-extensions-by-default: true')
+    $services = @()
+    if ($script:ProfileData.serve -and $script:ProfileData.serve.httpServices) { $services = @($script:ProfileData.serve.httpServices) }
+    if ($services.Count -gt 0) {
+        [void]$lines.Add('      service:')
+        foreach ($s in $services) {
+            [void]$lines.Add('        - name: ' + [string]$s.name)
+            [void]$lines.Add('          root: ' + [string]$s.root)
+            [void]$lines.Add('          publish: true')
+        }
+    }
+    [IO.File]::WriteAllText($Path, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+}
+
 function Invoke-Serve {
     <# Поднять ibsrv над локальной файловой ИБ: веб-клиент и HTTP-сервисы на
        127.0.0.1:<порт>. Только файловая база — серверная обслуживается кластером. #>
@@ -502,27 +642,53 @@ function Invoke-Serve {
     if (-not $ibsrv) { throw "В сборке $($platform.Directory.Parent.Name) нет ibsrv.exe (нужен компонент сервера)." }
     $credentials = Resolve-TargetCredentials $target
     $dbPath = $credentials.path
-    $dataDir = Get-ServerDataDir $target $dbPath
-    $address = '127.0.0.1'; $port = 18085
-    if ($script:ProfileData.serve) {
-        if ($script:ProfileData.serve.address) { $address = [string]$script:ProfileData.serve.address }
-        if ($script:ProfileData.serve.port) { $port = [int]$script:ProfileData.serve.port }
-    }
+    $dataDir = Get-IbsrvDataDir $target $dbPath
+    $endpoint = Get-ServeEndpoint
+    $address = $endpoint.Address; $port = $endpoint.Port
 
-    $already = Stop-ServedIbsrv $dbPath $ibcmd
+    $already = Stop-ServedIbsrv $dbPath $ibcmd $credentials
     if ($already -gt 0) { Add-Step 'serve.restart' 'ok' "Остановлен прежний ibsrv этой базы: $already" }
+
+    # Веб-публикация той же файловой базы (служба из suspendServices) и ibsrv вместе
+    # базу не держат. Службы гасятся на всё время работы ibsrv; список погашенных
+    # запоминается в его каталоге данных, и stop поднимает их обратно.
+    New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+    $suspendedFile = Join-Path $dataDir 'suspended-services.txt'
+    # Прежний serve мог погасить службы и не быть остановлен штатно - список не терять.
+    $suspended = @(Read-ServiceList $suspendedFile) + @(Suspend-TargetServices)
+    Write-ServiceList $suspendedFile $suspended
+
+    # Файл публикации: без него ibsrv отдаёт только HTTP-сервисы основной
+    # конфигурации, а на сервис расширения отвечает 503 «sessionId != kUUIDNull».
+    # Лежит в каталоге данных ibsrv — это его состояние, живёт вместе с ним.
+    New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+    $publication = Join-Path $dataDir 'publication.yml'
+    Write-IbsrvPublication $publication
+    Add-Step 'serve.publication' 'ok' "Публикация HTTP-сервисов (в т.ч. расширений): $publication"
 
     # БЕЗ -RedirectStandard*: с перенаправлением Start-Process создаёт процесс с
     # наследованием дескрипторов, ibsrv уносит пайп вызывающего шелла, и тот
     # висит, пока сервер жив (живой случай: агентский инструмент не вернулся).
     # Без перенаправления запуск идёт через ShellExecute — дескрипторы не
     # наследуются. Журнал сервера живёт в его каталоге данных.
-    $srvArgs = @(('--db-path="' + $dbPath + '"'), ('--data="' + $dataDir + '"'), "--address=$address", "--port=$port")
+    # Регламентные задания по умолчанию запрещены (serve.scheduleJobs = deny). ibsrv,
+    # в отличие от файловой базы под веб-сервером, планирует их сам: на копии рабочей
+    # базы это внешние вызовы (обмены, загрузки из интернета) и конфликты блокировок
+    # с тестом. Живой случай: задание ЭДО держало блокировку, типовой обработчик
+    # записи контрагента гасил конфликт ОтменитьТранзакцию, и запись молча
+    # откатывалась без исключения.
+    $scheduleJobs = 'deny'
+    if ($script:ProfileData.serve -and $script:ProfileData.serve.scheduleJobs) { $scheduleJobs = [string]$script:ProfileData.serve.scheduleJobs }
+    if ($scheduleJobs -notin @('allow', 'deny')) { throw "serve.scheduleJobs: допустимо allow или deny, задано «$scheduleJobs»." }
+    $srvArgs = @(('--db-path="' + $dbPath + '"'), ('--data="' + $dataDir + '"'), "--address=$address", "--port=$port", ('--config="' + $publication + '"'), "--schedule-jobs=$scheduleJobs")
     $proc = Start-Process -FilePath $ibsrv -ArgumentList $srvArgs -WindowStyle Hidden -PassThru
 
     $url = "http://${address}:$port/"
     $ready = $false
-    for ($i = 0; $i -lt 60; $i++) {
+    # Срок по часам, а не по числу попыток: запрос к молчащему серверу сам ждёт
+    # до 3 с, и 60 попыток растягивались на четыре минуты.
+    $deadline = (Get-Date).AddSeconds(60)
+    while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 1
         if ($proc.HasExited) { break }
         try {
@@ -536,7 +702,8 @@ function Invoke-Serve {
     }
     if (-not $ready) {
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
-        throw "ibsrv не ответил на $url за 60 с (порт занят? другой ibsrv держит каталог данных $dataDir?)."
+        Resume-ServeSuspendedServices $dataDir
+        throw "ibsrv не ответил на $url за 60 с (порт занят? другой ibsrv держит каталог данных ${dataDir}? клиент ещё держит файл базы?)."
     }
     $state = [ordered]@{ pid = $proc.Id; url = $url; dbPath = $dbPath; dataDir = $dataDir; build = $platform.Directory.Parent.Name }
     $state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:RunDir 'ibsrv.state.json') -Encoding UTF8
@@ -548,8 +715,33 @@ function Invoke-Stop {
     if (-not $target -or $target.kind -ne 'file') { Add-Step 'stop' 'skipped' 'Нет файловой тестовой ИБ'; return }
     $platform = Get-Platform $script:ProfileData
     $credentials = Resolve-TargetCredentials $target
-    $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe')
+    $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe') $credentials
     Add-Step 'stop' 'ok' "Остановлено процессов ibsrv этой базы: $n"
+    Resume-ServeSuspendedServices (Get-IbsrvDataDir $target $credentials.path)
+}
+
+function Resume-ServeSuspendedServices {
+    <# Поднять службы, которые погасил serve (список в каталоге данных ibsrv), и
+       очистить список. Службы, поднятые кем-то раньше, Start-Service не трогает. #>
+    param([string]$DataDir)
+    $file = Join-Path $DataDir 'suspended-services.txt'
+    if (-not (Test-Path -LiteralPath $file)) { return }
+    Resume-TargetServices @(Read-ServiceList $file)
+    Write-ServiceList $file @()
+}
+
+# Список имён служб в файле - строками по одной, без JSON: ConvertTo-Json в
+# Windows PowerShell 5.1 заворачивает вложенный массив в {value, Count}.
+function Read-ServiceList {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return @() }
+    return @(Get-Content -LiteralPath $Path -Encoding UTF8 | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+}
+
+function Write-ServiceList {
+    param([string]$Path, $Names)
+    $list = @(@($Names) | Where-Object { $_ } | ForEach-Object { [string]$_ } | Select-Object -Unique)
+    [IO.File]::WriteAllLines($Path, [string[]]$list, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 function Invoke-Unit {
@@ -583,10 +775,12 @@ function Invoke-Unit {
     $baseId = Get-1CBaseIdentity $target $credentials.path
     $lock = $null
     if ($baseId) { $lock = Enter-1CBaseLock -Target $baseId -LogPath $guardLog }
+    $reserve = $false
     try {
         if ($target.kind -eq 'file') {
-            $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe')
-            if ($n -gt 0) { Add-Step 'unit.ibsrv' 'ok' "Остановлен ibsrv этой базы ($n): пока он работает, ENTERPRISE базу не откроет" }
+            $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe') $credentials
+            if ($n -gt 0) { $reserve = $true; Add-Step 'unit.ibsrv' 'ok' "Остановлен ibsrv этой базы ($n) на время прогона: пока он работает, ENTERPRISE базу не откроет" }
+            Resume-ServeSuspendedServices (Get-IbsrvDataDir $target $credentials.path)
         }
         $before = @(Get-Process -Name 1cv8 -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
         $timeout = 30
@@ -605,6 +799,9 @@ function Invoke-Unit {
         Exit-1CBaseLock $lock
         [void]$script:Artifacts.Add($guardLog)
         [void]$script:Artifacts.Add($outLog)
+        if ($reserve) {
+            try { Invoke-Serve } catch { Add-Step 'unit.ibsrv' 'error' "ibsrv не поднялся после прогона: $($_.Exception.Message)"; $script:ExitCode = 1 }
+        }
     }
     if ($guard.Killed) { Add-Step 'unit' 'error' "Сторож снял прогон: $($guard.Reason). См. $guardLog"; $script:ExitCode = 1; return }
     if (-not (Test-Path -LiteralPath $report)) {
@@ -645,6 +842,23 @@ function Invoke-Deploy {
     $planMessage = "Загрузить XML из $source и обновить тестовую ИБ ($($target.kind)); движок: $engine, сборка $($platform.Directory.Parent.Name)"
     if ($extensionName) { $planMessage += "; расширение $extensionName" }
     Add-Step 'deploy.plan' 'ok' $planMessage
+
+    # Гейт кодировки — до первого запуска, чтобы не оставить базу в промежуточном
+    # состоянии. Для конфигуратора отказ: /LoadConfigFromFiles на .bsl без сигнатуры
+    # падает молча и уносит загрузку всего расширения. Для ibcmd то же поведение
+    # не подтверждено — там предупреждение.
+    $withoutBom = @(Get-BslFilesWithoutBom $source)
+    if ($withoutBom.Count -gt 0) {
+        $bomList = "модули .bsl без UTF-8 BOM ($($withoutBom.Count)): " + (Format-BomFileList $withoutBom)
+        if ($engine -eq 'ibcmd') {
+            Add-Step 'deploy.encoding' 'warning' ("В исходниках $bomList. Конфигуратор такую загрузку роняет без внятной ошибки; для ibcmd не проверено.")
+        }
+        else {
+            Add-Step 'deploy.encoding' 'error' ("Деплой остановлен: $bomList. Платформа не прочитает такой файл и уронит загрузку без внятной ошибки.")
+            $script:ExitCode = 1
+            return
+        }
+    }
 
     $runs = New-Object System.Collections.ArrayList
     $exe = $platform.FullName
@@ -717,11 +931,15 @@ function Invoke-Deploy {
     $lock = $null
     if ($baseId) { $lock = Enter-1CBaseLock -Target $baseId -LogPath $guardLog }
     $suspended = @()
+    $reserve = $false
     try {
         # Сеансы держат ibsrv этой базы и службы из профиля — их гасит сам деплой.
+        # ibsrv, который работал до деплоя, поднимается после него: он и есть
+        # постоянный сервер базы (веб-клиент, HTTP-сервисы).
         if ($target.kind -eq 'file') {
-            $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe')
-            if ($n -gt 0) { Add-Step 'deploy.ibsrv' 'ok' "Остановлен ibsrv этой базы ($n); поднимите заново командой serve" }
+            $n = Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe') $credentials
+            if ($n -gt 0) { $reserve = $true; Add-Step 'deploy.ibsrv' 'ok' "Остановлен ibsrv этой базы ($n) на время деплоя" }
+            Resume-ServeSuspendedServices (Get-IbsrvDataDir $target $credentials.path)
         }
         $suspended = Suspend-TargetServices
         if ($engine -eq 'ibcmd' -and -not (Test-Path -LiteralPath (Join-Path $credentials.path '1Cv8.1CD'))) {
@@ -736,6 +954,9 @@ function Invoke-Deploy {
         Resume-TargetServices $suspended
         Exit-1CBaseLock $lock
         [void]$script:Artifacts.Add($guardLog)
+        if ($reserve) {
+            try { Invoke-Serve } catch { Add-Step 'deploy.ibsrv' 'error' "ibsrv не поднялся после деплоя: $($_.Exception.Message)"; $script:ExitCode = 1 }
+        }
     }
     Add-Step 'deploy.apply' 'ok' ("Тестовая ИБ обновлена ($engine); запусков: " + $runs.Count)
 }
@@ -779,6 +1000,37 @@ function Expand-TemplateToFile {
     [System.IO.File]::WriteAllText($OutputPath, $text, $encoding)
 }
 
+function Publish-FeatureSet {
+    <# Подстановка {{ТОКЕН}} в тексте фич — те же плейсхолдеры, что у
+       Expand-TemplateToFile, но для .feature, а не JSON (например, путь к .env из
+       testTarget.envFile, чтобы не хардкодить его в сценариях). Каталог фич
+       копируется в каталог прогона целиком, переписываются только файлы с токенами;
+       BOM сохраняется как в исходнике. Возвращает каталог, из которого запускать:
+       без токенов в фичах — исходный, без копирования. #>
+    param([string]$SourceDir, [string]$DestDir, [hashtable]$Replacements)
+    $withTokens = @(Get-ChildItem -LiteralPath $SourceDir -Recurse -Filter '*.feature' -File | Where-Object {
+        $text = [System.IO.File]::ReadAllText($_.FullName, [Text.Encoding]::UTF8)
+        @($Replacements.Keys | Where-Object { $text.Contains('{{' + $_ + '}}') }).Count -gt 0
+    })
+    if ($withTokens.Count -eq 0) { return $SourceDir }
+
+    if (Test-Path -LiteralPath $DestDir) { Remove-Item -LiteralPath $DestDir -Recurse -Force }
+    Copy-Item -LiteralPath $SourceDir -Destination $DestDir -Recurse -Force
+    $root = $SourceDir.TrimEnd('\', '/')
+    foreach ($file in $withTokens) {
+        $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+        $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+        $text = [System.IO.File]::ReadAllText($file.FullName, [Text.Encoding]::UTF8)
+        foreach ($key in $Replacements.Keys) {
+            $text = $text.Replace('{{' + $key + '}}', [string]$Replacements[$key])
+        }
+        $staged = Join-Path $DestDir $file.FullName.Substring($root.Length).TrimStart('\', '/')
+        [System.IO.File]::WriteAllText($staged, $text, (New-Object System.Text.UTF8Encoding($hasBom)))
+    }
+    Add-Step 'test.features' 'ok' "Токены подставлены в фичах: $($withTokens.Count); прогон из $DestDir"
+    return $DestDir
+}
+
 function Remove-SecretFromFiles {
     param([string[]]$Files, [string]$Secret)
     $encoding = New-Object System.Text.UTF8Encoding($false)
@@ -794,6 +1046,34 @@ function Remove-SecretFromFiles {
             [System.IO.File]::WriteAllText($file, $masked, $encoding)
         }
     }
+}
+
+function Invoke-TestHidden {
+    <# test -Hidden: тот же прогон, перезапуском себя на невидимом рабочем столе. Все
+       дочерние процессы (vrunner, тест-менеджер, тест-клиент) наследуют этот стол.
+       Внутренний прогон пишет свой каталог *-test; отсюда берутся его шаги и код. #>
+    . (Join-Path $PSScriptRoot 'lib\hidden-desktop.ps1')
+    $resultRoot = Split-Path -Parent $script:RunDir
+    $before = @(Get-ChildItem -LiteralPath $resultRoot -Directory -Filter '*-test' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+    $inner = @('powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+        ('"' + $PSCommandPath + '"'), 'test', '-Profile', ('"' + ([IO.Path]::GetFullPath($Profile)) + '"'))
+    if ($Connection) { $inner += @('-Connection', $Connection) }
+    $timeout = [int](Get-1CGuardSetting 'AGENT1C_TEST_TIMEOUT_MIN' 45) + 10
+    Add-Step 'test.hidden' 'ok' "Прогон на невидимом рабочем столе (таймаут $timeout мин)"
+    $code = Invoke-OnHiddenDesktop -CommandLine ($inner -join ' ') -WorkingDirectory $script:ProjectRoot -TimeoutMinutes $timeout
+    $innerDir = Get-ChildItem -LiteralPath $resultRoot -Directory -Filter '*-test' -ErrorAction SilentlyContinue |
+        Where-Object { $before -notcontains $_.FullName -and $_.FullName -ne $script:RunDir } |
+        Sort-Object Name | Select-Object -Last 1
+    if ($code -eq -1) { Add-Step 'test.hidden' 'error' "Прогон снят по таймауту $timeout мин"; $script:ExitCode = 1 }
+    if (-not $innerDir) { Add-Step 'test.hidden' 'error' "Внутренний прогон не оставил каталога (код $code)"; $script:ExitCode = 1; return }
+    [void]$script:Artifacts.Add($innerDir.FullName)
+    $innerResult = Join-Path $innerDir.FullName 'result.json'
+    if (Test-Path -LiteralPath $innerResult) {
+        $r = Get-Content -LiteralPath $innerResult -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($s in @($r.steps)) { Add-Step ('hidden.' + $s.name) $s.status $s.message }
+    }
+    if ($code -ne 0 -and $code -ne -1) { $script:ExitCode = $code }
+    Add-Step 'test.hidden' $(if ($code -eq 0) { 'ok' } else { 'error' }) "Внутренний прогон: код $code, каталог $($innerDir.FullName)"
 }
 
 function Invoke-Test {
@@ -835,6 +1115,10 @@ function Invoke-Test {
     if (-not (Test-Path -LiteralPath $settingsTemplate -PathType Leaf)) { throw "Шаблон настроек не найден: $settingsTemplate" }
     if (-not (Test-Path -LiteralPath $addTemplate -PathType Leaf)) { throw "Шаблон Vanessa-ADD не найден: $addTemplate" }
 
+    $envFilePath = ''
+    if ($target.envFile) { $envFilePath = (Resolve-ProjectPath $target.envFile $script:ProjectRoot) -replace '\\', '/' }
+    $featuresDir = Publish-FeatureSet $featuresDir (Join-Path $script:RunDir 'features') @{ ENV_FILE = $envFilePath }
+
     $outputDir = Join-Path $script:RunDir 'reports'
     New-Item -ItemType Directory -Path (Join-Path $outputDir 'junit') -Force | Out-Null
 
@@ -852,10 +1136,32 @@ function Invoke-Test {
     if (-not (Test-Path -LiteralPath $vaLibrariesDir -PathType Container)) {
         Add-Step 'test.vanessa.libraries' 'warning' "Каталог библиотечных фич не найден: $vaLibrariesDir; шаги пакета add будут нераспознаны (поставьте пакет через opm)"
     }
-    $ibConnection = '/F' + ($credentials.path -replace '\\', '/')
-    $ibFileConnection = 'File="' + $credentials.path + '";'
+    # Подключение: напрямую к файлу (/F) либо через ibsrv (/WS) — второе быстрее
+    # на длинном наборе и не держит файл базы клиентом. ibsrv поднимается сам, если
+    # не запущен; тест-менеджер и «Этот клиент» VA идут по одному адресу.
+    $mode = $Connection
+    $reserveTest = $false
+    $clientsBefore = Get-1CClientIds
+    if (-not $mode -and $script:ProfileData.vanessa -and $script:ProfileData.vanessa.connection) { $mode = [string]$script:ProfileData.vanessa.connection }
+    if (-not $mode) { $mode = 'file' }
+    if ($mode -eq 'ibsrv') {
+        if ((Get-ServedIbsrv $credentials.path).Count -eq 0) { Invoke-Serve }
+        $wsUrl = (Get-ServeEndpoint).Url
+        $ibConnection = '/WS' + $wsUrl
+        $ibFileConnection = 'ws="' + $wsUrl + '";'
+    }
+    else {
+        # /F и работающий ibsrv базу вместе не держат: ibsrv гасится на время прогона
+        # и поднимается после него (finally ниже).
+        if ((Stop-ServedIbsrv $credentials.path (Get-PlatformBinTool $platform 'ibcmd.exe') $credentials) -gt 0) {
+            $reserveTest = $true
+            Add-Step 'test.ibsrv' 'ok' 'Остановлен ibsrv этой базы на время прогона по /F'
+        }
+        $ibConnection = '/F' + ($credentials.path -replace '\\', '/')
+        $ibFileConnection = 'File="' + $credentials.path + '";'
+    }
 
-    Add-Step 'test.plan' 'ok' "Смоук Vanessa-Automation против $($ibConnection) под '$($credentials.user)'; epf: $vanessaEpf; фичи: $featuresDir; тонкий клиент: $([bool]($ordinaryApp -eq 0))"
+    Add-Step 'test.plan' 'ok' "Смоук Vanessa-Automation против $($ibConnection) ($mode) под '$($credentials.user)'; epf: $vanessaEpf; фичи: $featuresDir; тонкий клиент: $([bool]($ordinaryApp -eq 0))"
 
     $previousPath = $env:PATH
     $hadPwdVar = Test-Path Env:\RUNNER_DBPWD
@@ -881,6 +1187,21 @@ function Invoke-Test {
             LOGIN              = [string]$credentials.user
             PASSWORD           = [string]$credentials.password  # airules:allow creds-password (template value from resolved credentials, no literal secret)
         }) $addTmp
+
+        # Под ibsrv у базы свой журнал регистрации и своя строка соединения: сценарии,
+        # которые на них опираются, помечены @ТолькоФайл и здесь исключаются. Правка
+        # текстом, не через ConvertFrom/To-Json: в Windows PowerShell 5.1 обратная
+        # сериализация портит вложенные массивы VAParams. BOM сохраняется (VA без него
+        # читает файл как windows-1251).
+        if ($mode -eq 'ibsrv') {
+            $vaText = [IO.File]::ReadAllText($addTmp, [Text.Encoding]::UTF8)
+            $vaPatched = [regex]::Replace($vaText, '"СписокТеговИсключение"\s*:\s*\[\s*\]', '"СписокТеговИсключение": ["ТолькоФайл"]')
+            if ($vaPatched -eq $vaText) { Add-Step 'test.tags' 'warning' 'Не удалось исключить тег ТолькоФайл: в шаблоне VAParams нет пустого СписокТеговИсключение' }
+            else {
+                [IO.File]::WriteAllText($addTmp, $vaPatched, (New-Object System.Text.UTF8Encoding($true)))
+                Add-Step 'test.tags' 'ok' 'Под ibsrv исключены сценарии с тегом @ТолькоФайл'
+            }
+        }
 
         $env:PATH = (Get-OneScriptBin) + ';' + $env:PATH
         if ($credentials.password) { $env:RUNNER_DBPWD = $credentials.password } else { $env:RUNNER_DBPWD = '' }
@@ -948,6 +1269,11 @@ function Invoke-Test {
         }
         $env:PATH = $previousPath
         if ($hadPwdVar) { $env:RUNNER_DBPWD = $previousPwd } else { Remove-Item Env:\RUNNER_DBPWD -ErrorAction SilentlyContinue }
+        if ($reserveTest) {
+            $left = Wait-New1CClientsExit $clientsBefore 60
+            if ($left -gt 0) { Add-Step 'test.ibsrv' 'warning' "Клиенты 1С после прогона не вышли за 60 с ($left) — ibsrv может не открыть базу" }
+            try { Invoke-Serve } catch { Add-Step 'test.ibsrv' 'error' "ibsrv не поднялся после прогона: $($_.Exception.Message)"; $script:ExitCode = 1 }
+        }
     }
 }
 
@@ -958,7 +1284,10 @@ try {
     $script:ProfileData = Get-Content -LiteralPath $profilePath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($script:ProfileData.schemaVersion -ne 1) { throw 'Неподдерживаемая версия профиля.' }
     $resultRoot = Resolve-ProjectPath $script:ProfileData.resultDir $script:ProjectRoot
-    $script:RunDir = Join-Path $resultRoot ((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '-' + $Command)
+    # test -Hidden пишет в свой каталог *-test-hidden: внутренний прогон (*-test)
+    # стартует в ту же секунду и иначе попал бы в тот же каталог.
+    $runLabel = if ($Hidden -and $Command -eq 'test') { 'test-hidden' } else { $Command }
+    $script:RunDir = Join-Path $resultRoot ((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '-' + $runLabel)
     New-Item -ItemType Directory -Path $script:RunDir -Force | Out-Null
 
     switch ($Command) {
@@ -966,7 +1295,7 @@ try {
         'doctor' { Invoke-Doctor }
         'analyze' { Invoke-Analyze }
         'deploy' { Invoke-Deploy }
-        'test' { Invoke-Test }
+        'test' { if ($Hidden) { Invoke-TestHidden } else { Invoke-Test } }
         'unit' { Invoke-Unit }
         'serve' { Invoke-Serve }
         'stop' { Invoke-Stop }

@@ -137,7 +137,14 @@
             "string",
             "null"
           ],
-          "description": "Каталог состояния автономного сервера (--data). По умолчанию <path>_ServerData — рядом с базой, не внутри неё."
+          "description": "Каталог состояния ibcmd (--data для deploy/unit). По умолчанию <path>_ServerData — рядом с базой, не внутри неё."
+        },
+        "ibsrvDataDir": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Каталог состояния ibsrv (--data для serve), отдельный от dataDir: сеансы нештатно погашенного ibsrv в общем каталоге валят config apply. По умолчанию <path>_ibsrv."
         }
       }
     },
@@ -170,6 +177,14 @@
             1
           ],
           "description": "Тип клиента: 0 — тонкий (по умолчанию), 1 — толстый, -1 — без указания."
+        },
+        "connection": {
+          "type": "string",
+          "enum": [
+            "file",
+            "ibsrv"
+          ],
+          "description": "Подключение Vanessa к файловой ИБ: file — напрямую (/F, по умолчанию), ibsrv — через автономный сервер (/WS, поднимается сам). Перекрывается ключом test -Connection."
         }
       }
     },
@@ -178,7 +193,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Службы Windows, держащие сеансы базы (веб-публикация, мост): deploy останавливает их на время загрузки и поднимает обратно. Нужны права администратора."
+      "description": "Службы Windows, держащие сеансы базы (веб-публикация, мост): deploy останавливает их на время загрузки и поднимает обратно, serve — на всё время работы ibsrv (stop поднимает). Поле верхнего уровня профиля. Нужны права администратора."
     },
     "probe": {
       "type": "object",
@@ -217,6 +232,23 @@
           "type": "integer",
           "minimum": 1,
           "description": "По умолчанию 18085."
+        },
+        "httpServices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "Имя HTTP-сервиса в метаданных." },
+              "root": { "type": "string", "description": "Корневой URL: /hs/<root>/." }
+            },
+            "required": ["name", "root"]
+          },
+          "description": "HTTP-сервисы, публикуемые ibsrv явно (файл --config). Сервисы расширений без этого списка отвечают 503."
+        },
+        "scheduleJobs": {
+          "type": "string",
+          "enum": ["allow", "deny"],
+          "description": "Планирование регламентных заданий ibsrv (--schedule-jobs). По умолчанию deny: на копии рабочей базы задания делают внешние вызовы и держат блокировки, мешая тестам."
         }
       }
     },
