@@ -23,6 +23,7 @@ services:
     networks:
       - project_bl_mcp_default
       - erp_bl_mcp_default
+      - ka2_sut_mcp_default
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -37,6 +38,9 @@ services:
       - D:/AI_Projects/Project_BL/erp_crc:/srv/sources/erp:ro        # база ERP, бэкендов нет
       - D:/AI_Projects/Project_BL/src_lk:/srv/sources/lk:ro         # ЛизинговыйКонтур (единый контур лизинга)
       - D:/AI_Projects/Эквадор/src/main:/srv/sources/ec:ro          # Contabilidad (Эквадор)
+      - D:/bases_mcp/ka2_drop:/srv/sources/ka2:ro                   # КомплекснаяАвтоматизация (база КА2)
+      - D:/AI_Projects/project_ka2/src:/srv/sources/sut:ro          # сопряжение_УТ (расширение КА2)
+      - D:/bases_mcp/bp_drop:/srv/sources/bp:ro                     # БухгалтерияПредприятия
 
       # Отметки последнего обращения для LRU. Именованный том, чтобы переживать
       # пересоздание контейнера.
@@ -68,4 +72,6 @@ networks:
   project_bl_mcp_default:
     external: true
   erp_bl_mcp_default:
+    external: true
+  ka2_sut_mcp_default:
     external: true
