@@ -1,5 +1,5 @@
 ---
-description: "COM-автоматизация 1С из PowerShell: V83.COMConnector, обёртки, запросы, безопасность записи. Load before writing or running 1C COM scripts. Триггеры: подключиться к базе из скрипта, COMConnector, выгрузить данные скриптом, запрос из PowerShell, не цепляется к базе."
+description: "COM-автоматизация 1С из PowerShell: V83.COMConnector, обёртки, запросы, безопасная запись. Триггеры: подключиться к базе из скрипта, COMConnector, запрос из PowerShell."
 alwaysApply: false
 kind: recipe
 ---

@@ -1,5 +1,5 @@
 ---
-description: "Domain-Driven Design applied to 1C — ubiquitous language, bounded contexts, aggregates and consistency boundaries, invariants, domain events, anti-corruption layer. Load when modeling a new domain area, carving a contour into an extension, or reviewing a design against domain boundaries. Триггеры: DDD, доменная модель, агрегаты, границы контекстов, инварианты, доменные события."
+description: "DDD for 1C: ubiquitous language, bounded contexts, aggregates, invariants, domain events, anti-corruption layer. Триггеры: DDD, доменная модель, агрегаты, границы контекстов."
 alwaysApply: false
 kind: invariant
 ---

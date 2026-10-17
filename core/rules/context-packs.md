@@ -1,5 +1,5 @@
 ---
-description: "Context packs: per task type a pack is loaded = rule + skill + tool category + source of truth. Load when starting a recurring class of task and picking what to read up front. Триггеры: контекст-пак, класс задач, источник истины, что читать"
+description: "Context packs: rule + skill + tool category + source of truth to load up front for a recurring class of task. Триггеры: контекст-пак, класс задач, что читать."
 alwaysApply: false
 kind: process
 ---
@@ -10,9 +10,9 @@ A context pack is a small starting map for a recurring class of tasks. It
 avoids re-discovering the same things over and over and keeps the heavy
 model's context focused.
 
-A pack is an expanded row of the routing mini-table from the root contract
-(root `AGENTS.md`): where the mini-table gives a "trigger → rule →
-role" pair, the pack expands it into the full loading set. Rules are still
+A pack is an expanded Rule Index entry from the root contract (root
+`AGENTS.md`): where the index gives a "trigger → rule" line, the pack
+expands it into the full loading set. Rules are still
 loaded lazily via the Rule Index at the moment of application — the pack
 only names what to plug in, it does not preload.
 
@@ -60,5 +60,5 @@ stack overlay or the project layer. Such a pack lives in the target
 repository's rules/commands/prompts and overrides the generic map above: it
 names the domain rule, the project's concrete source of truth, the profile
 navigation tools, and the specific traps. The format is the same — an
-expanded routing mini-table row, extended with the domain rows that the
-overlay writes in place of the domain-routing placeholders.
+expanded index entry; a stack overlay may ship its task map as the source
+for such packs.

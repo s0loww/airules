@@ -1,6 +1,6 @@
 ---
 name: developer
-description: "Code implementation from a ready plan: modules, procedures, functions, queries, forms. Also writes inline code documentation. Call when a plan/design already exists and needs to be implemented. Триггеры: реализация, написать код, по плану, разработка."
+description: "Implements code from a ready plan or design, including inline code docs. Триггеры: реализация, написать код, по плану."
 tier: high
 tools: rw
 ---

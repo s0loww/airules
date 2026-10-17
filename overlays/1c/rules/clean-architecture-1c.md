@@ -1,5 +1,5 @@
 ---
-description: "Clean Architecture layering for 1C — layer map, dependency rule, module taxonomy as enforcement, use-case modules, thin adapters (forms, HTTP services), testability seams. Load when deciding where code goes, designing a module set, or reviewing dependencies between forms, common modules and integrations. Триггеры: чистая архитектура, слои, зависимости, куда положить код, тонкие формы."
+description: "Clean Architecture for 1C: layers, dependency rule, module taxonomy, thin forms and adapters — where code goes. Триггеры: чистая архитектура, слои, куда положить код, тонкие формы."
 alwaysApply: false
 kind: invariant
 ---

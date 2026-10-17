@@ -1,5 +1,5 @@
 ---
-description: "Development standards — architecture patterns, extensions, platform standards, code smells, authoritative query rules. Includes the stability taxonomy of standard-library modules (public region, internal layer, deprecated area, extension points that are implemented rather than invoked) and index alignment: which conditions an index actually serves. Триггеры: где разместить код, стандарты платформы, правила запросов, стабильность API библиотеки, устаревший раздел, точка расширения, индекс не помогает."
+description: "Standards: architecture patterns, extensions, query rules, standard-library API stability, which conditions an index serves. Триггеры: где разместить код, правила запросов, стабильность API, индекс не помогает."
 alwaysApply: false
 kind: invariant
 ---

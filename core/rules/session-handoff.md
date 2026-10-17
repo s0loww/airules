@@ -1,5 +1,5 @@
 ---
-description: "Handing work over between agent sessions: when to fork a fresh session vs compact the current one, what goes into the handoff document, where it lives and how a new session takes it over; a linked session in its own worktree for an independent subtask. Load when a task outgrows one context window, a new unrelated task arrives in a long session, the user asks to continue elsewhere, or a session starts with a handoff on offer. Триггеры: передача сессии, хэндофф, новая сессия, продолжить с handoff, контекст переполняется, компакт, связанная сессия, отдельная сессия под подзадачу, новая задача в длинной сессии."
+description: "Handing work between sessions: fork vs compact, the handoff document, taking it over, a linked session in its own worktree. Триггеры: передача сессии, хэндофф, контекст переполняется, связанная сессия."
 alwaysApply: false
 kind: process
 ---

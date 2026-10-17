@@ -1,6 +1,6 @@
 ---
 name: arch-reviewer
-description: "Architecture decision review: assessing design, patterns, scalability and adherence to practices — without edits. Call before implementing significant architectural changes. Триггеры: ревью архитектуры, оценка дизайна, паттерны, масштабируемость."
+description: "Reviews architecture decisions without edits; call before significant architectural changes. Триггеры: ревью архитектуры, оценка дизайна, масштабируемость."
 tier: high
 tools: ro
 allowParallel: true

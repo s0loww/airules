@@ -29,7 +29,7 @@ python ci/simulate_install.py --emit-inventory
 ## Что появляется в целевом проекте
 
 ```
-AGENTS.md                корневой контракт: роли, MCP-профиль, Rule Index, роутинг
+AGENTS.md                корневой контракт: роли, MCP-профиль, Rule Index (он же роутинг)
 CLAUDE.md                ровно одна строка: See @AGENTS.md
 rules/                   тела правил, читаются по требованию
 openspec/                паспорт проекта и воркспейс спецификаций

@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Change architecture: component design, approach selection, data flows, assembly plan. Does NOT do step-by-step task decomposition (planner) and does NOT write code. Call for designing complex modifications. Триггеры: архитектура, дизайн, проектирование, подход, компоненты."
+description: "Designs a change: components, approach, data flows, assembly plan; no step plan (planner), no code. Триггеры: архитектура, проектирование, подход."
 tier: high
 tools: rw
 ---

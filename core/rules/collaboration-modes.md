@@ -1,5 +1,5 @@
 ---
-description: "Collaboration modes: exploration, edit, review, OpenSpec, emergency fix. Load when choosing how deep to go on a task or whether to delegate. Триггеры: режим работы, разведка, правка, ревью, экстренный фикс"
+description: "Collaboration modes — exploration, edit, review, OpenSpec, emergency fix — and how deep to go or whether to delegate. Триггеры: режим работы, разведка, экстренный фикс."
 alwaysApply: false
 kind: process
 ---

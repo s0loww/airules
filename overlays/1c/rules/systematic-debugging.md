@@ -1,5 +1,5 @@
 ---
-description: "Systematic 4-phase debugging methodology adapted for 1C (reproduce → hypothesize → experiment → fix). Триггеры: не воспроизводится, ищу причину бага, отладка, гипотеза не подтвердилась, где ломается."
+description: "Four-phase debugging adapted for 1C: reproduce → hypothesize → experiment → fix. Триггеры: не воспроизводится, ищу причину бага, гипотеза не подтвердилась."
 alwaysApply: false
 kind: process
 ---

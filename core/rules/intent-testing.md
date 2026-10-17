@@ -1,5 +1,5 @@
 ---
-description: "Intent-driven testing: an agent explores the product like a naive user, turns discrepancies into questions, a human ratifies each one, and every ratified invariant is pinned by a deterministic test and recorded with a stable ID. Load before exploratory or acceptance testing through the UI, when recording why a behavior is deliberate, or when a finding must graduate into a test. Триггеры: исследовательское тестирование, агент как пользователь, интент, намерение, ратификация, зафиксировать поведение тестом, баг или так задумано, журнал разрывов."
+description: "Intent-driven exploratory testing: the agent as a naive user, discrepancies become questions, ratified invariants get a test and a stable ID. Триггеры: исследовательское тестирование, интент, баг или так задумано."
 alwaysApply: false
 kind: process
 ---

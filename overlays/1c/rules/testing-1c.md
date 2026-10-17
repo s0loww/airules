@@ -1,5 +1,5 @@
 ---
-description: "Platform traps that make a 1C test lie: a form never opened, programmatic posting that skips ОбработкаПроверкиЗаполнения, проведение with no movements, admin-only runs and RLS, cached values and sessions that keep old roles, СКД judged by its text, deploy that did not apply, Designer log encoding, stand preflight. Load when planning or reading a 1C test run, writing a TST_/YaXUnit/Vanessa check, or doubting a green or red verdict. Триггеры: тест 1С, проверка формы, проведение без движений, проверка заполнения, тест под ролью, RLS, РАЗРЕШЕННЫЕ, стенд, preflight, лог конфигуратора, кодировка лога, CheckModules."
+description: "Platform traps that make a 1C test lie: unopened form, posting without checks or movements, admin-only runs, stale roles, deploy not applied. Триггеры: тест 1С, тест под ролью, проведение без движений, стенд."
 alwaysApply: false
 kind: case
 ---

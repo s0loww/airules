@@ -1,5 +1,5 @@
 ---
-description: "Common XML generation pitfalls for 1C metadata and managed forms (`TabularSection` `LineNumber`, `PagesGroupExtInfo` typo, `Page.enabled`, UID uniqueness, ScheduledJob method binding, post-edit validation), plus the open-time checklist for form modules of an external data processor — a built `.epf` whose form fails only when opened. Load when authoring or fixing metadata XML or `Form.xml` by hand, or before handing over a built `.epf`. Триггеры: конфигурация не загружается из файлов, ошибка загрузки XML, права роли, дублирующийся UUID, битая структура метаданных, внешняя обработка не открывается, переменная не определена при открытии формы."
+description: "Pitfalls of hand-written metadata XML and Form.xml, plus the open-time checklist for a built `.epf`. Триггеры: конфигурация не загружается из файлов, дублирующийся UUID, обработка не открывается."
 alwaysApply: false
 kind: invariant
 ---

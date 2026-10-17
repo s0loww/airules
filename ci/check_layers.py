@@ -7,7 +7,8 @@ machine paths, domain names, stack terms in the generic core, hardcoded models,
 unmarked max-effort defaults, retired self-verification wording, missing UTF-8
 BOM in script files, credentials echoed into console output,
 distribution-only paths inside installable files, rule files that do not
-declare their genre (``kind``), and rules nothing refers to.
+declare their genre (``kind``), rule descriptions too long for one Rule
+Index line, and rules nothing refers to.
 
 Pure standard library, cross-platform, Python 3.9+.
 
@@ -508,6 +509,54 @@ def check_rule_kind(path, rel_path):
     return None
 
 
+RULE_DESC_RULE_ID = "rule-desc"
+# The description is copied verbatim into the Rule Index of every installed
+# AGENTS.md, which is read at the start of every session: one phrase plus a
+# few trigger words, not a summary of the rule.
+RULE_DESC_MAX_CHARS = 220
+RULE_DESC_MAX_TRIGGERS = 4
+DESC_LINE_RE = re.compile(r'^\s*description\s*:\s*"(.*)"\s*$')
+TRIGGERS_MARK = "Триггеры:"
+
+
+def check_rule_description(path, rel_path):
+    """Whole-file check: the rule's frontmatter ``description`` fits one
+    Rule Index line — at most RULE_DESC_MAX_CHARS characters and at most
+    RULE_DESC_MAX_TRIGGERS comma-separated trigger phrases. Returns a single
+    (rel_path, lineno, rule_id, message) tuple or None; frontmatter structure
+    itself is check_rule_kind's business."""
+    if not _is_rule_file(rel_path):
+        return None
+    text = read_text(path)
+    if text is None:
+        return None
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for index in range(1, len(lines)):
+        line = lines[index]
+        if line.strip() == "---":
+            break
+        if _line_suppresses(line, RULE_DESC_RULE_ID):
+            return None
+        match = DESC_LINE_RE.match(line)
+        if match is None:
+            continue
+        desc = match.group(1)
+        if len(desc) > RULE_DESC_MAX_CHARS:
+            return (rel_path, index + 1, RULE_DESC_RULE_ID,
+                    "description is {0} chars (max {1}) — one phrase plus "
+                    "triggers".format(len(desc), RULE_DESC_MAX_CHARS))
+        if TRIGGERS_MARK in desc:
+            tail = desc.split(TRIGGERS_MARK, 1)[1].strip().rstrip(".")
+            count = len([t for t in tail.split(",") if t.strip()])
+            if count > RULE_DESC_MAX_TRIGGERS:
+                return (rel_path, index + 1, RULE_DESC_RULE_ID,
+                        "{0} triggers (max {1})".format(count, RULE_DESC_MAX_TRIGGERS))
+        return None
+    return (rel_path, 1, RULE_DESC_RULE_ID, "missing description")
+
+
 RULE_ORPHAN_RULE_ID = "rule-orphan"
 
 
@@ -756,6 +805,9 @@ def run_scan(paths):
         kind_hit = check_rule_kind(abs_path, rel_path)
         if kind_hit is not None:
             violations.append(kind_hit)
+        desc_hit = check_rule_description(abs_path, rel_path)
+        if desc_hit is not None:
+            violations.append(desc_hit)
     # Two flavours of the same rule id (creds-echo, model-hardcode) may match
     # one line; report each (path, line, rule) once.
     seen = set()
@@ -793,6 +845,9 @@ def run_selftest():
         kind_hit = check_rule_kind(abs_path, rel_for_rules)
         if kind_hit is not None:
             hits.add(kind_hit[2])
+        desc_hit = check_rule_description(abs_path, rel_for_rules)
+        if desc_hit is not None:
+            hits.add(desc_hit[2])
         actual[rel_from_fixtures] = hits
 
     all_pass = True

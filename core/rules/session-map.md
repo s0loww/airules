@@ -1,5 +1,5 @@
 ---
-description: "Session map: subagent and child-session reports live in files under var/tmp, and a small index of them — with the base commit and what the lead session verified itself — survives context compaction and is passed to linked sessions and subagents. Load when delegating reading work whose result the session will reuse, when a compacted session needs earlier findings, or when briefing a linked session. Триггеры: карта сессии, отчёт субагента в файл, где отчёт разведчика, после сжатия контекста, передать находки связанной сессии, почисти старые карты."
+description: "Session map: subagent and child-session reports as files under var/tmp plus an index that survives compaction and goes to linked sessions. Триггеры: карта сессии, отчёт субагента в файл, после сжатия контекста."
 alwaysApply: false
 kind: process
 ---

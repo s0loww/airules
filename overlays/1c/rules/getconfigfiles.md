@@ -1,5 +1,5 @@
 ---
-description: "The object you need to edit has no source in the working copy — export it from the infobase through Designer (`/DumpConfigToFiles` with an object list, main configuration or an extension). Load before editing an object whose sources are missing, or when the local sources are suspected stale. Триггеры: нет исходников объекта, выгрузить объект из базы, DumpConfigToFiles, получить конфигурацию в файлы."
+description: "Exporting an object missing from the working copy out of the infobase via Designer `/DumpConfigToFiles`. Триггеры: нет исходников объекта, выгрузить объект из базы, DumpConfigToFiles."
 alwaysApply: false
 kind: recipe
 ---

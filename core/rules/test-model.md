@@ -1,5 +1,5 @@
 ---
-description: "Layered test model: which verification channel answers which question, which layers gate a change and which only advise, how agent exploration graduates into a deterministic test, how shared and remote environments are reached, and what counts as run evidence. Load when choosing how to verify a change, planning a test run, or reading a run's verdict. Триггеры: модель тестирования, слои тестов, каналы проверки, гейт или рекомендация, UI-прогон агентом, удалённый контур, стенд, протокол прогона, baseline."
+description: "Layered test model: which channel answers which question, gating vs advisory layers, remote environments, run evidence. Триггеры: каналы проверки, гейт или рекомендация, стенд, протокол прогона."
 alwaysApply: false
 kind: process
 ---

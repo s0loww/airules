@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: "Read-only codebase reconnaissance: find files, procedures, schema objects, dependencies and answer 'where is X / how does Y work / who calls Z' questions — without a single edit. Call before planning, development, or refactoring when context needs to be gathered across many files. Триггеры: разведка, поиск по коду, где находится, как работает, зависимости."
+description: "Read-only reconnaissance across many files: where is X, how Y works, who calls Z. Триггеры: разведка, поиск по коду, где находится, кто вызывает."
 tier: low
 tools: ro
 allowParallel: true

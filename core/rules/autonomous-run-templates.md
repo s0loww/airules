@@ -1,5 +1,5 @@
 ---
-description: "Templates for the artifacts of an autonomous run: the register of open questions with assumptions, the decision record and the ratification package, the question for an external addressee, the slice handoff. Load when writing any of these documents. Триггеры: шаблон реестра вопросов, запись решения, пакет ратификации, вопрос адресату, вопросник, передача среза"
+description: "Templates for autonomous-run artifacts: questions register, decision record, ratification package, external question, slice handoff. Триггеры: реестр вопросов, пакет ратификации, вопросник, передача среза."
 alwaysApply: false
 kind: process
 ---

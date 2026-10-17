@@ -1,6 +1,6 @@
 ---
 name: planner
-description: "Task decomposition, step-by-step implementation plan, risks and dependencies. Does NOT design architecture (architect) and does NOT write code. Call to break a complex feature or refactoring into executable steps. Триггеры: план, декомпозиция, шаги, зависимости, риски."
+description: "Breaks a complex feature or refactoring into steps with dependencies and risks; no design, no code. Триггеры: план, декомпозиция, шаги."
 tier: high
 tools: rw
 ---

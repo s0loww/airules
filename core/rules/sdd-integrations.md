@@ -1,5 +1,5 @@
 ---
-description: "OpenSpec integration. Load when working with the openspec/ workspace (specs and change proposals). Триггеры: спецификации, предложение изменений, артефакты, воркспейс openspec"
+description: "OpenSpec integration: working in the openspec/ workspace with specs and change proposals. Триггеры: спецификации, предложение изменений, openspec."
 alwaysApply: false
 kind: process
 ---

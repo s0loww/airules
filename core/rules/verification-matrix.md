@@ -1,5 +1,5 @@
 ---
-description: "Verification matrix by change type and the closing full-cycle gate, including coverage reconciliation when many inputs must be covered by a set of rules, and the operational-memory bracket around the gates. Load when deciding which checks to run before declaring a change done. Триггеры: проверка, верификация, гейт сдачи, что проверить, сверка покрытия, все ли входы покрыты, что уже известно, записать находку в память, выкат пакета в бой."
+description: "Which checks to run before calling a change done: matrix by change type, full-cycle gate, coverage reconciliation, memory bracket. Триггеры: проверка, гейт сдачи, сверка покрытия, выкат в бой."
 alwaysApply: false
 kind: process
 ---

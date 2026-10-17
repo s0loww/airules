@@ -1,5 +1,5 @@
 ---
-description: "when writing code that integrates 1C with another system (HTTP services, REST, message queues, webhooks). Триггеры: обмен с внешней системой, HTTP-сервис, REST, вебхук, токен и авторизация, повторная отправка запроса."
+description: "Integrating 1C with another system: HTTP services, REST, queues, webhooks. Триггеры: обмен с внешней системой, HTTP-сервис, вебхук, повторная отправка."
 alwaysApply: false
 kind: invariant
 ---

@@ -1,5 +1,5 @@
 ---
-description: "Writing unit tests for 1C code (YaXUnit or a native test extension) — when a unit test is the right channel at all, test naming, the Arrange / Act / Assert shape, and the boundary with scenario runs. Load when asked to cover a routine with tests, or when deciding between a unit test and a scenario. Триггеры: юнит-тест, покрыть тестами функцию, YaXUnit, ЮТест, модульный тест, какой тест писать, тестовое расширение, RUN_CI_TESTS."
+description: "Unit tests for 1C (YaXUnit or a native test extension): when they fit, naming, Arrange/Act/Assert, boundary with scenarios. Триггеры: юнит-тест, покрыть тестами, YaXUnit, какой тест писать."
 alwaysApply: false
 kind: recipe
 ---

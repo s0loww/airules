@@ -1,5 +1,5 @@
 ---
-description: "Reserved property names in 1C form modules — ban on using standard form-element property names as local variables. Load from `forms.md` whenever editing server-side form-module code. Триггеры: переменная в модуле формы ведёт себя не так, ПараметрыВыбора перезаписывается, СписокВыбора не работает, имя переменной конфликтует."
+description: "Standard form-element property names banned as local variables in form modules. Триггеры: переменная в модуле формы ведёт себя не так, ПараметрыВыбора перезаписывается, конфликт имени."
 alwaysApply: false
 kind: invariant
 ---

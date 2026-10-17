@@ -1,6 +1,6 @@
 ---
 name: metadata-manager
-description: "Data/schema structure and configuration work: creating, editing, validating and deleting schema objects, forms, report definitions, templates, roles, extensions. Call for any metadata structure changes. Триггеры: метаданные, схема данных, структура, конфигурация, объект."
+description: "Creates, edits, validates and deletes schema objects, forms, reports, templates, roles, extensions. Триггеры: метаданные, структура, конфигурация."
 tier: high
 tools: rw
 ---

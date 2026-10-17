@@ -1,5 +1,5 @@
 ---
-description: "How to pick the role, tier and model for a subagent. Load when delegating work to subagents, deciding whether a piece of work is worth a launch, or configuring agent definitions. Триггеры: выбор модели, тир, делегирование, роль субагента, окупаемость запуска, экономия контекста, разведчик."
+description: "Picking the role, tier and model for a subagent, and whether a launch pays off at all. Триггеры: выбор модели, тир, делегирование, окупаемость запуска."
 alwaysApply: false
 kind: process
 ---

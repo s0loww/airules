@@ -1,5 +1,5 @@
 ---
-description: "Working with БСП access-group profiles and rights from code: the profile saved but its roles are gone, extension roles silently missing from a profile, assigning a profile to a user, checking a right / role / record-level access. Триггеры: профиль записался без ролей, назначить профиль программно, проверить право, проверить роль, роли расширения не находятся, ПрофилиГруппДоступа."
+description: "БСП access-group profiles and rights from code: profiles losing roles, missing extension roles, checking a right or a role. Триггеры: профиль без ролей, роли расширения не находятся, проверить право, ПрофилиГруппДоступа."
 alwaysApply: false
 kind: recipe
 ---

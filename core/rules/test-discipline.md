@@ -1,5 +1,5 @@
 ---
-description: "What makes an automated test worth keeping: pre-agreed seams, vertical red-green slices, mocking only at system boundaries, anti-patterns with their tells, and the oracles that report a wrong verdict (checks that cannot fail, empty results, admin-only runs, fixture defects, shared state). Load when writing or reviewing tests, adding a regression test, deciding where to test, or doubting a green or red run. Триггеры: тесты, тестирование, регрессионный тест, TDD, моки, ложно-зелёный, ложный провал, мутант, фикстура, тест под ролью."
+description: "What makes an automated test worth keeping: agreed seams, red-green slices, mocks only at boundaries, oracles that lie. Триггеры: тесты, регрессионный тест, моки, ложно-зелёный."
 alwaysApply: false
 kind: invariant
 ---

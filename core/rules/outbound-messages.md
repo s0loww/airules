@@ -1,5 +1,5 @@
 ---
-description: "Messages sent or drafted on the user's behalf — letters, replies, forwards, chat posts, tickets: the user approves the exact text that leaves, commitments are named before sending, non-technical readers get the decision and a question with options. Load before drafting or sending anything in the user's name. Триггеры: письмо от моего имени, ответь им, перешли, напиши бухгалтерии, черновик письма, отправь сообщение, ответ заказчику."
+description: "Anything sent or drafted in the user's name: the user approves the exact text, commitments are named, non-technical readers get decision + options. Триггеры: письмо от моего имени, ответь им, перешли, черновик письма."
 alwaysApply: false
 kind: process
 ---

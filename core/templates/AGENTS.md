@@ -108,41 +108,8 @@ dispatcher (with `docs/` and `tools/` beside it). Subagents have no Skill
 tool — when a prompt or agent definition names a skill, read it at that
 path; never search for it with shell commands.
 
-## Routing mini-table
-
-A hint for "what to use for which task"; the rule is still loaded via the
-Rule Index at the moment it applies, never preloaded.
-
-| Trigger (words) | Rule (`rules/…`) | Role |
-| --- | --- | --- |
-| script, automation, DryRun/Apply, data migration / скрипт, миграция данных | `script-contract` | developer |
-| delegation, subagent, payback of a launch, model or effort choice / делегирование, субагент, окупаемость | `subagents-model-routing` | (orchestrator) |
-| orchestration mode, executor, resident agents / оркестрация, исполнитель, резидент | `orchestrator-economy` | (orchestrator) |
-| autonomous run, work without confirmations, ratification, open questions register / автономный прогон, ратификация, допущение, развилка | `autonomous-run` | (orchestrator) |
-| long command output, compression proxy, rtk / длинный вывод команд | `tool-output-economy` | (any) |
-| spec, behavior change, proposal, OpenSpec / спека, предложение | `sdd-integrations` | analytic / architect |
-| refactoring, duplicates, dead code / рефакторинг, дубли | {{DOMAIN_ROUTES}} | refactoring |
-| check, review, verification / проверка, ревью | `verification-matrix` | code-reviewer |
-| tests, regression test, mocking / тесты, регрессия, моки | `test-discipline` | developer / tester |
-| test channels, gating vs advisory, run evidence / каналы проверки, стенд | `test-model` | tester |
-| exploratory testing, intent, ratification / исследовательское тестирование, интент | `intent-testing` | tester / analytic |
-| work mode, scouting vs edit, emergency fix / режим работы, разведка | `collaboration-modes` | (orchestrator) |
-| debugging, bug, error reproduction / отладка, баг | `debugging-loop` | error-fixer |
-| session handoff, new session, context limit / передача сессии, хэндофф | `session-handoff` | (orchestrator) |
-| subagent reports, session map, after compaction / отчёты субагентов, карта сессии | `session-map` | (orchestrator) |
-| requirements interview, decision elicitation / интервью, уточнение требований | `decision-interview` | analytic |
-| letter or message in the user's name, forward / письмо от моего имени, ответ, пересылка | `outbound-messages` | (any) |
-| {{DOMAIN_TRIGGER}} | {{DOMAIN_ROUTES}} | {{DOMAIN_ROLE}} |
-
-Rows carrying the `DOMAIN_ROUTES` placeholder are filled by the domain
-overlay when the stack is confirmed (route source — the overlay README's
-routing section, or the overlay rules' descriptions). When installing
-**without** an overlay the installer replaces that placeholder with `—`
-(the row remains a role hint without a bound rule) and removes the
-all-placeholder domain row entirely — the verification step requires zero
-unfilled placeholders. An overlay that ships its own debugging adaptation
-appends it to the debugging row next to `debugging-loop` instead of
-replacing it (the adaptation takes precedence for stack tasks).
+Where a stack rule adapts a core one (e.g. debugging), the stack
+rule takes precedence for stack tasks; the core rule stays the fallback.
 
 ## Subagents
 

@@ -136,10 +136,7 @@ def build(target, problems):
     # §4.1 AGENTS.md
     values = dict(ANSWERS,
                   RULE_INDEX=render_index(meta, problems),
-                  AGENTS_TABLE=render_agents_table(roles, tiers),
-                  DOMAIN_ROUTES=domain_routes(),
-                  DOMAIN_TRIGGER="1С, метаданные",
-                  DOMAIN_ROLE="metadata-manager")
+                  AGENTS_TABLE=render_agents_table(roles, tiers))
     out = read(dist("core", "templates", "AGENTS.md"))
     for key, value in values.items():
         out = out.replace("{{" + key + "}}", value)
@@ -243,7 +240,7 @@ def render_index(meta, problems):
     for kind in KIND_ORDER:
         if groups[kind]:
             lines.append("\n**{0}**\n".format(kind))
-            lines += ["- `rules/{0}.md` — {1}".format(n, d.split(". ")[0][:150])
+            lines += ["- `rules/{0}.md` — {1}".format(n, d)
                       for n, d in groups[kind]]
     return "\n".join(lines)
 
@@ -256,11 +253,6 @@ def render_agents_table(roles, tiers):
             rows.append("| {0}-deep | {1} | xhigh | {2} | {3} (deep) |".format(
                 r["role"], tiers.get("high"), r["tools"], r["purpose"]))
     return "\n".join(rows)
-
-
-def domain_routes():
-    lines = read(dist("overlays", STACK, "README.md")).splitlines()
-    return "\n".join(l for l in lines if l.startswith("| ") and "`" in l)
 
 
 def long_cache_roles():

@@ -1,5 +1,5 @@
 ---
-description: "Orchestration mode: on the user's session command the lead agent hands the main flow of execution to a named executor and keeps the task statement, decisions and acceptance. Covers the command, the role classes it affects, the state file and resident agents; the payback of a single launch lives in subagents-model-routing. Load when the user turns orchestration on or off, names an executor or its effort, or asks about resident agents. Триггеры: оркестрация, режим оркестратора, исполнитель, режим экономии, резидент, дорогая модель"
+description: "Orchestration mode: on the user's command the lead hands execution to a named executor and keeps the statement, decisions and acceptance. Триггеры: оркестрация, исполнитель, резидент, режим экономии."
 alwaysApply: false
 kind: process
 ---

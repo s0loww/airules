@@ -1,5 +1,5 @@
 ---
-description: "Case book: recording a diagnosed failure so the next agent finds it from the symptom, not from the cause. Covers the entry threshold, the Problem / Symptom / Fix / Reference schema, where entries live, and the boundary with the decisions log and the debugging loop. Load after diagnosing a failure that is likely to recur, or when starting a project case book. Триггеры: куда записать разбор ошибки, кейс-бук, симптом и лечение, эта ошибка уже была, типовая грабля, копилка ошибок"
+description: "Recording a diagnosed recurring failure so the next agent finds it by symptom: threshold, Problem/Symptom/Fix schema, location. Триггеры: кейс-бук, эта ошибка уже была, типовая грабля, куда записать разбор."
 alwaysApply: false
 kind: process
 ---

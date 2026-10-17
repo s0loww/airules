@@ -1,5 +1,5 @@
 ---
-description: "Ready-made bounded prompts for delegated subagents; the concrete model of a role is resolved at install time from its tier. Load when delegating a bounded task to a subagent. Триггеры: промпт субагенту, шаблон задачи, делегирование, ограниченный воркер."
+description: "Ready-made bounded prompts for delegated subagents. Триггеры: промпт субагенту, шаблон задачи, ограниченный воркер."
 alwaysApply: false
 kind: process
 ---

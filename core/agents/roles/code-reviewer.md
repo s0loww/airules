@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: "Code review for real bugs, readability and standards compliance — full findings with severity and confidence, without edits. Launched ONLY on an explicit user request or an explicit orchestrator decision, not automatically after edits. Триггеры: ревью кода, код-ревью, проверка кода, баги, стандарты."
+description: "Code review for real bugs and standards, findings with severity, no edits; ONLY on an explicit user or orchestrator request. Триггеры: ревью кода, проверка кода."
 tier: high
 tools: ro
 allowParallel: true

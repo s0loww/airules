@@ -1,5 +1,5 @@
 ---
-description: "Generating or structurally modifying a managed form (`Form.xml`). Load when you need to create a new form or add / rearrange elements, data bindings, or commands on an existing one. Триггеры: создать форму, добавить страницу или группу, правка Form.xml, форма не открывается после правки."
+description: "Generating or restructuring a managed form `Form.xml`: elements, bindings, commands. Триггеры: создать форму, правка Form.xml, форма не открывается после правки."
 alwaysApply: false
 kind: recipe
 ---

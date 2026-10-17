@@ -1,6 +1,6 @@
 ---
 name: analytic
-description: "Analysis, requirements, specifications without writing code: PRDs, technical requirements, answers to architecture questions in domain terms. Conditional tier (see ROLES.md 'Conditional tiers'). Call for requirements gathering and specification writing. Триггеры: анализ, требования, спецификация, PRD, ТЗ."
+description: "Requirements and specifications without code: PRDs, technical requirements, architecture answers in domain terms. Триггеры: анализ, требования, спецификация, ТЗ."
 tier: medium
 tools: rw
 ---

@@ -1,5 +1,5 @@
 ---
-description: "Autonomous run: the lead agent executes an approved multi-day specification without per-phase confirmation — closes forks itself and records them, verifies by an executable gate, reports at phase boundaries, and brings every decision made without a human to ratification. Covers entry conditions, the permission ladder, who settles a fork in autonomous vs interactive work, the decision record, slice evidence, ratification, and when the run stops. Load before starting long autonomous work on specifications, when asked to continue without confirmations, when preparing a ratification package or a questionnaire for external addressees. Триггеры: автономный прогон, автономка, работа без подтверждений, длинная задача по спецификациям, ратификация, реестр открытых вопросов, допущение, развилка, пакет ратификации, вопросник"
+description: "Executing an approved multi-day spec without per-phase confirmations: forks closed and recorded, executable gates, unattended decisions ratified. Триггеры: автономный прогон, без подтверждений, ратификация, развилка."
 alwaysApply: false
 kind: process
 ---

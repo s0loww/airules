@@ -1,5 +1,5 @@
 ---
-description: "Pre-flight checklist before non-trivial edits in a potentially dirty working copy. Load before full-cycle work, metadata/form/rules edits, refactoring, generators, or risky automation. Триггеры: предполётная проверка, рабочая копия, бэкап, грязные файлы, область записи"
+description: "Pre-flight checklist before non-trivial edits, generators or risky automation in a possibly dirty working copy. Триггеры: предполётная проверка, грязные файлы, бэкап, область записи."
 alwaysApply: false
 kind: process
 ---

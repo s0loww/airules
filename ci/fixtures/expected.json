@@ -15,6 +15,8 @@
     "overlays/dirty_install_path.md": ["install-path"],
     "core/rules/dirty_kind_missing.md": ["rule-kind"],
     "core/rules/dirty_kind_value.md": ["rule-kind"],
+    "core/rules/dirty_desc_long.md": ["rule-desc"],
+    "core/rules/dirty_desc_triggers.md": ["rule-desc"],
     "overlays/1c/rules/dirty_mcp_names.md": ["mcp-direct-name"]
   },
   "clean": [
@@ -26,6 +28,8 @@
   ],
   "orphans": [
     "core/rules/clean_kind.md",
+    "core/rules/dirty_desc_long.md",
+    "core/rules/dirty_desc_triggers.md",
     "core/rules/dirty_kind_missing.md",
     "core/rules/dirty_kind_value.md",
     "core/rules/dirty_models.md",

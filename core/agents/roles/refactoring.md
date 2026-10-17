@@ -1,6 +1,6 @@
 ---
 name: refactoring
-description: "Refactoring, dead code removal, duplicate consolidation, tech debt reduction; applies performance edits per performance-optimizer recommendations. Call for cleaning up and improving code structure without behavior changes. Триггеры: рефакторинг, мёртвый код, дубли, техдолг, чистка."
+description: "Behavior-preserving cleanup: dead code, duplicates, tech debt, performance edits per the optimizer. Триггеры: рефакторинг, мёртвый код, дубли, техдолг."
 tier: high
 tools: rw
 ---

@@ -1,6 +1,6 @@
 ---
 name: tester
-description: "Testing and behavior verification: deployment to the test environment and scenario runs, UI checks. Call after changes, when the orchestrator has provided a concrete verification scenario. Триггеры: тестирование, проверка, сценарий, деплой, тестовый контур."
+description: "Deploys to the test environment and runs a concrete verification scenario given by the orchestrator. Триггеры: тестирование, сценарий, тестовый контур."
 tier: high
 tools: rw
 ---

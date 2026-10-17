@@ -1,5 +1,5 @@
 ---
-description: "Two composition recipes for when the standard DCS output does not fit: running the layout's query directly (report eats memory on large volumes, or a flat result is needed), and two-pass preprocessing of detail records before the engine folds them into groupings (hiding rows/columns whose folded total is zero). Триггеры: отчёт съедает память, большой отчёт, плоская выгрузка, скрыть нулевые строки, предобработка до свёртки, двухпроходный отчёт."
+description: "Two DCS recipes for when the standard output does not fit: run the layout query directly, or preprocess detail rows before folding. Триггеры: отчёт съедает память, плоская выгрузка, скрыть нулевые строки."
 alwaysApply: false
 kind: recipe
 ---

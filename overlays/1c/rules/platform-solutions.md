@@ -1,5 +1,5 @@
 ---
-description: "Case book of common 1C platform pitfalls and proven fix templates: emptiness checks, long-running operations, temporary storage, transactions inside event handlers, copying objects, server time, collection search, external components on the thin client, background jobs started from an external data processor, a configuration load that hangs with no diagnostics, and restructuring errors. Триггеры: странное поведение платформы, длительная операция, временное хранилище, поиск в коллекции тормозит, загрузка конфигурации виснет без диагностики, реструктуризация таблицы падает, фоновое задание из внешней обработки не стартует."
+description: "Case book of 1C platform pitfalls with fix templates: long operations, temporary storage, background jobs, hangs, restructuring. Триггеры: странное поведение платформы, длительная операция, реструктуризация падает."
 alwaysApply: false
 kind: case
 ---

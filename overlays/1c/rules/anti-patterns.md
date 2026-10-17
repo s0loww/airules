@@ -1,5 +1,5 @@
 ---
-description: "Constructs that are wrong on sight in 1C code — query inside a loop, dot notation on a reference, subquery in the field list, virtual-table filter in WHERE, missing ПЕРВЫЕ N, needless server round trips — with the corrected form of each. Load before writing or reviewing queries and server-side code. Триггеры: анти-паттерн, медленный запрос, оптимизация кода, ревью запроса."
+description: "Constructs wrong on sight in 1C code — query in a loop, dot on a reference, filter in WHERE — with corrected forms. Триггеры: анти-паттерн, медленный запрос, ревью запроса."
 alwaysApply: false
 kind: invariant
 ---

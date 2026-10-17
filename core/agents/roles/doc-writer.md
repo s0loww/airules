@@ -1,6 +1,6 @@
 ---
 name: doc-writer
-description: "User and administrative documentation: guides, how-tos, tutorials, reference docs, code maps. Does NOT write inline code documentation (that is developer). Call when a document for humans needs to be created or updated. Триггеры: документация, руководство, инструкция, справочник, гайд."
+description: "Documentation for humans: guides, how-tos, reference, code maps; not inline code docs. Триггеры: документация, руководство, инструкция."
 tier: low
 tools: rw
 allowParallel: true

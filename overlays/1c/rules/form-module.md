@@ -1,5 +1,5 @@
 ---
-description: "Form-module guidelines — compilation directives, client-server round trips, async, form-data conversion. Load when working on a form module (`ФормаМодуль`, `Form.Module.bsl`). Триггеры: НаСервере или НаКлиенте, директива компиляции, данные формы недоступны на сервере, лишние серверные вызовы."
+description: "Form-module code: compilation directives, client-server round trips, async, form-data conversion. Триггеры: НаСервере или НаКлиенте, директива компиляции, лишние серверные вызовы."
 alwaysApply: false
 kind: invariant
 ---

@@ -1,6 +1,6 @@
 ---
 name: performance-optimizer
-description: "Bottleneck hunting and performance analysis: prioritized recommendations on queries, algorithms, call counts. Applies NO edits — hands off to developer/refactoring with file:line locations. Call on suspicion of performance problems. Триггеры: производительность, узкие места, оптимизация, медленно, запросы."
+description: "Finds bottlenecks and gives prioritized recommendations with file:line, no edits. Триггеры: производительность, узкие места, медленно."
 tier: high
 tools: ro
 allowParallel: true
