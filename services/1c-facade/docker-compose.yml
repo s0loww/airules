@@ -1,5 +1,5 @@
-# Запуск:
-#   docker compose -f services/1c-facade/docker-compose.yml up -d --build
+# Запуск (из каталога сервиса — тогда compose сам подхватит docker-compose.override.yml):
+#   cd services/1c-facade && docker compose up -d --build
 #
 # Контекст сборки — корень репозитория: в образ едет и сервис, и чекер правил.
 services:
@@ -20,27 +20,16 @@ services:
     # адресацию по имени контейнера и внутреннему порту — пробрасывать порты
     # на хост ради фасада не нужно, и не важно, проброшены ли они вообще.
     # host.docker.internal остаётся для бэкендов вне docker (например rlm).
-    networks:
-      - project_bl_mcp_default
-      - erp_bl_mcp_default
-      - ka2_sut_mcp_default
+    # Сами сети — в docker-compose.override.yml.
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
     volumes:
-      # Реестр проектов. Пути внутри него — контейнерные (см. монтирования ниже).
+      # Реестр проектов. Пути внутри него — контейнерные (см. монтирования в override).
       - ./facade-registry.json:/etc/facade/registry.json:ro
 
-      # Выгрузки. Имя тома — по реальному имени конфигурации из Configuration.xml.
-      - D:/AI_Projects/Project_BL/src:/srv/sources/ulk:ro            # УправлениеЛизингом
-      - D:/AI_Projects/1c-config-dumps/ERP_BL:/srv/sources/bl:ro     # БалтийскийЛизинг
-      - D:/AI_Projects/Project_BL/src_bki:/srv/sources/bki:ro        # КонтурБКИ
-      - D:/AI_Projects/Project_BL/erp_crc:/srv/sources/erp:ro        # база ERP, бэкендов нет
-      - D:/AI_Projects/Project_BL/src_lk:/srv/sources/lk:ro         # ЛизинговыйКонтур (единый контур лизинга)
-      - D:/AI_Projects/Эквадор/src/main:/srv/sources/ec:ro          # Contabilidad (Эквадор)
-      - D:/bases_mcp/ka2_drop:/srv/sources/ka2:ro                   # КомплекснаяАвтоматизация (база КА2)
-      - D:/AI_Projects/project_ka2/src:/srv/sources/sut:ro          # сопряжение_УТ (расширение КА2)
-      - D:/bases_mcp/bp_drop:/srv/sources/bp:ro                     # БухгалтерияПредприятия
+      # Выгрузки и сети бэкендов — машинные, живут в docker-compose.override.yml
+      # (вне git, образец — docker-compose.override.example.yml).
 
       # Отметки последнего обращения для LRU. Именованный том, чтобы переживать
       # пересоздание контейнера.
@@ -66,12 +55,3 @@ services:
 
 volumes:
   facade-state:
-
-# Сети чужие — их создают compose-стеки бэкендов; фасад только подключается.
-networks:
-  project_bl_mcp_default:
-    external: true
-  erp_bl_mcp_default:
-    external: true
-  ka2_sut_mcp_default:
-    external: true

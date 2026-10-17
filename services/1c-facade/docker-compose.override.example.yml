@@ -1,0 +1,20 @@
+# Образец локальной привязки фасада к машине. Скопировать рядом как
+# docker-compose.override.yml (он вне git) и прописать свои сети и выгрузки:
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+# Compose подхватывает override сам при запуске из каталога сервиса:
+#   cd services/1c-facade && docker compose up -d --build
+services:
+  facade:
+    # Сети бэкендов — по одной на compose-стек, у которого фасад читает code/graph
+    # (имя — `<проект compose>_default`, см. `docker network ls`).
+    networks:
+      - myproject_mcp_default
+    volumes:
+      # Выгрузки, только на чтение. Имя тома — по реальному имени конфигурации из
+      # Configuration.xml; тот же путь `/srv/sources/<имя>` — в facade-registry.json.
+      - /path/to/project/src:/srv/sources/myconfig:ro
+
+# Сети чужие — их создают compose-стеки бэкендов; фасад только подключается.
+networks:
+  myproject_mcp_default:
+    external: true

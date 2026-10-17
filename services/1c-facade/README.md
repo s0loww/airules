@@ -14,9 +14,14 @@
 
 ```bash
 cp services/1c-facade/registry.example.json services/1c-facade/facade-registry.json
-# прописать проекты и монтирования выгрузок в docker-compose.yml
-docker compose -f services/1c-facade/docker-compose.yml up -d --build
+cp services/1c-facade/docker-compose.override.example.yml services/1c-facade/docker-compose.override.yml
+# прописать проекты в реестре, сети бэкендов и выгрузки — в override (оба файла вне git)
+cd services/1c-facade && docker compose up -d --build
 ```
+
+Запускать **из каталога сервиса** и без `-f`: только так compose сам подхватывает
+`docker-compose.override.yml`. С `-f docker-compose.yml` override не читается, и
+фасад поднимется без выгрузок и сетей бэкендов — `status` покажет проекты `down`.
 
 В целевом проекте — одна запись, **одинаковая во всех проектах**:
 

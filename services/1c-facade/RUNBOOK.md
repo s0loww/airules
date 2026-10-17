@@ -42,7 +42,7 @@
 **Поднять / пересобрать фасад**
 
 ```bash
-docker compose -f services/1c-facade/docker-compose.yml up -d --build
+cd services/1c-facade && docker compose up -d --build
 ```
 
 Старт парка — около 8 с: пересканируется только активный проект, остальные
@@ -68,9 +68,9 @@ status(project="ulk", reindex=true)
 Реестр править и перезапускать ничего не нужно.
 
 **Добавить проект.** Запись в `facade-registry.json` (имя — из
-`Configuration.xml`), монтирование выгрузки `:ro` в `docker-compose.yml`,
+`Configuration.xml`), монтирование выгрузки `:ro` в `docker-compose.override.yml`,
 перезапуск. Если у проекта есть свои бэкенды — фасад должен быть подключён к их
-сети (`networks:` в compose).
+сети (`networks:` там же, в override).
 
 **Подключить целевой проект.** Одна строка в его `.mcp.json`, одинаковая для
 всех:

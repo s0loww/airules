@@ -10,5 +10,6 @@ Thumbs.db
 # Сырые фикстуры фасада: снимаются с живых серверов, содержат данные конфигурации
 services/1c-facade/fixtures.local/
 services/1c-facade/facade-registry.json
+services/1c-facade/docker-compose.override.yml
 services/1c-facade/facade-state.json
 services/1c-facade/*.sqlite
