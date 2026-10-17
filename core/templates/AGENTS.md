@@ -9,9 +9,9 @@
 
 - Project ID: `{{PROJECT_ID}}`
 - Stack: `{{STACK}}`
-- Source of truth: `{{SOURCE_OF_TRUTH}}` — finally authoritative; indexes and
+- Source of truth: {{SOURCE_OF_TRUTH}} — finally authoritative; indexes and
   RAG are navigation only, confirm facts against the source of truth.
-- Source root: `{{PRIMARY_CODE_DIR}}`
+- Source root: {{PRIMARY_CODE_DIR}}
 - Object name prefix (if applicable): `{{PREFIX}}`
 
 ## Base rules
@@ -131,7 +131,7 @@ model-family behavior blocks are rendered into the agent definitions.
 
 - **Order (routing):** {{MCP_ORDER}}
 - **Excluded:** {{DISABLED_MCP}}
-- The source of truth is `{{SOURCE_OF_TRUTH}}`; MCP and RAG are navigation,
+- The source of truth is {{SOURCE_OF_TRUTH}}; MCP and RAG are navigation,
   confirm facts against the source.
 - **Layer boundary.** The constitution — rules, agreements, topology, paths —
   lives in markdown under git (`AGENTS.md`, `rules/`, the memory file). The
