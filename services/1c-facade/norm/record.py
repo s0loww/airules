@@ -93,6 +93,9 @@ class ParseResult:
     declared: Optional[int] = None   # count the backend claimed in its header
     status: str = "ok"               # ok | empty | not_found | unparsed
     note: Optional[str] = None
+    # record id -> where its body is, for a record the backend sent without
+    # one (an ambiguous documentation name lists candidates, not articles)
+    fetch: Dict[str, str] = field(default_factory=dict)
 
     sections: Dict[str, Dict[str, int]] = field(default_factory=dict)
 

@@ -71,6 +71,16 @@ PLATFORM_REPLAY = {
 }
 
 
+DOCINFO_REPLAY = {
+    "НетТакогоМетодаВообще": "platform_docinfo__missing",
+    "ТабличныйДокумент.Прочитать": "platform_docinfo__variants__v4",
+    "Формат": "platform_docinfo__ambiguous__v4",
+}
+# doc_ids the documentation server answers with nothing -- a body that cannot
+# be fetched must not pass for an article
+EMPTY_DOC_IDS = set()
+
+
 class ReplayClient(object):
     def __init__(self, url):
         self.kind = "graph" if "8013" in url else "code"
@@ -92,8 +102,13 @@ class ReplayClient(object):
         CALLS.append((self.kind, tool, dict(args)))
         if (self.kind, tool) in PLATFORM_REPLAY:
             name = PLATFORM_REPLAY[(self.kind, tool)]
-            if tool == "docinfo" and args.get("name") == "НетТакогоМетодаВообще":
-                name = "platform_docinfo__missing"
+            if tool == "docinfo":
+                asked = args.get("name") or ""
+                if asked in EMPTY_DOC_IDS:
+                    return 0.01, "EMPTY", ""
+                name = DOCINFO_REPLAY.get(asked, name)
+                if asked.endswith(".html"):
+                    name = "platform_docinfo__by_doc_id__v4"
             with io.open(os.path.join(FX, name + ".txt"), encoding="utf-8") as handle:
                 return 0.01, "OK", handle.read()
         name = REPLAY.get((self.kind, tool))
@@ -376,6 +391,28 @@ def checks():
        [c[1] for c in CALLS], ["docinfo", "docsearch"])
     ok("the fallback is said", any("no article named" in n for n in env.coverage.notes),
        str(env.coverage.notes))
+    # an ambiguous name answers with bodiless candidates: the facade fetches
+    # each body by its doc_id instead of handing back text=""
+    del CALLS[:]
+    env = facade.docs("ТабличныйДокумент.Прочитать")
+    eq("overloads of one method are one article", [r.id for r in env.records],
+       ["doc:ТабличныйДокумент.Прочитать"])
+    ok("the article carries every syntax variant",
+       all(v in (env.records[0].text or "") for v in ("Из файла", "Из потока")),
+       repr((env.records[0].text or "")[:80]))
+    eq("the body is fetched by doc_id", [c[1] for c in CALLS], ["docinfo", "docinfo"])
+    eq("and the answer is not degraded", env.coverage.degraded, False)
+    env = facade.docs("Формат")
+    eq("several symbols: every candidate carries a text",
+       [bool(r.text) for r in env.records], [True] * 5)
+    ok("several symbols: the ambiguity is said",
+       any("23" in n for n in env.coverage.notes), str(env.coverage.notes))
+    EMPTY_DOC_IDS.add("objects/catalog63/catalog64/SpreadsheetDocument/methods/Read71.html")
+    env = facade.docs("ТабличныйДокумент.Прочитать")
+    EMPTY_DOC_IDS.clear()
+    ok("a body that cannot be fetched is degraded, not an empty article",
+       env.coverage.degraded and any("no text" in n for n in env.coverage.notes),
+       str(env.coverage.as_dict()))
     del CALLS[:]
     env = facade.docs("как найти строку в таблице", scope="any")
     eq("scope=any asks documentation and ITS at once",

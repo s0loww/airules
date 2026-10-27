@@ -99,6 +99,9 @@ CASES = {
     "platform_docsearch__ok__v4":    P.parse_docs,
     "platform_docinfo__ok__v4":      lambda t: P.parse_docs(t, "docinfo"),
     "platform_docinfo__missing__v4": lambda t: P.parse_docs(t, "docinfo"),
+    "platform_docinfo__variants__v4":  lambda t: P.parse_docs(t, "docinfo"),
+    "platform_docinfo__ambiguous__v4": lambda t: P.parse_docs(t, "docinfo"),
+    "platform_docinfo__by_doc_id__v4": lambda t: P.parse_docs(t, "docinfo"),
     "platform_syntax__issues__v4":   P.parse_syntax,
     "platform_syntax__clean__v4":    P.parse_syntax,
     "platform_templates__ok__v4":    P.parse_templates,
@@ -288,6 +291,19 @@ def invariants(res):
     eq("v4 docinfo: a miss is not_found, the nearest documents are not an answer",
        (res["platform_docinfo__missing__v4"].status,
         len(res["platform_docinfo__missing__v4"].records)), ("not_found", 0))
+    # an ambiguous name -- overloads of one method, or several symbols -- comes
+    # back as candidates without a body; each must say where its body is
+    for name in ("platform_docinfo__variants__v4", "platform_docinfo__ambiguous__v4"):
+        amb4 = res[name]
+        eq("v4 docinfo %s: every bodiless candidate names its doc_id" % name.split("__")[1],
+           sorted(amb4.fetch), sorted(r.id for r in amb4.records if not r.text))
+        eq("v4 docinfo %s: the candidates are not lost" % name.split("__")[1],
+           len(amb4.records), json.loads(load(name))["returned"])
+    eq("v4 docinfo: a looked-up doc_id is the whole article, every variant",
+       [("Из файла" in r.text and "Из потока" in r.text, not r.text.startswith(" "))
+        for r in res["platform_docinfo__by_doc_id__v4"].records], [(True, True)])
+    eq("v4 docinfo: the overloads' signatures are kept",
+       res["platform_docinfo__variants__v4"].records[0].sig.count("Прочитать("), 2)
     ds4 = json.loads(load("platform_docsearch__ok__v4"))
     eq("v4 docsearch: one record per result",
        len(res["platform_docsearch__ok__v4"].records), len(ds4["results"]))

@@ -852,11 +852,35 @@ class Facade(object):
                         envelope.merge(platform_parsers.parse_docs(again), "docs")
                     continue
                 envelope.merge(parsed, kind)
+                if parsed.fetch:
+                    self._fetch_bodies(envelope, shared, parsed)
+        for record in envelope.records:
+            if record.src and record.src.backend == "docs" and not record.text:
+                # an empty article read as an answer is worse than none
+                envelope.coverage.note("%s: no text in the documentation answer" % record.id)
+                envelope.coverage.degraded = True
         if any(r.src and r.src.tool == "docsearch" for r in envelope.records):
             envelope.coverage.note(
                 "documentation search has no relevance threshold — check that "
                 "the articles are about the question")
         return envelope.dedupe()
+
+    def _fetch_bodies(self, envelope, shared, parsed):
+        """Fill the records docinfo sent without a body: one lookup per doc_id,
+        all at once. The ambiguity itself stays said in coverage."""
+        if parsed.note:
+            envelope.coverage.note(parsed.note)
+        by_id = {r.id: r for r in parsed.records}
+        wanted = [(rid, doc_id) for rid, doc_id in parsed.fetch.items() if rid in by_id]
+        texts = self._ask_many(envelope, shared, [
+            ("docs", "docinfo", {"name": doc_id}) for _rid, doc_id in wanted])
+        for (rid, _doc_id), text in zip(wanted, texts):
+            if not text:
+                continue
+            whole = platform_parsers.parse_docs(text, "docinfo", "docs")
+            body = next((r for r in whole.records if r.text), None)
+            if body is not None:
+                by_id[rid].text = body.text
 
     def lint(self, code=None, path=None, project=None, mode="syntax"):
         """Check BSL code: `syntax` is the fast analyzer gate, `check` a

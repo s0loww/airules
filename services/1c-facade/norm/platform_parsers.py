@@ -84,11 +84,26 @@ def _parse_docs_json(text, tool, backend):
         ident = citation.get("full_name") or citation.get("name") or item.get("doc_id")
         if not ident:
             continue
-        res.records.append(Record(
-            id="doc:" + ident, kind="snippet", name=ident, sig=citation.get("signature"),
+        # a method with several call forms lists them instead of one signature
+        variants = [v.get("signature") for v in citation.get("variants") or []
+                    if v.get("signature")]
+        record = Record(
+            id="doc:" + ident, kind="snippet", name=ident,
+            sig=citation.get("signature") or ("; ".join(variants) or None),
             text="\n".join(item.get("snippets") or []),
-            src=Src(backend=backend, tool=tool, tier="indexed", score=item.get("score"))))
-    if payload.get("truncated"):
+            src=Src(backend=backend, tool=tool, tier="indexed", score=item.get("score")))
+        res.records.append(record)
+        # An ambiguous name -- overloads of one method, or one name on several
+        # objects -- answers with candidates and no body; so does a partial hit
+        # (`snippet_count`). docinfo takes the doc_id back and returns it whole.
+        if item.get("doc_id") and (not record.text or item.get("snippet_count")):
+            res.fetch[record.id] = item["doc_id"].split("#")[0]
+    resolution = payload.get("resolution") or {}
+    if resolution.get("status") == "ambiguous":
+        res.note = "docs: %r is ambiguous, %s candidate(s), %s shown" % (
+            payload.get("query"), resolution.get("candidate_count") or payload.get("total"),
+            payload.get("returned"))
+    elif payload.get("truncated"):
         res.note = "docs: %s of %s results" % (payload.get("returned"), payload.get("total"))
     if not res.records:
         res.status = "empty"
