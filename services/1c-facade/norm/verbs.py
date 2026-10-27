@@ -471,11 +471,29 @@ class Facade(object):
         project = self.registry.get(project)
         units = self._units(project, scope)
         envelope = Envelope("describe(%r)" % id)
+        # `Документы.X.ТабличныеЧасти.Строки` is how the export nests it; both
+        # backends know the section only as `Документы.X.Строки`
+        id = _TABULAR_PATH.sub(r"\g<object>.", id or "")
         envelope.coverage.resolved_id = id
         self._over_units(envelope, units, lambda env, unit: self._describe_one(
             env, unit, id, sections))
         envelope.coverage.resolved_id = id
-        return self._finish(envelope, units)
+        self._finish(envelope, units)
+        if not envelope.records and self._answered_in_full(envelope):
+            envelope.coverage.not_found = True
+            envelope.coverage.note("объект не найден: %s" % id)
+        return envelope
+
+    @staticmethod
+    def _answered_in_full(envelope):
+        """Every backend asked was up and settled: then an empty answer means the
+        object is not there, rather than that nobody could tell."""
+        cov = envelope.coverage
+        unsettled = ("unparsed", "индекс строится", "перестраивает индекс", "in progress",
+                     "incomplete", "failed", "no session", "format drift")
+        return bool(cov.backends) and all(
+            b["state"] == "up" and not b.get("detail") for b in cov.backends) and not any(
+            marker in n for n in cov.notes for marker in unsettled)
 
     def _describe_one(self, envelope, project, id, sections):
         wanted = set(sections or ())
@@ -1061,6 +1079,8 @@ _GRAPH_PAGES = 20
 
 # `Справочники.X.Форма.Y` -- the resolver's spelling of a form -- plus the
 # spellings a caller is likely to type.
+_TABULAR_PATH = re.compile(
+    r"^(?P<object>[^.]+\.[^.]+)\.(?:ТабличныеЧасти|ТабличнаяЧасть|TabularSections|TabularSection)\.")
 _FORM_ID = re.compile(
     r"^(?P<object>[^.]+\.[^.]+)\.(?:Форма|Формы|Form|Forms)\.(?P<form>[^.]+)$")
 

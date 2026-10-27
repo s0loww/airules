@@ -79,6 +79,7 @@ DOCINFO_REPLAY = {
 # doc_ids the documentation server answers with nothing -- a body that cannot
 # be fetched must not pass for an article
 EMPTY_DOC_IDS = set()
+ABSENT_OBJECTS = {"Документы.НесуществующийДокументТест"}
 
 
 class ReplayClient(object):
@@ -112,6 +113,11 @@ class ReplayClient(object):
             with io.open(os.path.join(FX, name + ".txt"), encoding="utf-8") as handle:
                 return 0.01, "OK", handle.read()
         name = REPLAY.get((self.kind, tool))
+        if args.get("object_name") in ABSENT_OBJECTS:
+            # how both backends answer an object the configuration lacks
+            if self.kind == "graph":
+                return 0.01, "OK", "Объект '%s' не найден" % args["object_name"]
+            name = "code_metadata_details__ambiguous__v4"
         if name is None:
             return 0.0, "EMPTY", ""
         return 0.01, "OK", fixture(name)
@@ -274,6 +280,26 @@ def checks():
     attribute_ids = [r.id for r in env.records if r.kind == "attribute"]
     eq("each attribute survives exactly once",
        len(attribute_ids), len(set(attribute_ids)))
+
+    # an object nobody has: an empty answer must say so, not look like one
+    env = facade.describe("Документы.НесуществующийДокументТест")
+    eq("an absent object yields no records", env.records, [])
+    ok("an absent object is reported as not found",
+       env.as_dict()["coverage"].get("not_found") is True
+       and any("не найден" in n for n in env.coverage.notes), str(env.as_dict()["coverage"]))
+    env = build_group().describe("Документы.НесуществующийДокументТест", project="ext")
+    ok("in a group too: absent everywhere is not found, not a silent empty",
+       env.as_dict()["coverage"].get("not_found") is True, str(env.as_dict()["coverage"]))
+    env = facade.describe("Справочники.ДоговорыКонтрагентов")
+    ok("a found object is not flagged", "not_found" not in env.as_dict()["coverage"])
+    # the long path to a tabular section is the short one
+    del CALLS[:]
+    env = facade.describe("Справочники.ДоговорыКонтрагентов.ТабличныеЧасти.Этапы")
+    eq("the .ТабличныеЧасти. path is normalised", env.coverage.resolved_id,
+       "Справочники.ДоговорыКонтрагентов.Этапы")
+    eq("and the backends are asked by the short form",
+       sorted({c[2].get("object_name") for c in CALLS if c[2].get("object_name")}),
+       ["Справочники.ДоговорыКонтрагентов.Этапы"])
 
     # -- degraded path -------------------------------------------------
     cold = build_facade(AlwaysUpHealth(state="cold"))

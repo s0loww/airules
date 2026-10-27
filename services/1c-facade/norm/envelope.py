@@ -12,7 +12,7 @@ from record import prune
 
 class Coverage(object):
     __slots__ = ("asked", "resolved_id", "candidates", "backends", "index_age_s",
-                 "degraded", "notes")
+                 "degraded", "notes", "not_found")
 
     def __init__(self, asked):
         self.asked = asked
@@ -22,6 +22,8 @@ class Coverage(object):
         self.index_age_s = None
         self.degraded = False
         self.notes = []
+        # every backend answered and none has the thing: absence, not silence
+        self.not_found = False
 
     def add_backend(self, name, state, ms=None, index_age_s=None, detail=None):
         entry = {"name": name, "state": state}
@@ -42,6 +44,8 @@ class Coverage(object):
 
     def as_dict(self):
         out = {"asked": self.asked, "degraded": self.degraded}
+        if self.not_found:
+            out["not_found"] = True
         if self.resolved_id:
             out["resolved_id"] = self.resolved_id
         if self.candidates:
