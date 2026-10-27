@@ -17,6 +17,7 @@ import functools
 import json
 import re
 from record import Record, Loc, Rel, Src, ParseResult, rel_path
+from code_parsers import owner_from_path
 
 BACKEND = "graph"
 
@@ -188,7 +189,12 @@ def parse_search_code(text):
         if mi:
             owner = mi.group("owner").strip()
             name = mi.group("name").strip()
-            cur = Record(id=owner + "." + name, kind="routine", name=name, owner=owner,
+            # a module the graph cannot place prints as Python's None; the
+            # File line below gives the owner back
+            if owner in ("None", ""):
+                owner = None
+            cur = Record(id=(owner + "." + name) if owner else name, kind="routine",
+                         name=name, owner=owner,
                          src=Src(backend=BACKEND, tool="search_code", tier="indexed"))
             res.records.append(cur)
             continue
@@ -205,6 +211,10 @@ def parse_search_code(text):
         m = _SC_FILE.match(line)
         if m:
             cur.loc = Loc(path=rel_path(m.group("path")), line=int(m.group("line")))
+            if cur.owner is None:
+                cur.owner = owner_from_path(cur.loc.path)
+                if cur.owner:
+                    cur.id = cur.owner + "." + cur.name
     return res
 
 

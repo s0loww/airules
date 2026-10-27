@@ -24,6 +24,7 @@ for free, because the two rankers barely agree and run concurrently. On `calls`
 it would add a known false record, and on `find(kind=metadata)` it would cost a
 seventy-fold slowdown to add nothing.
 """
+import itertools
 import json
 import os
 import re
@@ -398,9 +399,17 @@ class Facade(object):
         project = self.registry.get(project)
         units = self._units(project, scope)
         envelope = Envelope("find(%r, kind=%s)" % (query, kind))
+        limit = int(limit or 20)
         self._over_units(envelope, units, lambda env, unit: self._find_one(
             env, unit, query, kind, exact, limit))
-        return self._finish(envelope, units)
+        self._finish(envelope, units)
+        # every backend and every unit got the limit for its own share; the
+        # caller meant the answer
+        if len(envelope.records) > limit:
+            envelope.coverage.note("%d of %d hits shown (limit=%d)"
+                                   % (limit, len(envelope.records), limit))
+            envelope.records = envelope.records[:limit]
+        return envelope
 
     def _find_one(self, envelope, project, query, kind, exact, limit):
         # A routine name has no whitespace, so under `any` a phrase goes straight
@@ -452,10 +461,19 @@ class Facade(object):
             ("graph", "search_code", {"query": query, "top_k": limit}),
             ("code", "codesearch", {"query": query, "limit": limit}),
         ])
-        if graph_text:
-            envelope.merge(graph_parsers.parse_search_code(graph_text), "graph")
-        if code_text:
-            envelope.merge(code_parsers.parse_codesearch(code_text), "code")
+        graph = graph_parsers.parse_search_code(graph_text) if graph_text else None
+        code = code_parsers.parse_codesearch(code_text) if code_text else None
+        for parsed, name in ((graph, "graph"), (code, "code")):
+            if parsed is not None:
+                envelope.merge(parsed, name)
+        # interleave the rankings, so a limit on the union keeps the head of each
+        # rather than all of the first and none of the second
+        heads = [p.records for p in (graph, code) if p is not None]
+        if len(heads) == 2:
+            first = {id(r) for r in heads[0] + heads[1]}
+            rest = [r for r in envelope.records if id(r) not in first]
+            mixed = [r for pair in itertools.zip_longest(*heads) for r in pair if r is not None]
+            envelope.records = rest + mixed
 
     def describe(self, id, project=None, sections=None, scope=None):
         """Dossier of an object; the layout of a form; the structure of a module.
@@ -818,6 +836,11 @@ class Facade(object):
                 envelope.coverage.add_backend(
                     "%s/%s" % (entry.name, kind), state.state, ms=state.ms,
                     index_age_s=state.index_age_s, detail=state.detail)
+                if getattr(state, "help_docs", None) == 0:
+                    envelope.coverage.note(
+                        "%s/%s: индекс справки пуст (help=0) — code_helpsearch отвечает "
+                        "grep-фолбэком, пустая выдача не значит «статьи нет»"
+                        % (entry.name, kind))
         return envelope
 
 
@@ -830,7 +853,10 @@ class Facade(object):
         query with *something* -- so emptiness cannot drive the routing. What
         can: a query shaped like a name (`ТаблицаЗначений.Найти`) goes to the
         exact lookup first, which does say "not found", and only then to the
-        search. A version pins the lookup to that platform version's docs.
+        search. The documentation index is one, not one per version: with a
+        version a name still goes to that index first -- an article beats a
+        retelling -- and only a name it lacks, or a prose question, goes to the
+        versioned live source, which is a model's answer and is marked so.
         ITS is a different corpus (methodology, not syntax); `any` asks both
         at once.
         """
@@ -840,7 +866,7 @@ class Facade(object):
         its = scope in ("its", "any")
         requests = []
         if platform:
-            if version:
+            if version and not _NAME_LIKE.match(query or ""):
                 requests.append(("codecheck", "search_1c_documentation",
                                  {"query": query, "version": version}))
             elif _NAME_LIKE.match(query or ""):
@@ -859,9 +885,18 @@ class Facade(object):
             if tool == "its_help":
                 envelope.merge(platform_parsers.parse_its(text), kind)
             elif tool == "search_1c_documentation":
-                envelope.merge(platform_parsers.as_text(text, kind, tool, query), kind)
+                self._merge_live_docs(envelope, text, query)
             else:
                 parsed = platform_parsers.parse_docs(text, tool, kind)
+                if tool == "docinfo" and parsed.status == "not_found" and version:
+                    envelope.coverage.note(
+                        "no article named %r in the documentation index; answered by "
+                        "the live source for %s" % (query, version))
+                    again = self._ask(envelope, shared, "codecheck", "search_1c_documentation",
+                                      {"query": query, "version": version})
+                    if again:
+                        self._merge_live_docs(envelope, again, query)
+                    continue
                 if tool == "docinfo" and parsed.status == "not_found":
                     # the name was not a documented one: fall back to the search
                     envelope.coverage.note("no article named %r; answered by search" % query)
@@ -872,6 +907,11 @@ class Facade(object):
                 envelope.merge(parsed, kind)
                 if parsed.fetch:
                     self._fetch_bodies(envelope, shared, parsed)
+                if version and parsed.records:
+                    envelope.coverage.note(
+                        "the documentation index is not versioned: the article is the "
+                        "current platform's, %s is not applied — the version it is "
+                        "available from is in its text" % version)
         for record in envelope.records:
             if record.src and record.src.backend == "docs" and not record.text:
                 # an empty article read as an answer is worse than none
@@ -882,6 +922,18 @@ class Facade(object):
                 "documentation search has no relevance threshold — check that "
                 "the articles are about the question")
         return envelope.dedupe()
+
+    @staticmethod
+    def _merge_live_docs(envelope, text, query):
+        parsed, sources = platform_parsers.parse_live_docs(text, query)
+        envelope.merge(parsed, "codecheck")
+        if parsed.records and not sources:
+            envelope.coverage.note(
+                "codecheck: сгенерированный ответ модели без первоисточника "
+                "(sources пуст)%s" % (" — " + parsed.note if parsed.note else ""))
+        elif parsed.records:
+            envelope.coverage.note("codecheck: ответ модели по %d источник(ам)%s" % (
+                len(sources), " — " + parsed.note if parsed.note else ""))
 
     def _fetch_bodies(self, envelope, shared, parsed):
         """Fill the records docinfo sent without a body: one lookup per doc_id,

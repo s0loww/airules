@@ -65,6 +65,7 @@ PLATFORM_REPLAY = {
     ("docs", "docinfo"): "platform_docinfo__ok",
     ("docs", "docsearch"): "platform_docsearch__ok",
     ("codecheck", "its_help"): "platform_its__ok",
+    ("codecheck", "search_1c_documentation"): "platform_codecheck_docs__live__v4",
     ("syntax", "syntaxcheck"): "platform_syntax__issues",
     ("templates", "templatesearch"): "platform_templates__ok",
     ("templates", "get_template"): "platform_template__one",
@@ -333,6 +334,13 @@ def checks():
        {r.src.backend for r in env.records if r.src}, {"graph", "code"})
     eq("parallel fan-out reports coverage in request order",
        [b["name"] for b in env.coverage.backends], ["graph", "code"])
+    # the limit bounds the merged answer, not each backend's share of it
+    env = facade.find("отправка почты", kind="text", limit=3)
+    ok("find(kind=text): limit applies to the merged answer",
+       len(env.records) == 3 and any("limit" in n for n in env.coverage.notes),
+       "%d records, notes %s" % (len(env.records), env.coverage.notes))
+    eq("and both rankers stay in what is kept",
+       {r.src.backend for r in env.records}, {"graph", "code"})
     del CALLS[:]
     facade.find("отправка почты")
     eq("find(kind=any): a phrase is no routine name -- straight to the text search",
@@ -439,6 +447,24 @@ def checks():
     ok("a body that cannot be fetched is degraded, not an empty article",
        env.coverage.degraded and any("no text" in n for n in env.coverage.notes),
        str(env.coverage.as_dict()))
+    # a version must not quietly swap the article for a model's retelling
+    del CALLS[:]
+    env = facade.docs("ТаблицаЗначений.Найти", version="v8.3.27")
+    eq("with a version the documentation index is asked first",
+       [c[1] for c in CALLS], ["docinfo"])
+    eq("and its article is the answer", [(r.id, r.src.tier) for r in env.records],
+       [("doc:ТаблицаЗначений.Найти", "indexed")])
+    ok("that the index is not versioned is said",
+       any("v8.3.27" in n for n in env.coverage.notes), str(env.coverage.notes))
+    del CALLS[:]
+    env = facade.docs("НетТакогоМетодаВообще", version="v8.3.27")
+    eq("no article: the versioned live source answers",
+       [c[1] for c in CALLS], ["docinfo", "search_1c_documentation"])
+    ok("a live answer is marked as generated, without a primary source",
+       any("без первоисточника" in n for n in env.coverage.notes), str(env.coverage.notes))
+    ok("and its text is the answer, not the JSON around it",
+       env.records and not env.records[-1].text.lstrip().startswith("{"),
+       repr(env.records[-1].text[:60]) if env.records else "no records")
     del CALLS[:]
     env = facade.docs("как найти строку в таблице", scope="any")
     eq("scope=any asks documentation and ITS at once",
@@ -659,6 +685,64 @@ def checks():
     eq("graph 4.x: an explicit any_running is believed",
        indexing_now(alive_loop.replace('"any_running": false', '"any_running": true')), True)
     eq("older replies keep the plain match", indexing_now('{"reindex": {"running": true}}'), True)
+
+    # -- a stopped backend is not a network fault ---------------------
+    import socket
+    import urllib.error
+    import health as health_mod
+
+    def unreachable(reason):
+        def factory(_url):
+            raise urllib.error.URLError(reason)
+        return factory
+
+    class FakeDocker(object):
+        def __init__(self, state):
+            self._state = state
+
+        def available(self):
+            return self._state != "unknown"
+
+        def state(self, _name):
+            return self._state
+
+    stopped_backend = registry_mod.Backend("code", "http://bp_code:8000/mcp", container="bp_code")
+    real_access = health_mod._ACCESS
+    try:
+        health_mod._ACCESS = FakeDocker("exited")
+        got = health_mod.Health(unreachable(ConnectionRefusedError(111, "refused"))).probe(
+            stopped_backend)
+        eq("an exited container is stopped, not unknown", got.state, "stopped")
+        health_mod._ACCESS = health_mod.NoDocker()
+        got = health_mod.Health(unreachable(socket.gaierror(-2, "Name or service not known"))
+                                ).probe(stopped_backend)
+        eq("without docker: a container name gone from DNS is a stopped container",
+           got.state, "stopped")
+        got = health_mod.Health(unreachable(socket.timeout("timed out"))).probe(stopped_backend)
+        eq("without docker: a timeout is still not known to be a stop", got.state, "unknown")
+        cold = registry_mod.Backend("code", "http://bp_code:8000/mcp", container="bp_code",
+                                    cold_ok=True)
+        health_mod._ACCESS = FakeDocker("exited")
+        got = health_mod.Health(unreachable(ConnectionRefusedError(111, "refused"))).probe(cold)
+        eq("a stopped container the facade may start stays cold", got.state, "cold")
+    finally:
+        health_mod._ACCESS = real_access
+
+    # -- the help index is part of the status --------------------------
+    class StatsClient(object):
+        def __init__(self, _url):
+            pass
+
+        def call(self, tool, _args):
+            return 0.01, "OK", json.dumps({"status": "success", "data": {
+                "collections": {"metadata": 141, "code": 3326, "help": 0, "forms": 11}}})
+
+    got = health_mod.Health(StatsClient).probe(stopped_backend)
+    eq("an empty help index is reported", got.help_docs, 0)
+    env = Facade(facade.registry, health_mod.Health(StatsClient), StatsClient,
+                 resolver_factory=lambda _p: None).status(project="demo")
+    ok("status says the help index is empty",
+       any("справк" in n and "help" in n for n in env.coverage.notes), str(env.coverage.notes))
 
     return out
 

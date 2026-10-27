@@ -259,6 +259,23 @@ def parse_templates(text, tool="templatesearch"):
     return res
 
 
+def parse_live_docs(text, query):
+    """codecheck's versioned documentation: a model's answer in a JSON object
+    with `answer`, `sources` (the files it read -- often none) and
+    `version_used`. Returns (ParseResult, sources); an older plain-text reply
+    is one record as is, with no sources known."""
+    try:
+        payload = json.loads(text)
+    except ValueError:
+        payload = None
+    if not isinstance(payload, dict) or "answer" not in payload:
+        return as_text(text, "codecheck", "search_1c_documentation", query), []
+    res = as_text(payload.get("answer"), "codecheck", "search_1c_documentation", query)
+    if payload.get("version_used"):
+        res.note = "version_used=%s" % payload["version_used"]
+    return res, payload.get("sources") or []
+
+
 def as_text(text, backend, tool, name):
     """A generative or free-form answer: one record, the text as is."""
     if not text or not text.strip():

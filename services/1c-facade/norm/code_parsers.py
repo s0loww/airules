@@ -107,7 +107,9 @@ def parse_search_function(text):
     items = data.get("results") or []
     res = ParseResult(status="ok" if items else "empty")
     for it in items:
-        path = rel_path(it.get("path") or it.get("module"))
+        # `module_path` is where the backend puts it; missing it left two
+        # homonyms with one bare id, and dedupe folded them into one record
+        path = rel_path(it.get("path") or it.get("module_path") or it.get("module"))
         owner = owner_from_path(path)
         name = it.get("name")
         res.records.append(Record(

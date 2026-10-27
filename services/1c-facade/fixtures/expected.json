@@ -2351,13 +2351,15 @@
   "declared": null,
   "records": [
    {
-    "id": "ОтправкаПочты",
+    "id": "ДЕМО_ОбщегоНазначенияСервер.ОтправкаПочты",
     "kind": "routine",
     "loc": {
      "end": 1055,
-     "line": 1031
+     "line": 1031,
+     "path": "CommonModules/ДЕМО_ОбщегоНазначенияСервер/Ext/Module.bsl"
     },
     "name": "ОтправкаПочты",
+    "owner": "ДЕМО_ОбщегоНазначенияСервер",
     "src": {
      "backend": "code",
      "tier": "indexed",
@@ -2366,13 +2368,15 @@
     "text": "Процедура Заглушка()\n\t// тело вырезано при анонимизации\nКонецПроцедуры"
    },
    {
-    "id": "ОтправкаПочты",
+    "id": "ДЕМО_РеестрЗамечаний.Форма.ОтправкаПочты",
     "kind": "routine",
     "loc": {
      "end": 1767,
-     "line": 1739
+     "line": 1739,
+     "path": "DataProcessors/ДЕМО_РеестрЗамечаний/Forms/Форма/Ext/Form/Module.bsl"
     },
     "name": "ОтправкаПочты",
+    "owner": "ДЕМО_РеестрЗамечаний.Форма",
     "src": {
      "backend": "code",
      "tier": "indexed",
@@ -2390,13 +2394,15 @@
   "declared": null,
   "records": [
    {
-    "id": "СтатусПоРеквизитам",
+    "id": "ДЕМО_Р_СтатусСделки.СтатусПоРеквизитам",
     "kind": "routine",
     "loc": {
      "end": 184,
-     "line": 167
+     "line": 167,
+     "path": "CommonModules/ДЕМО_Р_СтатусСделки/Ext/Module.bsl"
     },
     "name": "СтатусПоРеквизитам",
+    "owner": "ДЕМО_Р_СтатусСделки",
     "src": {
      "backend": "code",
      "tier": "indexed",

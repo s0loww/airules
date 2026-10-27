@@ -30,13 +30,14 @@ UP = "up"
 COLD = "cold"          # container exists but is not running
 DOWN = "down"          # no container, or start refused
 UNKNOWN = "unknown"    # docker unavailable, so we cannot tell cold from down
+STOPPED = "stopped"    # switched off on purpose, and the facade will not start it
 
 
 class BackendStatus(object):
-    __slots__ = ("kind", "state", "ms", "index_age_s", "detail", "indexing")
+    __slots__ = ("kind", "state", "ms", "index_age_s", "detail", "indexing", "help_docs")
 
     def __init__(self, kind, state, ms=None, index_age_s=None, detail=None,
-                 indexing=False):
+                 indexing=False, help_docs=None):
         self.kind = kind
         self.state = state
         self.ms = ms
@@ -46,6 +47,9 @@ class BackendStatus(object):
         # and looks exactly like "not found". That is the fourth state this
         # class exists to keep apart from the other three.
         self.indexing = indexing
+        # documents in the code backend's help index; 0 means helpsearch can
+        # only grep, and its empty answer says nothing
+        self.help_docs = help_docs
 
     @property
     def usable(self):
@@ -61,6 +65,8 @@ class BackendStatus(object):
             out["detail"] = self.detail
         if self.indexing:
             out["indexing"] = True
+        if self.help_docs is not None:
+            out["help_docs"] = self.help_docs
         return out
 
 
@@ -263,29 +269,40 @@ class Health(object):
             client = self.client_factory(backend.url)
         except Exception as exc:                     # noqa: BLE001 - probe
             state = container_state(backend.container)
-            if state == "exited":
-                return BackendStatus(backend.kind, COLD, detail="container stopped")
+            if state in ("exited", "created", "dead"):
+                # a stopped container is cold only if the facade may wake it;
+                # otherwise it is switched off, which is not a fault
+                if backend.cold_ok:
+                    return BackendStatus(backend.kind, COLD, detail="container stopped")
+                return BackendStatus(backend.kind, STOPPED, detail="container " + state)
             if state == "unknown":
+                if backend.container and _name_gone(exc):
+                    # without docker access: in a docker network a container's
+                    # name resolves exactly while it runs
+                    return BackendStatus(backend.kind, STOPPED, detail=(
+                        "container name does not resolve: stopped or removed "
+                        "(docker is not reachable from the facade to tell which)"))
                 return BackendStatus(backend.kind, UNKNOWN, detail=type(exc).__name__)
             return BackendStatus(backend.kind, DOWN, detail=type(exc).__name__)
         elapsed = (time.time() - started) * 1000
-        age, indexing = self._index_state(client, backend)
+        age, indexing, help_docs = self._index_state(client, backend)
         return BackendStatus(backend.kind, UP, ms=elapsed, index_age_s=age,
-                             indexing=indexing)
+                             indexing=indexing, help_docs=help_docs)
 
     def _index_state(self, client, backend):
-        """(seconds since the last pass, is it indexing right now)."""
+        """(seconds since the last pass, is it indexing right now, documents in
+        the help index -- code backends only)."""
         tool = "stats" if backend.kind == "code" else "get_indexing_status"
         try:
             _, status, text = client.call(tool, {})
         except Exception:                            # noqa: BLE001 - optional
-            return None, False
+            return None, False, None
         if status != "OK":
-            return None, False
+            return None, False, None
         running = indexing_now(text)
         stamp = _find_timestamp(text)
         age = None if stamp is None else max(0.0, time.time() - stamp)
-        return age, running
+        return age, running, _help_docs(text) if backend.kind == "code" else None
 
     # -- lifecycle --------------------------------------------------------
 
@@ -374,6 +391,24 @@ class Health(object):
 
 
 _TS_KEYS = ("last_incremental_at", "last_indexed_at", "updated_at", "completed_at")
+
+
+def _name_gone(exc):
+    """Whether a connection failed because the host name does not resolve."""
+    import socket
+    reason = getattr(exc, "reason", exc)
+    return isinstance(reason, socket.gaierror)
+
+
+def _help_docs(text):
+    try:
+        payload = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    data = payload.get("data") if isinstance(payload, dict) else None
+    collections = data.get("collections") if isinstance(data, dict) else None
+    count = collections.get("help") if isinstance(collections, dict) else None
+    return count if isinstance(count, int) else None
 
 
 def _find_timestamp(text):

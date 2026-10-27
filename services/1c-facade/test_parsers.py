@@ -285,6 +285,18 @@ def invariants(res):
        (amb.status, len((amb.note or "").split("one of: ")[-1].split(", "))),
        ("not_found", len(json.loads(load("code_metadata_details__ambiguous__v4"))["data"]["candidates"])))
 
+    # the graph prints a module it cannot place as `(None / CommonModule)`:
+    # the owner comes back from the file path, never as the string "None"
+    sc4 = load("graph_search_code__ok__v4")
+    first = re.search(r"\(([^/()]+) / CommonModule\)", sc4).group(1)
+    nameless = G.parse_search_code(sc4.replace("(%s / CommonModule)" % first,
+                                               "(None / CommonModule)", 1))
+    eq("v4 graph search_code: a None owner is rebuilt from the path",
+       [(r.owner, r.id.split(".")[0]) for r in nameless.records][:1], [(first, first)])
+    for name in ("code_search_function__ok", "code_search_function__ok__v4"):
+        eq("%s: every routine names its module and owner" % name,
+           [r.id for r in res[name].records if not (r.owner and r.loc and r.loc.path)], [])
+
     # -- platform servers, images of 27.09.2026 ------------------------
     eq("v4 docinfo: an exact name gives one article",
        [r.id for r in res["platform_docinfo__ok__v4"].records], ["doc:ТаблицаЗначений.Найти"])
