@@ -60,6 +60,7 @@ Pure standard library, cross-platform, Python 3.8+.
 import fnmatch
 import json
 import os
+import re
 import sys
 
 MAP_NAME = "rules-map.json"
@@ -188,13 +189,65 @@ def load_map(script_dir):
 
 
 def target_path(payload):
-    """The file this tool call is about, as a posix-style string."""
+    """First touched path, preserving the original single-file API."""
+    paths = target_paths(payload)
+    return paths[0] if paths else None
+
+
+def target_paths(payload):
+    """Paths in file-tool inputs or patch headers; never execute/open a patch.
+
+    Content lines have a space/plus/minus prefix and cannot create headers.
+    A rename contributes its old and new paths. Unknown/truncated payloads
+    are ignored rather than publishing a partial set of reminders.
+    """
+    if not isinstance(payload, dict):
+        return []
     tool_input = payload.get("tool_input") or {}
+    if not isinstance(tool_input, dict):
+        return []
+    if payload.get("tool_name") == "apply_patch":
+        patch = tool_input.get("command")
+        if not isinstance(patch, str) or len(patch) > 1024 * 1024:
+            return []
+        lines = patch.strip().splitlines()
+        if not lines or lines[0] != "*** Begin Patch" or lines[-1] != "*** End Patch":
+            return []
+        result, movable = [], False
+        for line in lines[1:-1]:
+            match = re.match(r"^\*\*\* (Add File|Update File|Delete File|Move to): (.+)$", line)
+            if match:
+                kind, path = match.groups()
+                if kind == "Move to" and not movable:
+                    return []
+                path = path.replace("\\", "/")
+                if not path or len(path) > 4096 or any(ord(char) < 32 for char in path):
+                    return []
+                if path not in result:
+                    result.append(path)
+                if len(result) > 256:
+                    return []
+                movable = kind == "Update File"
+            else:
+                movable = False
+                if line.startswith("*** ") and line != "*** End of File":
+                    return []
+        return result
     for key in PATH_KEYS:
         value = tool_input.get(key)
         if isinstance(value, str) and value:
-            return value.replace("\\", "/")
-    return None
+            return [value.replace("\\", "/")]
+    return []
+
+
+def project_root(script_dir, payload):
+    """Installed hooks retain project identity when an event cwd is nested."""
+    parent = os.path.dirname(script_dir)
+    if (os.path.basename(script_dir) == "hooks"
+            and os.path.basename(parent) in (".claude", ".codex", "core")):
+        return os.path.dirname(parent)
+    return (os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd")
+            or os.path.dirname(parent))
 
 
 def candidates(raw_path, cwd):
@@ -396,8 +449,7 @@ def main(argv):
         # A fresh context (new session or /clear): offer open handoffs, never
         # pick one up. Silent when there are none.
         if source in ("startup", "clear"):
-            root = (os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd")
-                    or os.path.dirname(os.path.dirname(script_dir)))
+            root = project_root(script_dir, payload)
             text = handoff_notice(root)
             if text:
                 print(text)
@@ -411,8 +463,7 @@ def main(argv):
 
             stamp = datetime.datetime.now().strftime("%H:%M:%S")
             print("[rule-inject {0}] {1}".format(stamp, COMPACT_NOTICE))
-            root = (os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd")
-                    or os.path.dirname(os.path.dirname(script_dir)))
+            root = project_root(script_dir, payload)
             if os.path.isfile(os.path.join(root, ORCHESTRATION_STATE)):
                 print("[rule-inject {0}] {1}".format(stamp, ORCHESTRATION_NOTICE))
             text = session_map_notice(root)
@@ -421,11 +472,14 @@ def main(argv):
         return 0
 
     payload = json.load(sys.stdin)
-    raw_path = target_path(payload)
-    if not raw_path:
+    raw_paths = target_paths(payload)
+    if not raw_paths:
         return 0
     entries, budget = load_map(script_dir)
-    text = build_context(entries, candidates(raw_path, payload.get("cwd")), budget)
+    paths = []
+    for raw_path in raw_paths:
+        paths.extend(candidates(raw_path, payload.get("cwd")))
+    text = build_context(entries, paths, budget)
     if text:
         emit(text)
     return 0

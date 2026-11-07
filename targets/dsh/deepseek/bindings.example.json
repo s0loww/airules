@@ -1,0 +1,22 @@
+{
+  "placeholders": {
+    "PROJECT_ID": "example-project",
+    "PROJECT_NAME": "Example Project",
+    "STACK": "1c",
+    "SOURCE_OF_TRUTH": "`src/`",
+    "PRIMARY_CODE_DIR": "`src/`",
+    "PREFIX": "NOT CONFIGURED",
+    "LANGUAGE_POLICY": "Russian replies, project language in code",
+    "MCP_ORDER": "facade -> project data -> QA -> memory -> local source",
+    "DISABLED_MCP": "all servers outside the explicit allowlist",
+    "BACKUP_DIR": ".rules-backups/"
+  },
+  "project_rules": [
+    {
+      "name": "project-domain",
+      "path": "project-rules/project-domain.md",
+      "kind": "invariant"
+    }
+  ],
+  "mcp_bindings": {}
+}

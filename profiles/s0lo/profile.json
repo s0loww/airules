@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "s0lo",
+  "extends": "public",
+  "portable": false,
+  "capabilities": {
+    "required": [
+      "mcp-code-facade"
+    ],
+    "optional": [
+      "mcp-memory",
+      "mcp-project-data",
+      "mcp-qa"
+    ]
+  },
+  "mcp": {
+    "selection": "allowlist",
+    "logical_servers": [
+      {
+        "role": "code-and-platform-knowledge",
+        "selector": "1c-facade",
+        "access": "read-only",
+        "required": true
+      },
+      {
+        "role": "operational-memory",
+        "selector": "project-memory",
+        "access": "project-defined",
+        "required": false
+      },
+      {
+        "role": "project-live-data",
+        "selector": "project-onemcp",
+        "access": "project-defined",
+        "required": false
+      },
+      {
+        "role": "quality-assurance",
+        "selector": "project-qa",
+        "access": "project-defined",
+        "required": false
+      }
+    ]
+  }
+}

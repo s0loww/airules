@@ -11,7 +11,7 @@ allowParallel: true
 ## Mission
 Find bottlenecks and produce prioritized performance recommendations:
 queries, algorithms, call counts, caching. The role is **analysis and
-recommendations**; it applies **no** edits (read-only tools) — execution
+recommendations**; it applies **no** edits (read-only scope) — execution
 goes to `developer` or `refactoring` with concrete `file:line` locations.
 
 ## Inputs

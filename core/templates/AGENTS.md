@@ -13,6 +13,8 @@
   RAG are navigation only, confirm facts against the source of truth.
 - Source root: {{PRIMARY_CODE_DIR}}
 - Object name prefix (if applicable): `{{PREFIX}}`
+- Project-owned access and verification bindings live in
+  `.airules/project-context.md` and `.airules/testing-contour.md`.
 
 ## Base rules
 
@@ -58,15 +60,16 @@
   low-tier role. Keep what you reason over: dense implementation, live
   iteration on a system, decisions, the dialogue with the user. Rule of
   thumb: more than ~15–20 thousand tokens of raw reading ahead and the
-  session goes on for more than a few turns — delegate; under ~5 tool calls —
-  do it yourself. The report comes back short, with the full text in a file
-  (`rules/session-map.md`); spot-check the one or two facts the decision
+  session goes on for more than a few turns — delegate when authorized;
+  under ~5 tool calls — do it yourself. The report comes back short, with
+  details in a file; for a read-only worker the lead persists its bounded
+  evidence (`rules/session-map.md`). Spot-check the one or two facts the decision
   rests on, not the whole report.
 - Do not launch a subagent to re-check what an executing gate already
   verifies: the implementing subagent runs its own test loop, and an
   independent pass is your call for a regulated area or a disputed
   acceptance (`rules/subagent-pipeline.md`). If one subagent can close the
-  task, launch one. Unprompted, run in parallel at most 2–3 independent
+  task, launch one. Under applicable delegation authorization, run in parallel at most 2–3 independent
   scouts; a fan-out over one question is the user's command. Heavy
   multi-file implementation stays with you unless the user turns on
   orchestration mode (`rules/orchestrator-economy.md`).
@@ -79,7 +82,9 @@
   | Linked session | a self-contained task with its own code edits and dialogue with the user |
   | Handoff / new session | a change of topic needing no coordination, or the context is already large |
 
-  A lead session running linked tasks is their coordinator: correspondence,
+  Create user-owned linked sessions only with the user's authorization;
+  a supported subagent or file handoff is the alternative. A lead session
+  running linked tasks is their coordinator: authorized correspondence,
   decisions, launching and accepting the linked sessions; its heavy reading
   goes to subagents by default. Child sessions follow the same rules —
   subagents inside them are fine. Payback numbers —
@@ -103,10 +108,10 @@ when starting that task; **process** — how to run the work itself;
 
 {{RULE_INDEX}}
 
-Skills resolve to files: `.claude/skills/<skill-name>/SKILL.md` is the
-dispatcher (with `docs/` and `tools/` beside it). Subagents have no Skill
-tool — when a prompt or agent definition names a skill, read it at that
-path; never search for it with shell commands.
+Skills resolve through the selected runtime's skill catalog and layout.
+Read `<skill-name>/SKILL.md` as the dispatcher, then only the resources needed
+for the task (`docs/` and `tools/` sit beside it). Use the advertised path
+rather than assuming a tool name or another runtime's discovery directory.
 
 Where a stack rule adapts a core one (e.g. debugging), the stack
 rule takes precedence for stack tasks; the core rule stays the fallback.
@@ -115,7 +120,7 @@ rule takes precedence for stack tasks; the core rule stays the fallback.
 
 Role → tier + effort → channel model and effort value — resolved at install
 time from the distribution's role registry and channel model map;
-model-family behavior blocks are rendered into the agent definitions.
+model-family behavior blocks are rendered only by the matching target.
 
 | Role | tier | effort | Channel model |
 | --- | --- | --- | --- |

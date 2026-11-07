@@ -1,5 +1,5 @@
 ---
-description: "Platform traps that make a 1C test lie: unopened form, posting without checks or movements, admin-only runs, stale roles, deploy not applied. Триггеры: тест 1С, тест под ролью, проведение без движений, стенд."
+description: "1C test traps and hidden-desktop Vanessa evidence. Триггеры: тест 1С, скрытый рабочий стол, проведение без движений, стенд."
 alwaysApply: false
 kind: case
 ---
@@ -23,6 +23,67 @@ was paid for by a false verdict on a live project.
 - A form under test lives in an **extension**, not in an external epf:
   opening it by `e1cib/app/...` is scriptable, and the standard Vanessa
   build cannot open an external epf at all.
+
+## Vanessa on a hidden Windows desktop
+
+When the project binds a hidden-desktop runner, use it for Vanessa functional
+regression without taking over the operator's desktop. A hidden window or
+`-WindowStyle Hidden` alone does not prove desktop isolation: both the test
+manager and the launched test client must run on the same separate desktop
+through `CreateProcess(lpDesktop)` and the 1C testing API.
+
+### Environment and launch
+
+- Resolve the runner, platform bin, OneScript/vrunner, VA single epf, step
+  libraries, feature, users, copy root and report root from the project
+  testing profile. Read the runner's supplied documentation before use.
+- This contour requires an interactive Windows `WinSta0` session. Services /
+  Session 0, client-server bases and password authentication need their own
+  supported runner; the portable file-base runner does not establish support.
+- Start with DryRun: it validates inputs without creating a copy or starting
+  clients. Apply runs on a fresh disposable file-base copy made from a closed
+  base or a consistent snapshot. File-size equality does not prove snapshot
+  consistency. Confirm the copy contains the tested revision after deploy.
+- Use the intended business-role user for the test client and a separate
+  manager identity where needed. The portable runner supports passwordless
+  test users only; credentials never go in process arguments or reports.
+- A security modal means an environment failure. Prepare the trusted test
+  stand through its declared procedure; do not weaken unsafe-action protection
+  or expand trust masks to make a run green.
+
+### Scenario and evidence
+
+- Drive forms through named controls and VA testing-API steps from the
+  installed library. Foreground keyboard/mouse, Sikuli, image search and
+  VanessaExt OS keystrokes do not work as hidden-desktop assertions. Save
+  Cyrillic PowerShell scripts, features and generated VA settings with the
+  required BOM; omit unsupported settings keys such as `$schema` / `_comment`.
+- Each Apply gets a fresh report directory. Require at least one executed
+  scenario, zero failed/skipped, vrunner exit 0 and buildstatus `0`. Exit 0
+  from DryRun is environment validation, not a passed test.
+- Require `desktopCheck`: at least two 1C clients, test client observed,
+  windows observed on the hidden desktop for every client, zero client
+  windows on the user's desktop, zero visible user-desktop windows for the
+  process tree and zero process-poll errors. An incomplete check is an
+  execution failure. Polling is sampled evidence, not proof that no transient
+  window ever appeared between polls.
+- Keep `result.json`, jUnit, stdout/stderr, VA/buildstatus logs and the
+  available журнал регистрации for the run window. State explicitly when
+  event-log collection is unavailable or disabled. Opening a form is a UI
+  smoke only; business scenarios still assert saved data and movements.
+- Hidden-desktop screenshots are commonly black. Use a separate web-client
+  or visible-session pass for visual acceptance and screenshot evidence.
+  An unavailable screenshot does not invalidate testing-API assertions.
+- On timeout stop only this run's processes, identified by PID and creation
+  time (and the unique copy path for detached clients). Release desktop
+  handles after clients exit. Delete only a marked copy inside the declared
+  work root; record cleanup errors or an explicitly retained diagnostic copy.
+
+Record runner codes distinctly: 0 = passed Apply / valid DryRun; 1 = failed
+or skipped scenarios; 2 = environment, timeout, desktop-proof or cleanup error.
+If the bound runner uses another contract, record its mapping before interpreting
+results. Missing tooling is a reported unavailable channel, not a silent switch
+to foreground automation.
 
 ## Posting and data checks
 

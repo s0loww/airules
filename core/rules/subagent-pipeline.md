@@ -238,9 +238,10 @@ implementation:
 
 A finding of an independent pass goes to a **fresh** implementing agent with
 the finding and the slice handoff — not to the original one woken up. An
-agent idle for longer than its prompt-cache lifetime rewrites its whole
-context on the next call, and then carries it on every call after. Continue
-the original only while it is still warm and the fix is a few calls.
+agent carries its accumulated context into later work; cache expiration can
+also change its cost where the target establishes a cache lifetime. Continue
+the original only for a small follow-up on the same ground. Do not assume a
+specific cache lifetime across environments.
 
 An implementing agent grown to hundreds of thousands of tokens is a sign the
 slice was too large: each of its calls costs a tenth of that context.

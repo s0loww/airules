@@ -3,10 +3,12 @@
 Canonical registry of generic subagent roles. The model is not hardcoded in
 roles or in agent definitions — a role carries only its `tier` and `effort`,
 and the concrete model and effort value are resolved via
-`core/install/model-map.yaml` at install time.
+the selected target's model map at install time (the legacy default is
+`core/install/model-map.yaml`).
 
-`tools` legend: **ro** — read/search (no write access); **rw** — the same
-plus file writes and command execution.
+`tools` legend: **ro** — read/search scope (no mutations); **rw** — the same
+plus file writes and command execution. Technical enforcement is
+target-specific: an instruction-only restriction is not a separate sandbox.
 
 | role | tier | effort | tools | override | purpose |
 | --- | --- | --- | --- | --- | --- |
@@ -31,12 +33,11 @@ deliberation* it spends there. The two are separate axes — two roles on the
 same tier legitimately differ in effort (`architect` at `high` vs
 `code-reviewer` at `medium`), so effort cannot be derived from the tier.
 
-Both values in the table are **defaults**. The launch can override them: the
-orchestrator passes the model and the effort as launch parameters, and those
-win over the agent definition (see "Role classes and launch-time override").
+Both values in the table are **defaults**. The target defines how a launch
+can select another model and effort (see "Role classes and launch-time override").
 
-Values are `low | medium | high | xhigh` and are translated by `claude.effort`
-in `model-map.yaml`.
+Values are `low | medium | high | xhigh` and are translated by the target's
+effort map; only settings supported by the selected model may be emitted.
 
 Calibrations worth keeping in mind when editing the table:
 
@@ -57,8 +58,8 @@ Calibrations worth keeping in mind when editing the table:
   delegating it costs more than doing it (`subagents-model-routing.md`,
   "Delegation").
 - **Script and tooling work is not a role but a kind of work** with a fixed
-  medium tier: the orchestrator launches the implementing role for it with
-  that tier as a launch parameter, whatever the session command names.
+  medium tier: the orchestrator selects that tier for the implementing role
+  through a compatible target definition, whatever the session command names.
 - **Reviewers sit at `medium` on purpose.** Review precision holds up at low
   effort, which buys a two-speed scheme: a fast pass at commit time, and a
   deliberate `xhigh` pass before a release gate — the latter as a manual
@@ -115,11 +116,11 @@ in this order, first match wins:
 | fixed by kind of work | explorer (reconnaissance), doc-writer, and script/tooling work whoever does it | registry and the `orchestration` block of the model map; the session command does not touch them |
 | deciding | architect, planner, analytic, arch-reviewer, code-reviewer, performance-optimizer | registry; changed only by an explicit instruction for the task |
 
-Mechanics: the model and the effort are per-launch parameters of the agent
-tool and they override the definition's frontmatter. A **continued** agent
-keeps what it was launched with — to change either, launch a new one. The
-tool sets effort only when the user or the rules ask for it explicitly, so a
-rule that wants a specific effort must name it, not hint at it.
+Mechanics belong to the selected target: definition fields may take
+precedence over launch settings. A session-selected executor needs a
+compatible definition; never claim an override that the environment ignored.
+A **continued** agent keeps its launch settings; use a new agent to change
+them. Name the effort explicitly when a rule or the user selects it.
 
 ## Principles
 
@@ -128,8 +129,10 @@ rule that wants a specific effort must name it, not hint at it.
 - Final decisions and result integration are the responsibility of the main
   agent (the orchestrator); a subagent's output is working material, not a
   ready decision.
-- ro-roles get no write access under any configuration —
-  expanding rights means changing the role, not changing settings.
+- ro-roles perform no mutations. Targets state whether tools enforce that
+  boundary or the role inherits the parent's permissions. A task requiring
+  writes goes to an rw-role; a task requiring enforced isolation goes to a
+  separately restricted execution environment.
 - Specialization for a concrete technology stack is done with overlays
   (`overlays/<stack>/agents/`). An overlay inherits `tier` and `effort` from
   here and cannot set a model on its own.

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "public",
+  "extends": null,
+  "portable": true,
+  "capabilities": {
+    "required": [
+      "project-contract",
+      "lazy-rules",
+      "verification-pipeline"
+    ],
+    "optional": [
+      "mcp-code-facade",
+      "mcp-memory",
+      "mcp-project-data",
+      "mcp-qa"
+    ]
+  },
+  "mcp": {
+    "selection": "allowlist",
+    "logical_servers": []
+  }
+}

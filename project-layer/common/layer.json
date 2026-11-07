@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "common",
+  "description": "Portable project operating layer shared by all recipients.",
+  "content_roots": [
+    "core",
+    "overlays/{stack}"
+  ],
+  "template_roots": [
+    "project-layer/common/templates",
+    "project-template"
+  ],
+  "defaults": {
+    "rules_mode": "lazy",
+    "language_policy": "ru",
+    "source_of_truth_required": true,
+    "mcp_selection": "allowlist"
+  }
+}

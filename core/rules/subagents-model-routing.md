@@ -23,12 +23,12 @@ model-specific behavior lives there, not in role bodies.
 ## Effort
 
 Effort is a **default of the role**, resolved the same way as the model:
-role `effort` → `claude.effort` in the model map → concrete value
+role `effort` → the selected target's effort map → concrete value
 (`ROLES.md`, "Effort semantics"). It is a separate axis from the tier — same model, more
 or less deliberation — so two roles on one tier legitimately differ.
 
-The default can be overridden for one launch, and so can the model: both are
-launch parameters and win over the agent definition. Who may override what:
+The target supplies the mechanism for selecting a different model and
+effort. Resolve the requested pair in this order:
 
 1. an explicit instruction for the task — any role, any step of the scale;
 2. the session command of orchestration mode — main-flow roles only;
@@ -37,6 +37,11 @@ launch parameters and win over the agent definition. Who may override what:
 Name the effort explicitly when you pass it: the launch tool applies it only
 on an explicit request of the user or of a rule, never on its own judgment.
 A continued agent keeps the model and effort it was launched with.
+
+Check the target's setting precedence before launching. Some runtimes give
+explicit definition fields precedence over launch arguments. Use a compatible
+definition for the selected pair; passing an argument alone does not prove
+an override took effect.
 
 Two axes decide what to ask for, and neither is the size of the task:
 
@@ -52,8 +57,9 @@ Two things stay outside the registry:
 
 - **The top step** (above `xhigh`, where one exists) is a
   manual escalation by an explicit user decision for one hard task. It is
-  never a role default: on that step the result is *worse* than on `xhigh`
-  at a higher price, so it buys nothing by itself.
+  never a role default. The upstream calibration did not justify it; rerun
+  the comparison for another model family rather than treating that result
+  as a universal property.
 - **Conditional tiers** (currently — `analytic`): the installer renders the
   role as a pair of definitions (`analytic` for prepared data,
   `analytic-deep` for raw-source work); the orchestrator picks the launch
@@ -68,9 +74,7 @@ than metered tokens, effort is not a cost lever.
 ## Reasoning stays internal
 
 Never ask a subagent to reveal its internal reasoning ("show your thinking",
-"explain your chain of thought step by step"). On some Claude families such
-requests trip the reasoning_extraction refusal category and can derail the
-run; on every family the useful artifact is a concise rationale plus
+"explain your chain of thought step by step"). The useful artifact is a concise rationale plus
 tool-backed evidence — exactly what the Handoff format already requires. The
 same applies in reverse: agents report rationale and evidence, not raw
 reasoning (the model-profile block of the agent definition).
@@ -113,9 +117,11 @@ by reflex.
 
 ## Rights discipline
 
-ro-roles have read and search only. Rights must not be extended on the fly:
-if a task needs writes, take an rw-role of the appropriate tier instead of
-temporarily raising the rights of an ro-role.
+ro-roles perform read and search only. The target must state whether this
+is technically enforced or an instruction under inherited permissions.
+If a task needs writes, take an rw-role of the appropriate tier. If a task
+requires enforced read-only isolation, use a separately restricted execution
+environment; a role label alone does not provide it.
 
 ## Delegation
 
@@ -127,10 +133,11 @@ implementation, live iteration, decisions, the dialogue with the user). The
 mechanism table — the root contract, "Work cycle".
 
 **Payback of a launch.** A launch costs a fixed overhead: root contract,
-lazily loaded rules, agent definition and tool schemas. Measured on installed
-roles: about 16 thousand tokens for a read-only role and 20 thousand for a
+lazily loaded rules, agent definition and tool schemas. One installed
+configuration measured about 16 thousand tokens for a read-only role and 20 thousand for a
 writing one once the memory server is narrowed to two tools; a role without
-a tool list starts near 40 thousand. Calibrate against your own numbers.
+a tool list starts near 40 thousand. These are sample measurements, not
+bounds for another runtime. Calibrate against your own numbers.
 Every call of the lead session re-reads its context, so compare over the
 turns that remain, not the task alone:
 
@@ -144,7 +151,9 @@ yourself. Under ~5 tool calls the work is yours whatever the arithmetic says.
 
 - **The report is short.** A summary within the size the task sets (default:
   up to ~300 words) plus the path to the full report in a file
-  (`session-map.md`). The full text never comes back through the context.
+  (`session-map.md`). An ro-role returns bounded evidence for the lead to
+  persist; it does not gain file-write permission for reporting. An rw-role
+  saves its detailed report itself and returns the summary and path.
 - **Spot-check proportionately.** Re-check the one or two facts the decision
   rests on — a grep, a fragment read, a hash. Re-reading the whole report or
   its sources gives the saving back. "A report is a claim"
@@ -154,8 +163,10 @@ yourself. Under ~5 tool calls the work is yours whatever the arithmetic says.
   verifies: the implementing subagent runs its own test loop. An independent
   pass is the orchestrator's call for a regulated area or a disputed
   acceptance (`subagent-pipeline.md`, "Tests run inside the implementing launch").
-- If one subagent can close the task, launch one. Unprompted, at most 2–3
-  independent scouts run in parallel; a fan-out of workers is a deliberate
+- Delegate when authorized by the user or applicable project/skill
+  instructions and supported by the environment. If one subagent can close
+  the task, launch one. With that authorization, at most 2–3 independent
+  scouts run in parallel by default; a fan-out of workers is a deliberate
   decision, not a reflex.
 - Heavy multi-file implementation is **not** a delegation case by default:
   it is dense, cross-linked, and cheaper done directly than specified,

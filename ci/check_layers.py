@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """airules layer-purity checker.
 
-Scans the layered distribution (core/, overlays/, project-template/) and reports
+Scans the layered distribution (core/, overlays/, project-layer/, profiles/,
+targets/, project-template/) and reports
 content that violates the purity contract of its layer: leaked credentials,
 machine paths, domain names, stack terms in the generic core, hardcoded models,
 unmarked max-effort defaults, retired self-verification wording, missing UTF-8
@@ -26,7 +27,14 @@ import sys
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Layers that participate in the purity contract.
-SCAN_LAYERS = ("core", "overlays", "project-template")
+SCAN_LAYERS = (
+    "core",
+    "overlays",
+    "project-layer",
+    "profiles",
+    "targets",
+    "project-template",
+)
 
 # Only these extensions are treated as text and scanned; everything else is
 # skipped as binary/irrelevant.
@@ -122,7 +130,7 @@ def _build_rules():
             "layers": ("*",),
             "description": "Password variable leaked via /P command-line flag.",
         },
-        # --- machine paths: core + overlays ---
+        # --- machine paths: every portable/composable layer ---
         # Three shapes: Windows drive roots that identify a concrete machine
         # (standard install locations like "Program Files" stay allowed), UNC
         # shares, and user-owned POSIX roots.
@@ -138,15 +146,15 @@ def _build_rules():
                 r"|(?<![\w./-])/(home|mnt)/)"
             ),
             "severity": "error",
-            "layers": ("core", "overlays"),
+            "layers": ("core", "overlays", "project-layer", "profiles", "targets"),
             "description": "Absolute machine path.",
         },
-        # --- domain names: core + overlays ---
+        # --- domain names: every portable/composable layer ---
         {
             "id": "domain-names",
             "regex": r"(\b(BKI|CUL|НБКИ|GUTDF|УниверсальнаяВыгрузка)\b|1c-rag-(bki|ka2)|СУТ_[А-Яа-яA-Za-z]|ГС_[А-Яа-яA-Za-z]|\b(КА2|KA2)\b)",
             "severity": "error",
-            "layers": ("core", "overlays"),
+            "layers": ("core", "overlays", "project-layer", "profiles", "targets"),
             "description": "Concrete project / domain name.",
         },
         # --- stack terms in the generic core ---
@@ -742,6 +750,32 @@ def collect_install_failures(base_dir):
     return failures
 
 
+COMPOSITION_RULE_ID = "composition"
+
+
+def collect_composition_failures(base_dir):
+    """Repository-level check for layer/profile/target declarations."""
+    script = os.path.join(base_dir, "ci", "check_composition.py")
+    if not os.path.isfile(script):
+        return [("ci/check_composition.py", 1, COMPOSITION_RULE_ID,
+                 "composition checker is missing")]
+    try:
+        proc = subprocess.run(
+            [sys.executable, script],
+            cwd=base_dir,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+    except OSError as error:
+        return [("ci/check_composition.py", 1, COMPOSITION_RULE_ID,
+                 "cannot run: {0}".format(error))]
+    if proc.returncode == 0:
+        return []
+    detail = (proc.stderr or proc.stdout or "composition check failed").strip()
+    return [("ci/check_composition.py", 1, COMPOSITION_RULE_ID, detail)]
+
+
 def _iter_text_files(base_dir):
     """Yield absolute paths of scannable text files under base_dir."""
     for root, dirs, files in os.walk(base_dir):
@@ -927,6 +961,9 @@ def main(argv=None):
     install = collect_install_failures(REPO_ROOT)
     _report(install)
     count += len(install)
+    composition = collect_composition_failures(REPO_ROOT)
+    _report(composition)
+    count += len(composition)
     if count:
         print("airules: {0} layer-purity violation(s) found.".format(count), file=sys.stderr)
         return 1

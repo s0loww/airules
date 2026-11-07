@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "1c-airules",
+  "label": "1С",
+  "description": "Единый пресет 1С: механика DSH и политика embedded airules rulepack.",
+  "capabilities": {
+    "required": ["desktop.core", "development.core", "onec.local", "onec.project-settings", "project-wizard.neutral", "mcp.manager", "policy.airules", "memory.project", "orchestration.airules"],
+    "optional": ["onec.runtime", "onec.graph", "onec.testing", "onec.mcp-admin", "onec.deploy", "onec.rule-router", "integrations.openspec", "integrations.atlassian", "ui.testing"]
+  },
+  "ownership": {
+    "policy": "airules",
+    "roles": "airules",
+    "mcp": "airules",
+    "verification": "airules"
+  },
+  "mcp": {
+    "mode": "logical-only",
+    "bindings_embedded": false,
+    "logical_roles": [
+      { "role": "code-and-platform-knowledge", "required": false, "scopes": ["machine", "project"] },
+      { "role": "operational-memory", "required": false, "scopes": ["machine", "project"] },
+      { "role": "project-live-data", "required": false, "scopes": ["project"] },
+      { "role": "quality-assurance", "required": false, "scopes": ["project"] }
+    ]
+  }
+}

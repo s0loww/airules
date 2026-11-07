@@ -11,7 +11,7 @@ rights come from `core/agents/ROLES.md`; model selection and delegation rules
 name: <role>
 description: "<when to call this agent — triggers for the orchestrator>"
 tier: <high|medium|low>     # no model here: resolved via model-map at install
-effort: <low|medium|high|xhigh>   # resolved the same way; a default the launch may override
+effort: <low|medium|high|xhigh>   # resolved the same way; the target defines override precedence
 tools: <ro|rw>
 allowParallel: true         # optional; see semantics below
 ---
@@ -37,17 +37,18 @@ technical ban.
   the orchestrator, not a final decision.
 - **Execution discipline** — standard block appended by the installer when
   rendering every agent (text — `core/install/layout.md` §4): do the work
-  yourself, do not wait for "background" processes, temporary files in
-  your own subfolder of `var/tmp/`, stop after the final report. When a memory server is connected
+  yourself, collect command completion, writing roles keep temporary files
+  in their own subfolder of `var/tmp/`, stop after the final report.
+  Read-only roles return bounded evidence for the lead to persist. When a memory server is connected
   the block gains one more item: search and read only, writing goes through
   the orchestrator.
-- **Model profile** — appended by the installer after the discipline block,
+- **Model profile** — appended by a matching target after the discipline block,
   per the family of the resolved model (`core/install/model-profiles.md`).
   Model-specific behavior lives only there, never in the role body.
 
 ## Note
 
-When laying the distribution out the installer replaces `tier` with the
-resolved model (via
-`core/install/model-map.yaml`) and expands the pseudo-values
-`tools: ro|rw` into the real tool names.
+This frontmatter is the source format. The selected target renders its native
+agent format, resolves model and effort through its model map, and explains
+how role scope is enforced. Emit native tool allowlists only where supported;
+an inherited permission set is not a separate read-only sandbox.

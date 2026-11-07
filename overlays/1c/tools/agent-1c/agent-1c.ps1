@@ -15,7 +15,20 @@ param(
 
     # test: прогнать Vanessa на невидимом рабочем столе Windows — окна тест-клиента
     # не появляются на мониторе (lib/hidden-desktop.ps1).
-    [switch]$Hidden
+    [switch]$Hidden,
+
+    # Optional DSH workflow protocol. All fields are required together for an
+    # identified deploy; ordinary CLI use keeps its historical report format.
+    [string]$WorkflowRunId = '',
+    [string]$WorkflowStepId = '',
+    [string]$WorkflowSourceDigest = '',
+    [string]$WorkflowTargetDigest = '',
+    [string]$WorkflowProfileDigest = '',
+    [string]$WorkflowExactBuild = '',
+    [string]$WorkflowTargetPath = '',
+    [ValidateSet('file', 'server')][string]$WorkflowTargetKind = 'file',
+    [string]$WorkflowTargetServer = '',
+    [string]$WorkflowTargetRef = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,8 +40,61 @@ $script:Warnings = New-Object System.Collections.ArrayList
 $script:Artifacts = New-Object System.Collections.ArrayList
 $script:ExitCode = 0
 $script:StartedAt = [DateTime]::UtcNow
+$script:WorkflowMutationState = 'not-applied'
+$script:WorkflowProtocol = $false
 $script:ToolRoot = Join-Path $env:LOCALAPPDATA 'agent-1c\tools'
 $script:LockPath = Join-Path $PSScriptRoot 'toolchain.lock.json'
+
+function Assert-WorkflowPathNoReparse {
+    param([string]$Path)
+    $cursor = [IO.Path]::GetFullPath($Path)
+    while ($cursor) {
+        if (Test-Path -LiteralPath $cursor) {
+            $item = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'WORKFLOW_PATH_ALIAS_FORBIDDEN' }
+        }
+        $parent = [IO.Directory]::GetParent($cursor)
+        if ($null -eq $parent) { break }
+        $cursor = $parent.FullName
+    }
+}
+
+function Assert-WorkflowPlatformTool {
+    param([string]$Path)
+    if (-not $script:WorkflowProtocol) { return }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'WORKFLOW_PLATFORM_TOOL_MISSING' }
+    Assert-WorkflowPathNoReparse $Path
+    $tool = Get-Item -LiteralPath $Path
+    $version = $tool.VersionInfo
+    $build = '{0}.{1}.{2}.{3}' -f $version.FileMajorPart, $version.FileMinorPart, $version.FileBuildPart, $version.FilePrivatePart
+    if ($tool.Directory.Parent.Name -ne $WorkflowExactBuild -or $build -ne $WorkflowExactBuild) { throw 'WORKFLOW_PLATFORM_BUILD_MISMATCH' }
+}
+
+function Get-WorkflowServerIdentity {
+    param([string]$Server, [string]$Ref)
+    if ($Server.Length -gt 300) { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+    $endpoint = $Server.Trim().ToLowerInvariant()
+    $port = 1541
+    if ($endpoint.StartsWith('[')) {
+        if ($endpoint -notmatch '^\[([^\]]+)\](?::(\d{1,5}))?$') { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+        $addressText = $Matches[1]; $portText = $Matches[2]
+        $address = $null
+        if (-not [Net.IPAddress]::TryParse($addressText, [ref]$address) -or $address.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetworkV6) { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+        $bytes = $address.GetAddressBytes(); $groups = @()
+        for ($i = 0; $i -lt 16; $i += 2) { $groups += ('{0:x2}{1:x2}' -f $bytes[$i], $bytes[$i+1]) }
+        $hostName = '[' + ($groups -join ':') + ']'
+        if ($portText) { $port = [int]$portText }
+    } else {
+        if ($endpoint -notmatch '^([a-z0-9_][a-z0-9_.-]*)(?::(\d{1,5}))?$') { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+        $hostName = $Matches[1].TrimEnd('.'); $portText = $Matches[2]
+        if (-not $hostName -or @($hostName.Split('.') | Where-Object { -not $_ -or $_.StartsWith('-') -or $_.EndsWith('-') }).Count -gt 0) { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+        if ($portText) { $port = [int]$portText }
+    }
+    if ($port -lt 1 -or $port -gt 65535 -or $Ref.Length -gt 200 -or $Ref -match '[\\/;"\x00-\x1f]' -or $Ref.Contains("'")) { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+    $reference = $Ref.Trim().Normalize().ToLowerInvariant()
+    if (-not $reference) { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+    return @{ server = ($hostName + ':' + $port); ref = $reference }
+}
 
 # Сторож над 1cv8 и межпроцессный лок на базу. Скрипты проекта, ходящие в ту
 # же ИБ мимо этого контура, обязаны подключать ЭТОТ же файл: лок, накрывающий
@@ -291,7 +357,7 @@ function Get-PlatformBinTool {
     param($Platform, [string]$Name)
     if (-not $Platform) { return $null }
     $candidate = Join-Path $Platform.Directory.FullName $Name
-    if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { Assert-WorkflowPlatformTool $candidate; return $candidate }
     return $null
 }
 
@@ -838,6 +904,25 @@ function Invoke-Deploy {
     if ($script:ProfileData.extension -and $script:ProfileData.extension.name) { $extensionName = [string]$script:ProfileData.extension.name }
 
     $credentials = Resolve-TargetCredentials $target
+    if ($script:WorkflowProtocol) {
+        if ($target.kind -ne $WorkflowTargetKind -or $target.environment -notin @('test', 'development')) { throw 'WORKFLOW_TARGET_NOT_ALLOWED' }
+        Assert-WorkflowPlatformTool $platform.FullName
+        if ($WorkflowTargetKind -eq 'file') {
+            if (-not $credentials.path -or -not [IO.Path]::IsPathRooted($credentials.path)) { throw 'WORKFLOW_TARGET_PATH_REQUIRED' }
+            if (-not [string]::Equals([IO.Path]::GetFullPath($credentials.path), [IO.Path]::GetFullPath($WorkflowTargetPath), [StringComparison]::OrdinalIgnoreCase)) { throw 'WORKFLOW_TARGET_PATH_MISMATCH' }
+            Assert-WorkflowPathNoReparse $WorkflowTargetPath
+        } else {
+            $identity = Get-WorkflowServerIdentity ([string]$target.server) ([string]$target.ref)
+            if ($identity.server -cne $WorkflowTargetServer -or $identity.ref -cne $WorkflowTargetRef) { throw 'WORKFLOW_SERVER_TARGET_MISMATCH' }
+            # The exact canonical endpoint/reference bound to the resource is also
+            # used by DESIGNER; aliases/whitespace cannot diverge from the plan.
+            $target.server = $identity.server
+            $target.ref = $identity.ref
+        }
+        Assert-WorkflowPathNoReparse $source
+        $currentProfileHash = (Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($currentProfileHash -ne $WorkflowProfileDigest) { throw 'WORKFLOW_PROFILE_CHANGED' }
+    }
     $engine = Get-DeployEngine $target $platform
     $planMessage = "Загрузить XML из $source и обновить тестовую ИБ ($($target.kind)); движок: $engine, сборка $($platform.Directory.Parent.Name)"
     if ($extensionName) { $planMessage += "; расширение $extensionName" }
@@ -933,6 +1018,9 @@ function Invoke-Deploy {
     $suspended = @()
     $reserve = $false
     try {
+        # Even service suspension may change target availability. A killed
+        # process cannot subsequently prove that no target changes occurred.
+        if ($script:WorkflowProtocol) { $script:WorkflowMutationState = 'unknown' }
         # Сеансы держат ibsrv этой базы и службы из профиля — их гасит сам деплой.
         # ibsrv, который работал до деплоя, поднимается после него: он и есть
         # постоянный сервер базы (веб-клиент, HTTP-сервисы).
@@ -948,6 +1036,7 @@ function Invoke-Deploy {
             Invoke-GuardedRun $exe $createRun $guardLog 'deploy.apply'
         }
         foreach ($run in $runs) { Invoke-GuardedRun $exe $run $guardLog 'deploy.apply' }
+        if ($script:WorkflowProtocol) { $script:WorkflowMutationState = 'applied' }
         Invoke-PostDeployProbe $platform $target $credentials $guardLog
     }
     finally {
@@ -1283,12 +1372,39 @@ try {
     $script:ProjectRoot = Split-Path -Parent $profilePath
     $script:ProfileData = Get-Content -LiteralPath $profilePath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($script:ProfileData.schemaVersion -ne 1) { throw 'Неподдерживаемая версия профиля.' }
+    $workflowFields = @($WorkflowRunId, $WorkflowStepId, $WorkflowSourceDigest, $WorkflowTargetDigest, $WorkflowProfileDigest, $WorkflowExactBuild)
+    if (@(($workflowFields + @($WorkflowTargetPath, $WorkflowTargetServer, $WorkflowTargetRef)) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -gt 0 -or $WorkflowTargetKind -ne 'file') {
+        if ($Command -ne 'deploy' -or @($workflowFields | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) { throw 'WORKFLOW_CONTEXT_INCOMPLETE' }
+        if ($WorkflowRunId -notmatch '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$' -or $WorkflowStepId -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') { throw 'WORKFLOW_ID_INVALID' }
+        foreach ($value in @($WorkflowSourceDigest, $WorkflowTargetDigest, $WorkflowProfileDigest)) { if ($value -notmatch '^[a-f0-9]{64}$') { throw 'WORKFLOW_DIGEST_INVALID' } }
+        if ($WorkflowExactBuild -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw 'WORKFLOW_TARGET_CONTEXT_INVALID' }
+        if ($WorkflowTargetKind -eq 'file') {
+            if (-not [IO.Path]::IsPathRooted($WorkflowTargetPath) -or $WorkflowTargetServer -or $WorkflowTargetRef) { throw 'WORKFLOW_TARGET_CONTEXT_INVALID' }
+        } else {
+            if ($WorkflowTargetPath) { throw 'WORKFLOW_TARGET_CONTEXT_INVALID' }
+            $identity = Get-WorkflowServerIdentity $WorkflowTargetServer $WorkflowTargetRef
+            if ($identity.server -cne $WorkflowTargetServer -or $identity.ref -cne $WorkflowTargetRef) { throw 'WORKFLOW_SERVER_TARGET_INVALID' }
+        }
+        if ((Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $WorkflowProfileDigest) { throw 'WORKFLOW_PROFILE_CHANGED' }
+        $script:WorkflowProtocol = $true
+    }
     $resultRoot = Resolve-ProjectPath $script:ProfileData.resultDir $script:ProjectRoot
     # test -Hidden пишет в свой каталог *-test-hidden: внутренний прогон (*-test)
     # стартует в ту же секунду и иначе попал бы в тот же каталог.
     $runLabel = if ($Hidden -and $Command -eq 'test') { 'test-hidden' } else { $Command }
-    $script:RunDir = Join-Path $resultRoot ((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '-' + $runLabel)
-    New-Item -ItemType Directory -Path $script:RunDir -Force | Out-Null
+    if ($script:WorkflowProtocol) {
+        Assert-WorkflowPathNoReparse $resultRoot
+        $workflowRoot = Join-Path $resultRoot ('workflow-' + $WorkflowRunId)
+        Assert-WorkflowPathNoReparse $workflowRoot
+        New-Item -ItemType Directory -Path $workflowRoot -Force | Out-Null
+        $freshRunDir = Join-Path $workflowRoot $WorkflowStepId
+        # No -Force: reusing an existing evidence directory is an error.
+        New-Item -ItemType Directory -Path $freshRunDir -ErrorAction Stop | Out-Null
+        $script:RunDir = $freshRunDir
+    } else {
+        $script:RunDir = Join-Path $resultRoot ((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ') + '-' + $runLabel)
+        New-Item -ItemType Directory -Path $script:RunDir -Force | Out-Null
+    }
 
     switch ($Command) {
         'bootstrap' { [void](Install-BslLanguageServer); Invoke-Doctor }
@@ -1316,6 +1432,11 @@ try {
             steps = @($script:Steps)
             warnings = @($script:Warnings)
             artifacts = @($script:Artifacts)
+        }
+        if ($script:WorkflowProtocol) {
+            $report.workflow = [ordered]@{ schemaVersion = 1; runId = $WorkflowRunId; stepId = $WorkflowStepId;
+                sourceDigest = $WorkflowSourceDigest; targetDigest = $WorkflowTargetDigest; profileDigest = $WorkflowProfileDigest;
+                mutationState = $script:WorkflowMutationState }
         }
         $reportPath = Join-Path $script:RunDir 'result.json'
         $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding UTF8

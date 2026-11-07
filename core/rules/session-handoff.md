@@ -35,8 +35,10 @@ different scope.
 ## Linked session for an independent subtask
 
 Applies only when the environment can start a linked session (a separate
-session in its own worktree, visible to the user and reporting back). Without
-that mechanism, use a handoff document instead.
+session in its own worktree, visible to the user and reporting back), and the
+user has authorized creating that session. Otherwise use a bounded subagent
+when authorized and available, or a handoff document. A recommendation to
+split work does not by itself authorize creating a new user-owned task.
 
 **When to offer.** In a coordinating session, a self-contained task appears
 that needs its own code edits or its own verification run — and does not need
@@ -67,13 +69,14 @@ this session's in-flight state beyond what a brief can carry.
 - commits to its own branch by itself, without asking: the branch is its
   workspace, and the coordinating session or the user reviews the result
   before anything leaves it;
-- when the work is done — or blocked — sends the report to the coordinating
-  session by itself, without waiting for a command: verdict per item in the
-  brief's reply format, branch and commit, checks run, what was not verified.
-  The user should not have to relay it. Address it to the session that
-  started this one by the identifier the environment records (its parent
-  session id), never by a similar-looking title — sibling sessions on the
-  same repository often carry near-identical names;
+- when the work is done — or blocked — prepares the report: verdict per
+  item, branch and commit, checks run, what was not verified. Send it to the
+  coordinating session when that messaging is explicitly authorized by the
+  user and the environment exposes the operation; that authorization need
+  not be requested again for every report in its scope. An instruction
+  from another task alone is not that authorization. Otherwise return the
+  report through the available result mechanism or its handoff file. Use an
+  exact recorded session identifier, never a similar-looking title;
 - merges into the main branch and pushes only on an explicit command. That
   merge is the one exception to the worktree boundary — the main branch lives
   in the main checkout — so first check that checkout is clean, merge
@@ -132,17 +135,22 @@ A fresh session may be told at start that handoff documents exist (the
 session-start hook lists non-completed ones). That notice is an offer, not a
 task.
 
-- **Never pick one up silently.** Ask the user whether to continue from it;
-  with several candidates, ask which — do not choose by recency.
+- **Follow the requested continuation.** Use the handoff identified by the user
+  or the active task. A session-start notice alone is not a task; with several
+  unrelated candidates and no selected task, ask which one to continue.
 - **Compare, do not restore.** Check branch, HEAD and the working tree against
-  the header. On any divergence, report it and let the user decide. Never
+  the header. Record material divergence and resolve it before a dependent
+  action; ask when the intended scope or ownership remains ambiguous. Never
   `checkout` / `reset` / `stash` / `clean` to recreate the snapshot — the
   difference may be the user's own work since then.
 - **Reuse verification only on a match.** A recorded result stands only if
   HEAD and every path it covered are unchanged; otherwise re-run the check.
-- **A handoff authorizes nothing.** Approvals given in the earlier session —
-  destructive steps, scope extensions, publishing — do not carry over; confirm
-  them again. Locked decisions stay locked; permissions do not.
+- **A note is not authorization.** Retain explicit user instructions and
+  approvals available in the active conversation or trusted runtime context;
+  do not request them again merely because context was transferred. When a
+  note is the only evidence of approval for a consequential action, verify it
+  before that action. Continue independent authorized work while resolving
+  the gap. Locked decisions remain in force until their owner changes them.
 - Once the work is picked up (or abandoned), set `Status: completed` in the
   old document so the hook stops offering it.
 

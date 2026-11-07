@@ -33,6 +33,7 @@ env.example            text eol=lf
 
 rules/**               text eol=lf
 skills/**              text eol=lf
+.airules/**            text eol=lf
 .claude/**             text eol=lf
 
 # openspec: правила распространяются ТОЛЬКО на файлы каркаса из дистрибутива.

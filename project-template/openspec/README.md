@@ -44,27 +44,31 @@ specs/rules/docs. Файл заполняется вручную или инст
 
 ## Активация команд
 
-Команды OpenSpec (propose, apply, archive, explore) раскладываются
-инсталлятором дистрибутива для каждого активного инструмента — как
-slash-команды там, где инструмент их поддерживает, и как SKILL-ы
-(`openspec-{propose,apply-change,archive-change,explore}/SKILL.md`) везде.
-Набор путей определяет
-инсталлятор. После установки перезапустите IDE, чтобы команды подхватились.
+The distribution supplies six canonical skills:
+`openspec-propose`, `openspec-apply-change`, `openspec-update`,
+`openspec-sync`, `openspec-archive-change` and `openspec-explore`.
+The target installer determines their paths. A harness may expose matching
+slash commands and a panel, all using the same canonical skill provider.
+Restart the tool after installation when it does not reload skills live.
+
+`openspec-update` revises an existing change's plan. `openspec-sync` merges
+its delta specs into main specs without archiving. They are workflow skills;
+there is no CLI `openspec sync`, and CLI `openspec update` has a different
+maintenance purpose.
 
 ### Обновление до новой версии OpenSpec (опционально)
 
-Если нужно перейти на более новую версию OpenSpec CLI, не дожидаясь
-следующего релиза дистрибутива правил, можно поставить официальный CLI и
-запустить его внутри проекта — он обновит файлы на месте:
+Use the CLI version selected by the project or bundled by the harness.
+Upgrading that CLI and refreshing tool integrations are explicit maintenance
+operations; neither is required merely to use a workflow skill.
 
 ```bash
-npm install -g @fission-ai/openspec@latest
-openspec update      # обновить команды и SKILL-ы до текущей версии CLI
+openspec update      # refresh integration files using the selected CLI
 ```
 
-Это чисто опционально. После следующего обновления дистрибутива правил
-раскладка из дистрибутива снова становится основной (если вы не пометили
-затронутые файлы как изменённые вручную — тогда правки сохраняются).
+Review the affected instruction/skill files before this command overwrites
+them. The distribution's canonical skills remain authoritative; retain project
+overrides and avoid registering a competing generated skill set.
 
 ## Workflow (базовый профиль)
 

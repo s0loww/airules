@@ -1,0 +1,16 @@
+{
+  "placeholders": {
+    "PROJECT_ID": "example-project",
+    "PROJECT_NAME": "Example Project",
+    "STACK": "1c",
+    "SOURCE_OF_TRUTH": "`src/`",
+    "PRIMARY_CODE_DIR": "`src/`",
+    "PREFIX": "NOT CONFIGURED",
+    "LANGUAGE_POLICY": "Russian replies; the project's code language",
+    "MCP_ORDER": "No project servers selected; inspect the current tool inventory",
+    "DISABLED_MCP": "Unselected servers are not imported",
+    "BACKUP_DIR": ".rules-backups/"
+  },
+  "mcp_servers": {},
+  "models": {}
+}

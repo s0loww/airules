@@ -43,14 +43,16 @@ session window instead of saving it.
 
 | Class | Roles | With the mode on |
 | --- | --- | --- |
-| Main flow | developer, metadata-manager, refactoring, error-fixer, tester | run on the executor named in the command — passed as launch parameters, the installed definitions are not touched |
+| Main flow | developer, metadata-manager, refactoring, error-fixer, tester | run on the executor named in the command through the selected target's supported selection mechanism |
 | Fixed by kind of work | reconnaissance; script and tooling work; documentation; re-running ready scripts | keep their own tier (`ROLES.md`, the `orchestration` block of the model map) |
 | Deciding | architect, planner, analytic, reviewers | keep the registry default; changed only by an explicit instruction for the task |
 
 Priority, first match wins: an explicit instruction for the task → the
 session command → the registry default. The command takes effect **from the
 next launch**: an agent already running keeps its model and effort, and
-changing either means a new agent with a cold cache.
+changing either means a new agent. The target contract defines setting
+precedence and how a session-selected executor is represented. Do not report
+a requested pair as effective when the runtime ignored it.
 
 **Mode off** — the lead agent does dense implementation itself and delegates
 reconnaissance and script work (`subagents-model-routing.md`, "Delegation").
@@ -108,8 +110,8 @@ file bodies.**
 
 A resident is a subagent that is not closed after its task but woken for the
 next ones. It saves the **discovery** already done — what was read and found
-out — not the start-up cost: the system part of a role is the same on every
-launch and sits in the cache anyway.
+out. Cache behavior and supported cache settings belong to the target;
+retained context does not establish a particular cost or retention period.
 
 Use one for short follow-ups to ground already covered (a scout answering
 "where else is this used?" in two or three tool calls). A whole task of tens
@@ -119,9 +121,8 @@ resident re-reads its entire accumulated context on **every** call.
 Rules while residents are on:
 
 - one resident — one model and one effort; neither changes on a wake-up;
-- the resident role carries the one-hour prompt cache; without
-  it any pause over five minutes rewrites the whole context into the cache
-  (the installer sets it on the roles listed in the model map);
+- use a supported cache policy when the target provides one; a setting in
+  one target does not establish the same lifetime or cost in another;
 - the resident keeps a **map file** as it goes — every task ends with an
   addition to it (what lies where, what was established). A scout without
   write access returns the addition in its report and the orchestrator
@@ -132,8 +133,10 @@ Rules while residents are on:
   record that it did. Recreate when any of these holds: the context after a
   task exceeds two or three times the role's start-up weight (the size comes
   back with every launch result); the pause exceeded the cache lifetime; the
-  topic or the phase changed;
-- assumptions and permissions of one task do not carry into the next;
+  topic or the phase changed. Use cache lifetime as a criterion only when
+  the target establishes it;
+- reassess assumptions for the new task. Existing explicit authorization
+  still applies within its recorded scope; a new task does not expand it;
 - a scout re-checks files that changed after it read them: its memory is not
   a source of truth.
 

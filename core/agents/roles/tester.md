@@ -65,6 +65,6 @@ unambiguous PASS/FAIL by step.
 
 ## Skills: how to read them
 
-Subagents have no Skill tool. A skill is read as plain files, relative to the project root:
-`.claude/skills/<skill-name>/SKILL.md` is the dispatcher (start there; `docs/` and `tools/` sit beside it).
-Any skill mentioned in this definition resolves to that path — do not search for it with shell commands.
+Resolve `<skill-name>/SKILL.md` from the skill path advertised by the runtime's
+catalog or root contract. Start with that dispatcher; `docs/` and `tools/`
+sit beside it. Read the named files when no dedicated skill tool is exposed.

@@ -1,0 +1,6 @@
+{
+  "tiers": {"high": "gpt-6.1-sol", "medium": "gpt-6.1-terra", "low": "gpt-6-luna"},
+  "efforts": {"low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh"},
+  "dynamic_roles": ["developer", "metadata-manager", "error-fixer", "refactoring", "tester"],
+  "note": "Initial configurable mapping imported from the reviewed Codex port; not a benchmark or account-availability guarantee. Dynamic role TOML omits model and effort; resolve both per launch."
+}

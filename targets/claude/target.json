@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "claude",
+  "status": "stable",
+  "renderer_status": "implemented",
+  "renderer": "legacy-onboard",
+  "layout": "core/install/layout.md",
+  "instruction_files": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "local_instruction_files": [],
+  "artifacts": {
+    "project_context": ".airules/project-context.md",
+    "testing_contour": ".airules/testing-contour.md"
+  },
+  "environment": {},
+  "mcp": {
+    "import_project_config": true,
+    "allowlist_required": true
+  }
+}

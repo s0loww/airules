@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:airules:dsh:rulepack-manifest:v1",
+  "title": "airules embedded DSH rulepack manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "package", "source", "composition", "registration_status", "files", "inventories", "counts", "overlay_precedence", "mcp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "airules-dsh-rulepack" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "dirty"],
+      "properties": {
+        "revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "dirty": { "type": "boolean" }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stack", "project_layer", "profile", "target"],
+      "properties": {
+        "stack": { "const": "1c" },
+        "project_layer": { "const": "common" },
+        "profile": { "type": "string", "minLength": 1 },
+        "target": { "const": "dsh-deepseek" }
+      }
+    },
+    "registration_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rules", "roles", "skills", "testing"],
+      "properties": {
+        "rules": { "enum": ["lazy-native-provider", "lazy-adapter-required"] },
+        "roles": { "enum": ["native", "prompt-adapter", "pending"] },
+        "skills": { "const": "native" },
+        "testing": { "enum": ["provider", "declarative-only", "data-only"] }
+      }
+    },
+    "files": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._+-]+(?:/[A-Za-z0-9._+-]+)*$" },
+      "additionalProperties": { "$ref": "#/$defs/file" }
+    },
+    "inventories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rules", "roles", "skills"],
+      "properties": {
+        "rules": { "type": "array", "items": { "$ref": "#/$defs/rule_inventory_item" } },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/role_inventory_item" } },
+        "skills": { "type": "array", "items": { "$ref": "#/$defs/skill_inventory_item" } }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "rules", "roles", "skills"],
+      "properties": {
+        "files": { "type": "integer", "minimum": 1 },
+        "rules": { "type": "integer", "minimum": 1 },
+        "roles": { "type": "integer", "minimum": 1 },
+        "skills": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "overlay_precedence": { "const": ["embedded-rulepack", "recipient-profile", "project-overlay", "machine-local-override"] },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "logical_roles"],
+      "properties": {
+        "mode": { "const": "logical-only" },
+        "logical_roles": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "kind"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "kind": { "enum": ["contract", "rule", "role", "skill", "testing"] },
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+      }
+    },
+    "inventory_base": {
+      "type": "object",
+      "required": ["id", "path", "sha256"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "path": { "type": "string", "pattern": "^(?:rules|roles|skills)/[A-Za-z0-9._+/-]+$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "rule_inventory_item": {
+      "allOf": [
+        { "$ref": "#/$defs/inventory_base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "sha256", "kind", "description"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+            "path": { "type": "string", "pattern": "^rules/[A-Za-z0-9._+/-]+$" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "kind": { "enum": ["invariant", "router", "process", "recipe", "case"] },
+            "description": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "role_inventory_item": {
+      "allOf": [
+        { "$ref": "#/$defs/inventory_base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "sha256", "purpose", "tier", "effort", "registration_status"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+            "path": { "type": "string", "pattern": "^roles/[A-Za-z0-9._+/-]+$" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "purpose": { "type": "string", "minLength": 1 },
+            "tier": { "type": "string", "minLength": 1 },
+            "effort": { "type": "string", "minLength": 1 },
+            "registration_status": { "enum": ["pending", "prompt-adapter", "native"] }
+          }
+        }
+      ]
+    },
+    "skill_inventory_item": {
+      "allOf": [
+        { "$ref": "#/$defs/inventory_base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "path", "sha256", "files"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+            "path": { "type": "string", "pattern": "^skills/[A-Za-z0-9._+/-]+$" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "files": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

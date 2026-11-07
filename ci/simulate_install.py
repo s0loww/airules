@@ -34,9 +34,17 @@ import subprocess
 import sys
 import tempfile
 
+from composition import load_catalog, resolve_composition
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.dirname(HERE)
 STACK = "1c"
+DEFAULT_COMPOSITION = {
+    "stack": STACK,
+    "project_layer": "common",
+    "profile": "public",
+    "target": "claude",
+}
 
 
 def _node_18():
@@ -64,6 +72,24 @@ ANSWERS = {
     "PREFIX": "Демо_",
     "LANGUAGE_POLICY": "русский в ответах, английский в коде",
     "BACKUP_DIR": ".rules-backups/",
+    "WRITE_ZONES": "`src/` и явно объявленные генерируемые артефакты",
+    "PROTECTED_ZONES": "production и не относящиеся к задаче каталоги",
+    "MCP_CODE_CAPABILITY": "`1c-facade`, если настроен",
+    "MCP_MEMORY_CAPABILITY": "опциональный сервер памяти проекта",
+    "MCP_PROJECT_DATA_CAPABILITY": "только разрешённый проектом ONEMCP",
+    "MCP_QA_CAPABILITY": "опциональный QA-контур проекта",
+    "MCP_EXCLUDED": "все серверы вне подтверждённого allowlist",
+    "FAST_GATE": "локальная проверка изменённого scope",
+    "STATIC_ANALYSIS_GATE": "статический анализ без новых диагностик",
+    "DEPLOYMENT_GATE": "только объявленный тестовый контур",
+    "FUNCTIONAL_TEST_GATE": "релевантный smoke/regression проекта",
+    "APPROVAL_GATES": "любые production-операции и мутирующие live-data вызовы",
+    "DOCTOR_COMMAND": "project-defined",
+    "ANALYZE_COMMAND": "project-defined",
+    "DEPLOY_COMMAND": "project-defined",
+    "TEST_COMMAND": "project-defined",
+    "TEST_CONTOUR": "project-defined",
+    "PRODUCTION_CONTOUR": "requires explicit approval",
 }
 
 KIND_ORDER = ("invariant", "case", "recipe", "process", "router")
@@ -110,6 +136,17 @@ def build(target, problems):
 
     # §4.1 openspec/
     shutil.copytree(dist("project-template", "openspec"), os.path.join(target, "openspec"))
+
+    # Общий распространяемый project layer. Target Claude хранит заполненные
+    # project-owned bindings отдельно от корневого контракта.
+    for source_name, target_name in (
+        ("project-context.md", "project-context.md"),
+        ("testing-contour.md", "testing-contour.md"),
+    ):
+        rendered = read(dist("project-layer", "common", "templates", source_name))
+        for key, value in ANSWERS.items():
+            rendered = rendered.replace("{{" + key + "}}", value)
+        write(os.path.join(target, ".airules", target_name), rendered)
 
     # §5 библиотеки оверлея — путь нормативный
     tools_src = dist("overlays", STACK, "tools")
@@ -182,11 +219,22 @@ def build(target, problems):
                 continue
             import hashlib
             files[rel] = hashlib.sha256(io.open(path, "rb").read()).hexdigest()
+    # Resolve the declarations as part of the legacy Claude simulation. The
+    # compact descriptor goes into the install manifest; the full composition
+    # stays reproducible from the distribution declarations.
+    resolve_composition(
+        load_catalog(os.path.abspath(DIST), STACK),
+        DEFAULT_COMPOSITION["target"],
+        DEFAULT_COMPOSITION["profile"],
+        STACK,
+        DEFAULT_COMPOSITION["project_layer"],
+    )
     write(os.path.join(target, ".airules-manifest.json"), json.dumps({
         "version": read(dist("VERSION")).strip(),
         "installed_at": "1970-01-01T00:00:00Z",
         "files": files,
         "placeholders": ANSWERS,
+        "composition": DEFAULT_COMPOSITION,
     }, ensure_ascii=False, indent=2) + "\n")
 
     return {"rules": len(meta), "roles": len(roles), "files": len(files)}
@@ -378,6 +426,15 @@ def verify(target):
                      if not os.path.isfile(os.path.join(target, "rules", r + ".md")))
     check("каждое правило из Rule Index существует", not missing, ", ".join(missing))
 
+    common_artifacts = (
+        os.path.join(target, ".airules", "project-context.md"),
+        os.path.join(target, ".airules", "testing-contour.md"),
+    )
+    check("общий project layer установлен",
+          all(os.path.isfile(path) for path in common_artifacts),
+          ", ".join(os.path.relpath(path, target) for path in common_artifacts
+                    if not os.path.isfile(path)))
+
     claude = read(os.path.join(target, "CLAUDE.md")).strip()
     check("CLAUDE.md — ровно 'See @AGENTS.md'", claude == "See @AGENTS.md", repr(claude[:50]))
     check(".claude/rules/ не создан", not os.path.isdir(os.path.join(target, ".claude", "rules")))
@@ -386,6 +443,11 @@ def verify(target):
     bad = [n for n, s in mcp.get("mcpServers", {}).items()
            if "url" in s and s.get("type") != "http"]
     check("remote MCP несут type: http", not bad, ", ".join(bad))
+
+    manifest = json.loads(read(os.path.join(target, ".airules-manifest.json")))
+    check("манифест фиксирует композицию",
+          manifest.get("composition") == DEFAULT_COMPOSITION,
+          repr(manifest.get("composition")))
 
     adir = os.path.join(target, ".claude", "agents")
     defs = sorted(os.listdir(adir)) if os.path.isdir(adir) else []
@@ -539,6 +601,7 @@ def collect_inventory(target, summary):
         "tree-counts": "\n".join([
             "| Каталог | Файлов |", "|---|---|",
             "| `rules/` | {0} |".format(_count_files(os.path.join(target, "rules"))),
+            "| `.airules/` | {0} |".format(_count_files(os.path.join(target, ".airules"))),
             "| `openspec/` | {0} |".format(_count_files(os.path.join(target, "openspec"))),
             "| `tools/` | {0} |".format(_count_files(os.path.join(target, "tools"))),
             "| `.claude/agents/` | {0} |".format(_count_files(os.path.join(claude, "agents"))),

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:airules:dsh:capability-registry:v1",
+  "title": "airules DSH preset capability registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "label", "description", "capabilities", "ownership", "mcp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "id": { "const": "1c-airules" },
+    "label": { "const": "1С" },
+    "description": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "optional"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/capability" },
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "desktop.core" } },
+            { "contains": { "const": "development.core" } },
+            { "contains": { "const": "onec.local" } },
+            { "contains": { "const": "onec.project-settings" } },
+            { "contains": { "const": "project-wizard.neutral" } },
+            { "contains": { "const": "mcp.manager" } },
+            { "contains": { "const": "policy.airules" } },
+            { "contains": { "const": "memory.project" } },
+            { "contains": { "const": "orchestration.airules" } }
+          ]
+        },
+        "optional": { "type": "array", "items": { "$ref": "#/$defs/capability" }, "uniqueItems": true }
+      }
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "roles", "mcp", "verification"],
+      "properties": {
+        "policy": { "const": "airules" },
+        "roles": { "const": "airules" },
+        "mcp": { "const": "airules" },
+        "verification": { "const": "airules" }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "bindings_embedded", "logical_roles"],
+      "properties": {
+        "mode": { "const": "logical-only" },
+        "bindings_embedded": { "const": false },
+        "logical_roles": { "type": "array", "items": { "$ref": "#/$defs/logical_role" }, "uniqueItems": true }
+      }
+    }
+  },
+  "$defs": {
+    "capability": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+    "logical_role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "required", "scopes"],
+      "properties": {
+        "role": { "enum": ["code-and-platform-knowledge", "operational-memory", "project-live-data", "quality-assurance"] },
+        "required": { "type": "boolean" },
+        "scopes": {
+          "type": "array",
+          "items": { "enum": ["machine", "project"] },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

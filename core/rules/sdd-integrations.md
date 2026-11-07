@@ -26,6 +26,21 @@ here:
 
 Read these files before writing or editing OpenSpec artifacts.
 
+## Workflow skills and runtime bindings
+
+Use the canonical `openspec-propose`, `openspec-apply-change`,
+`openspec-update`, `openspec-sync`, `openspec-archive-change` and
+`openspec-explore` skills. Update revises planning artifacts; sync merges
+delta specs into main specs while leaving the change active. Neither starts
+implementation or deploy. CLI `openspec update` refreshes tool integration
+files and is a separate maintenance operation.
+
+When the harness supplies a pinned CLI or an OpenSpec query tool, use that
+runtime binding with the current project's selected change/root. Panels and
+slash commands invoke these same skills; register one canonical provider
+rather than a second competing `opsx-*` skill set. Project policy and access
+remain authoritative, including when a runtime UI reports a change complete.
+
 ## Subagent → OpenSpec artifact mapping
 
 Each subagent is responsible for specific OpenSpec artifacts. The table

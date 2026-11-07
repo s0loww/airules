@@ -33,10 +33,12 @@ sources.
 
 ## Who writes what
 
-- A subagent writes its full report to the path the task names and returns
-  a short summary plus that path (`subagents-model-routing.md`,
+- An rw-subagent writes its full report to the path the task names and
+  returns a short summary plus that path (`subagents-model-routing.md`,
   "Delegation"; prompt wording — `subagent-task-templates.md`, "Report
-  size").
+  size"). An ro-subagent returns the bounded evidence requested; the lead
+  persists it as the report. Do not expand a scout's write permissions just
+  to save a report.
 - Child sessions and subagents write only their own report files. **The map
   belongs to the lead session**: it alone adds lines, otherwise parallel
   sessions corrupt one file.

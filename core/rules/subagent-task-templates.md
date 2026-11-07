@@ -34,9 +34,11 @@ forever for a notification that never comes.
   report to `<report path>`, opening with its base (commit and the paths
   covered). Return only a summary of up to <N, default 300> words with the
   facts the decision needs, each with its source, plus the report path."
-  The orchestrator picks the path and records the report in the session map
-  (`session-map.md`). A short bounded task with a short answer needs no
-  file.
+  This file-output contract applies only to an rw-role. An ro-role returns
+  bounded evidence with its base (commit and paths); the lead writes that
+  report file (`session-map.md`). The orchestrator picks the path and
+  records the report in the session map. A short bounded task with a short
+  answer needs no file.
 
 The short templates below carry a condensed form of both; the full worker
 contract at the end spells them out — use it for any implementation stream

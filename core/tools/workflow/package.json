@@ -1,0 +1,9 @@
+{
+  "name": "airules-workflow-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "exports": { ".": "./index.mjs", "./process": "./lib/local-process.mjs", "./report-process": "./lib/report-process.mjs", "./mcp": "./lib/mcp-adapter.mjs", "./validators": "./lib/validators.mjs" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

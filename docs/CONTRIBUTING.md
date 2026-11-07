@@ -16,6 +16,9 @@
 | --- | --- | --- |
 | core | `core/` | Generic-метод: роли, роутинг моделей, контракты, делегирование. Ноль домена. |
 | overlay | `overlays/<stack>/` | Специфика стека, не проекта. |
+| common project | `project-layer/common/` | Переносимая политика ведения проекта и нейтральные шаблоны. |
+| recipient | `profiles/<profile>/` | Логические возможности получателя без локальных привязок. |
+| target | `targets/<runtime>/` | Рендер и runtime-контракт конкретного харнеса. |
 | project | `project-template/` | Только шаблон проектного слоя; контент проектов не коммитится. |
 
 ## Проверка перед коммитом
@@ -24,6 +27,7 @@
 
 ```sh
 python ci/check_layers.py
+python ci/check_composition.py
 ```
 
 pre-commit хук делает это автоматически для staged-файлов. После клона

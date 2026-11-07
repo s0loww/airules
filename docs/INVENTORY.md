@@ -1,5 +1,9 @@
 # Состав дистрибутива
 
+Codex использует ту же canonical библиотеку. Его нативная раскладка, конвертация
+команд в навыки и проверка discovery описаны в [CODEX-INTEGRATION.md](CODEX-INTEGRATION.md).
+Генерируемые ниже блоки продолжают отражать стандартную Claude-симуляцию.
+
 Что лежит в airules и что из него появляется в целевом проекте. Числа сняты
 прогоном `ci/simulate_install.py` со стеком `1c` — это фактический результат
 установки, а не пересказ инструкции.
@@ -19,11 +23,11 @@ python ci/simulate_install.py --emit-inventory
 |---|---|
 | версия | 0.12.0 |
 | правил | 55 |
-| скиллов | 12 |
+| скиллов | 46 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 359 |
+| файлов в цели | 422 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -32,6 +36,7 @@ python ci/simulate_install.py --emit-inventory
 AGENTS.md                корневой контракт: роли, MCP-профиль, Rule Index (он же роутинг)
 CLAUDE.md                ровно одна строка: See @AGENTS.md
 rules/                   тела правил, читаются по требованию
+.airules/                общий project layer: контекст и тестовый контур
 openspec/                паспорт проекта и воркспейс спецификаций
 tools/                   библиотеки оверлея (agent-1c, com-tools)
 .mcp.json                серверы MCP; remote — обязательно с "type": "http"
@@ -48,10 +53,11 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | Каталог | Файлов |
 |---|---|
 | `rules/` | 55 |
+| `.airules/` | 2 |
 | `openspec/` | 5 |
-| `tools/` | 39 |
+| `tools/` | 49 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 237 |
+| `.claude/skills/` | 288 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -140,18 +146,52 @@ Read, живёт в истории и первым уходит при сжат�
 <!-- generated:skills -->
 | Скилл | Слой | Что делает |
 |---|---|---|
+| `api-conventions` | core | Design or review a REST endpoint's resource contract, validation, compatibility and failure sema |
 | `archify` | core | Create validated architecture, workflow, sequence, data-flow and lifecycle diagrams as standalon |
+| `architecture-evolution` | core | Assess a design or substantial change for compatibility, migration and preservation of existing  |
+| `caveman` | core | Use a concise lite reply style when the user explicitly requests caveman, terse replies, or shor |
+| `craft-mermaid` | core | Render Mermaid source into a portable Craft-style PNG and inspect its readability |
+| `document-import` | core | Read and search local PDF, DOCX, XLSX or PPTX reference documents with bounded extraction and so |
+| `handoff` | core | Write or receive a compact transfer of an active task between sessions, with current artifacts a |
 | `mermaid-diagrams` | core | Practical guide for creating human-readable and agent-parseable diagrams using Mermaid inside Ma |
+| `office` | core | Create or edit local Office documents, spreadsheets and presentations with verified output |
+| `office-docx` | core | Create, inspect and edit Word DOCX files with structure and visual validation |
+| `office-export-pdf` | core | Export local Office documents to PDF and inspect the exported result |
+| `office-pptx` | core | Create or edit PPTX slide decks with visual checks |
+| `office-recalculate` | core | Recalculate workbook formulas with a local calculation engine and verify cached values |
+| `office-render` | core | Render local Office or PDF files into preview images and inspect layout |
+| `office-xlsx` | core | Create, edit and validate XLSX spreadsheets and formula results |
 | `openspec-apply-change` | core | Implement tasks from an OpenSpec change |
 | `openspec-archive-change` | core | Archive a completed change in the experimental workflow |
 | `openspec-explore` | core | Enter explore mode - a thinking partner for exploring ideas, investigating problems, and clarify |
 | `openspec-propose` | core | Propose a new change with all artifacts generated in one step |
+| `openspec-sync` | core | Merge a selected OpenSpec change's delta specs into main specs while keeping the change active a |
+| `openspec-update` | core | Revise an existing OpenSpec change's planning artifacts after a scope or design decision, withou |
 | `powershell-windows` | core | Windows environment: PowerShell scripting rules for both Windows PowerShell 5.1 and PowerShell 7 |
+| `security-baseline` | core | Review changed trust boundaries or security-sensitive behavior using concrete source-to-sink evi |
+| `skill-maintainer` | core | Create or narrowly improve a task skill from a demonstrated reusable method or a concrete failur |
+| `technical-debt` | core | Assess existing architectural debt and prioritize its actual maintenance cost and exit condition |
+| `1c-business-tests` | 1c | Create or maintain repeatable tests of 1C calculations, data and business behavior using the pro |
+| `1c-code-search` | 1c | Locate a BSL routine, behaviour, literal or module structure in the correct 1C source contour |
 | `1c-config-docs` | 1c | - |
+| `1c-debug-runtime` | 1c | Investigate a runtime 1C fault with discriminating hypotheses, owned probes and source/target-bo |
+| `1c-event-journal` | 1c | Inspect relevant entries in the 1C Журнал регистрации with a bounded time/target scope |
+| `1c-form-inspect` | 1c | Inspect a managed 1C form's elements, data bindings, commands and handlers before changing it |
+| `1c-form-shot` | 1c | Capture an identified 1C form through an already supported browser, EDT, QA or desktop surface |
+| `1c-impact` | 1c | Assess callers, metadata dependencies and downstream consequences of a proposed 1C change |
+| `1c-mechanism-map` | 1c | Explain a 1C mechanism as an evidence-linked map of entry points, handlers, subscriptions and da |
+| `1c-meta-info` | 1c | Read a 1C object's type, attributes, tabular parts, forms and ownership before reasoning about i |
 | `1c-metadata-manage` | 1c | Create, edit, validate and remove 1C metadata — objects, managed forms, SKD, MXL, roles, EPF/ERF |
+| `1c-platform-help` | 1c | Resolve a 1C platform or БСП API, format or standard against version-relevant primary documentat |
+| `1c-qa-testing` | 1c | Verify a thin-client 1C scenario through the project's available QA interface with observe–act–a |
+| `1c-templates-memory` | 1c | Find and adapt an existing 1C solution pattern while keeping project decisions and reusable temp |
 | `1c-tj-analysis` | 1c | Analyse a 1C technological log (ТЖ): what the log actually recorded, the slowest server calls an |
+| `1c-ui-regression` | 1c | Create or maintain saved, repeatable 1C UI regression scenarios using the project's configured w |
+| `1c-verify-project` | 1c | Create or maintain a project-local 1C verification recipe that maps features to real entry point |
 | `ibcmd-ibsrv` | 1c | Build, update and serve local 1C test infobases without Designer: ibcmd for create / import / ap |
 | `img-grid-analysis` | 1c | Overlay a numbered grid on an image to determine column proportions for layout generation |
+| `mcp-1c-tools` | 1c | Discover the actually exposed 1C capabilities and their schemas without assuming a facade or don |
+| `onec-check-mcp` | 1c | Diagnose missing or failing project MCP capabilities while separating discovery, transport and s |
 <!-- /generated:skills -->
 
 Команды: `techdebt-capture`, `todolist` (ядро), `deploy-and-test` (оверлей).

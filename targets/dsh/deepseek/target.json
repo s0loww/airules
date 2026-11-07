@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "id": "dsh-deepseek",
+  "status": "experimental",
+  "renderer_status": "pending",
+  "renderer": "dsh-project",
+  "renderer_entry": "targets/dsh/deepseek/render.py",
+  "layout": "targets/dsh/deepseek/layout.md",
+  "model_profile": "targets/dsh/deepseek/model-profile.md",
+  "environment_template": "targets/dsh/deepseek/dev.env.example",
+  "project_preset": {
+    "id": "1c-lite",
+    "application": "gui-new-chat"
+  },
+  "instruction_files": [
+    "AGENTS.md",
+    "USER-RULES.md",
+    "LLM-RULES.md"
+  ],
+  "local_instruction_files": [
+    "AGENTS.local.md"
+  ],
+  "artifacts": {
+    "rules": ".dsh/rules-1c",
+    "agents": ".dsh/agents-1c",
+    "commands": ".dsh/commands-1c",
+    "skills": ".dsh/skills",
+    "project_context": "USER-RULES.md",
+    "model_instructions": "AGENTS.md",
+    "evolved_project_rules": "LLM-RULES.md"
+  },
+  "artifact_status": {
+    "rules": "adapter-required",
+    "agents": "reference-storage-registration-pending",
+    "commands": "reference-storage-registration-pending",
+    "skills": "native-after-dsh-frontmatter-render"
+  },
+  "limits": {
+    "instruction_bytes": 65536
+  },
+  "environment": {
+    "ONEC_RULES_AUTO": "off",
+    "ONEC_FOREIGN_AGENT_RULES": "off",
+    "ONEC_MCP_FIRST_MODE": "off",
+    "DSH_TELEMETRY_MODE": "DISABLED"
+  },
+  "compatibility_environment": {
+    "suppressed_foreign_canon": {
+      "ONEC_FOREIGN_AGENT_RULES": "on"
+    }
+  },
+  "mcp": {
+    "import_project_config": false,
+    "allowlist_required": true,
+    "unknown_servers": "preserve-disabled"
+  }
+}
