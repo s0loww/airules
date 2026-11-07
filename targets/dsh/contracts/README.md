@@ -17,3 +17,8 @@ Overlay resolution is stable-ID based, in this order:
 
 Later layers replace an item with the same stable ID. They do not append a
 second copy.
+
+The optional native adapter for repository operations, supplier-update plans
+and binary artifacts is described in [onec-specialized.md](onec-specialized.md).
+Its project bindings and execution protocol remain outside the portable skill
+method and embedded policy manifest.

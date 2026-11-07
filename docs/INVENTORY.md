@@ -23,11 +23,11 @@ python ci/simulate_install.py --emit-inventory
 |---|---|
 | версия | 0.12.0 |
 | правил | 55 |
-| скиллов | 46 |
+| скиллов | 50 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 422 |
+| файлов в цели | 428 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -57,7 +57,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `openspec/` | 5 |
 | `tools/` | 49 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 288 |
+| `.claude/skills/` | 294 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -171,10 +171,12 @@ Read, живёт в истории и первым уходит при сжат�
 | `security-baseline` | core | Review changed trust boundaries or security-sensitive behavior using concrete source-to-sink evi |
 | `skill-maintainer` | core | Create or narrowly improve a task skill from a demonstrated reusable method or a concrete failur |
 | `technical-debt` | core | Assess existing architectural debt and prioritize its actual maintenance cost and exit condition |
+| `1c-ai-merge` | 1c | Plan a supplier update with local customizations, classify three-way changes and separate an ext |
 | `1c-business-tests` | 1c | Create or maintain repeatable tests of 1C calculations, data and business behavior using the pro |
 | `1c-code-search` | 1c | Locate a BSL routine, behaviour, literal or module structure in the correct 1C source contour |
 | `1c-config-docs` | 1c | - |
 | `1c-debug-runtime` | 1c | Investigate a runtime 1C fault with discriminating hypotheses, owned probes and source/target-bo |
+| `1c-element` | 1c | Recognize a 1C:Элемент/XBSL project or subtree and choose its actual text, build and verificatio |
 | `1c-event-journal` | 1c | Inspect relevant entries in the 1C Журнал регистрации with a bounded time/target scope |
 | `1c-form-inspect` | 1c | Inspect a managed 1C form's elements, data bindings, commands and handlers before changing it |
 | `1c-form-shot` | 1c | Capture an identified 1C form through an already supported browser, EDT, QA or desktop surface |
@@ -184,6 +186,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `1c-metadata-manage` | 1c | Create, edit, validate and remove 1C metadata — objects, managed forms, SKD, MXL, roles, EPF/ERF |
 | `1c-platform-help` | 1c | Resolve a 1C platform or БСП API, format or standard against version-relevant primary documentat |
 | `1c-qa-testing` | 1c | Verify a thin-client 1C scenario through the project's available QA interface with observe–act–a |
+| `1c-repository-manage` | 1c | Inspect or change a 1C configuration repository through explicit object-scoped operations; disti |
 | `1c-templates-memory` | 1c | Find and adapt an existing 1C solution pattern while keeping project decisions and reusable temp |
 | `1c-tj-analysis` | 1c | Analyse a 1C technological log (ТЖ): what the log actually recorded, the slowest server calls an |
 | `1c-ui-regression` | 1c | Create or maintain saved, repeatable 1C UI regression scenarios using the project's configured w |
@@ -192,6 +195,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `img-grid-analysis` | 1c | Overlay a numbered grid on an image to determine column proportions for layout generation |
 | `mcp-1c-tools` | 1c | Discover the actually exposed 1C capabilities and their schemas without assuming a facade or don |
 | `onec-check-mcp` | 1c | Diagnose missing or failing project MCP capabilities while separating discovery, transport and s |
+| `v8unpack-cf` | 1c | Inspect or transform a 1C binary artifact using a confirmed codec, separating ordinary Form.bin  |
 <!-- /generated:skills -->
 
 Команды: `techdebt-capture`, `todolist` (ядро), `deploy-and-test` (оверлей).
