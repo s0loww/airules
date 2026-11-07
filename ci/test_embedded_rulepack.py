@@ -23,7 +23,10 @@ MANIFEST_SCHEMA = CONTRACTS / "rulepack-manifest.schema.json"
 CAPABILITY_SCHEMA = CONTRACTS / "capability-registry.schema.json"
 CAPABILITY_REGISTRY = CONTRACTS / "1c-airules.json"
 ADAPTED_CORE_SKILLS = {"handoff", "skill-maintainer", "security-baseline", "architecture-evolution", "technical-debt"}
-ADAPTED_ONEC_SKILLS = {"1c-business-tests", "1c-ui-regression", "1c-verify-project"}
+ADAPTED_ONEC_SKILLS = {
+    "1c-business-tests", "1c-ui-regression", "1c-verify-project",
+    "1c-repository-manage", "1c-ai-merge", "v8unpack-cf", "1c-element",
+}
 
 
 def source_skill_ids():

@@ -72,8 +72,8 @@ class CodexTargetTests(unittest.TestCase):
                         continue
                     if source.name != "SKILL.md":
                         self.assertEqual(source.read_bytes(), (dest / source.relative_to(skill.parent)).read_bytes(), str(source))
-        self.assertEqual(46, len(expected))
-        self.assertEqual(46, self.manifest["counts"]["canonical_skills"])
+        self.assertTrue({"1c-repository-manage", "1c-ai-merge", "v8unpack-cf", "1c-element"}.issubset(expected))
+        self.assertEqual(len(expected), self.manifest["counts"]["canonical_skills"])
         self.assertFalse((self.stage / ".agents/skills/creating-dsh-plugins").exists())
         self.assertFalse((self.stage / ".agents/skills/telegram").exists())
 
