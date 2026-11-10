@@ -57,6 +57,10 @@ For detailed reconciliation or a backend-specific mapping, read
 [provider-evidence.md](references/provider-evidence.md). Use the active host's
 registered schema rather than deriving calls from a product name.
 
+For a candidate lesson, changed applicability or superseded finding, use
+[reviewed-lessons.md](references/reviewed-lessons.md) to keep draft, review,
+publication and current validity distinct without another memory store.
+
 ## Report the outcome
 
 Give the selected scope, relevant source/record IDs, confirmed operation result

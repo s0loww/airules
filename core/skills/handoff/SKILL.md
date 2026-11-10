@@ -46,3 +46,7 @@ instructions before using its evidence. Resolve missing or changed prerequisites
 at the first dependent action, then continue the already-authorized next step.
 Keep domain-specific source, deployed-state and target checks in their owning
 project or stack policy. Do not infer a successful mutation from a source diff.
+
+If a concrete detail is missing from compacted context, use
+[history-evidence.md](references/history-evidence.md) for bounded retrieval of
+original session events when the host exposes that capability.

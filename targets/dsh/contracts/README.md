@@ -26,3 +26,7 @@ method and embedded policy manifest.
 The optional memory workspace adapter is described in
 [memory-workspace.md](memory-workspace.md). It retains project scope, source and
 processing evidence without making a specific memory backend mandatory.
+
+Reviewed lesson publication, session-history evidence and isolated skill
+comparisons are described in [reviewed-knowledge.md](reviewed-knowledge.md).
+Their native adapters keep the existing writer, journal and sandbox owners.

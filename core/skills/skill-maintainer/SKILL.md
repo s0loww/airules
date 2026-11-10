@@ -51,6 +51,10 @@ trigger, use a small isolated task exercising it and a nearby non-match where
 misrouting matters. Inspect the resulting actions/artifact, not a confidence
 claim. Do not repeat a costly live operation merely to test instruction wording.
 
+For a substantial change with an available isolated runner, use
+[comparative-evaluation.md](references/comparative-evaluation.md) to compare the
+current skill, its previous version and no skill on equivalent task fixtures.
+
 Report the source path, change and evidence. Use the host's supported refresh or
 next-session discovery and distinguish written, discoverable and activated states.
 Record a durable outcome through the existing memory owner only when it adds new
