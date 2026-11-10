@@ -10,5 +10,7 @@ def render_config():
     }
     return {"hooks": {
         "PreToolUse": [{"matcher": "^(?:apply_patch|Edit|Write)$", "hooks": [dict(handler)]}],
+        "PreCompact": [{"matcher": "^(?:manual|auto)$", "hooks": [dict(handler)]}],
+        "PostToolUse": [{"matcher": "^(?:Read|read|builtin:read|read_file)$", "hooks": [dict(handler)]}],
         "SessionStart": [{"matcher": "^(?:startup|resume|clear|compact|fork)$", "hooks": [dict(handler)]}],
     }}

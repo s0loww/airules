@@ -7,10 +7,10 @@ project.
 ```powershell
 python targets\dsh\rulepack\build.py `
   --source . `
-  --output var\rulepack\airules-0.12.0
+  --output var\rulepack\airules-0.13.0
 
 python targets\dsh\rulepack\verify.py `
-  --output var\rulepack\airules-0.12.0
+  --output var\rulepack\airules-0.13.0
 ```
 
 The output contains the root contract, lazy rules, role definitions, native

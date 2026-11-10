@@ -12,6 +12,14 @@ index of those files. The index is what survives a compaction and what a
 linked session or the next subagent starts from instead of re-reading the
 sources.
 
+## Compaction receipts
+
+The optional portable continuity adapter carries bounded references and source
+versions, not report bodies: `tools/continuity/README.md`. A checkpoint is scoped
+to its project, native session and agent. Re-read the selected map and applicable
+rules before acting; a candidate filename does not choose the active task.
+Subagents restore only their own task receipts and never the lead's map.
+
 ## Files
 
 - Map: `var/tmp/session-map-<task>.md`. Reports:

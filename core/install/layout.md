@@ -242,3 +242,9 @@ ONBOARD §9.5), тела ролей он не меняет. Модельная �
 `model-profiles.md` — не в телах ролей и не в правилах. Если семейство не
 определяется, профиль не добавляется — инсталлятор фиксирует «no profile» в
 отчёте установки.
+
+
+Optional continuity helper: install `core/hooks/continuity.py` alongside the
+native reminder and `core/tools/continuity/` at `tools/continuity/`. Follow that
+README for scope, budgets, native capabilities and opt-in checkpoint storage.
+Installation never grants filesystem access or overwrites recipient hooks.

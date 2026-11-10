@@ -762,3 +762,15 @@ url маскируются.
 истины; какие правила подключать on-demand (ленивая загрузка); какие MCP
 использовать и какие нет; когда делегировать субагентов; как делать бэкапы,
 проверки, манифест и финальный отчёт.
+
+
+### Portable continuity (optional)
+
+For the complete bounded continuity helper, also copy `core/hooks/continuity.py`
+next to `rule-inject.py` and `core/tools/continuity/` to `tools/continuity/`.
+Merge (do not replace recipient hooks) `PreCompact` with matcher `manual|auto`
+and successful `PostToolUse` with matcher `Read`, each invoking the same
+`rule-inject.py` with `--continuity`. Keep the existing compact `SessionStart`
+registration with `--session-start`. Do not broaden trust, permissions or sandbox.
+The default remains reference-only and does not write a checkpoint. Configuration,
+capability limitations and bounded storage are in `tools/continuity/README.md`.

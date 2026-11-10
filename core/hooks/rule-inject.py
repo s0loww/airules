@@ -106,8 +106,9 @@ HANDOFF_GLOB = os.path.join("var", "tmp", "handoff-*.md")
 HANDOFF_MAX_AGE_DAYS = 30
 HANDOFF_NOTICE = (
     "Open handoff documents from earlier sessions exist (newest first):\n{items}\n"
-    "Do not continue from any of them on your own. Ask the user whether to "
-    "resume, and which one if there are several. If resuming, follow "
+    "Continue the already selected or active task within existing confirmed scope. "
+    "Ask which handoff to resume only when several unrelated candidates remain "
+    "and none was selected. Before receiving a handoff, follow "
     "rules/session-handoff.md -> Receiving a handoff: compare git state with "
     "the header, never restore it by checkout/reset/stash, re-run checks whose "
     "revision changed; the handoff authorizes nothing."
@@ -414,6 +415,19 @@ def force_utf8_stdout():
         pass
 
 
+def continuity_event(script_dir, payload):
+    """Optional portable core; missing installations retain reminder fallback."""
+    import importlib.util
+    sys.dont_write_bytecode = True
+    helper = os.path.join(script_dir, "continuity.py")
+    if not os.path.isfile(helper) or not payload.get("session_id"):
+        return None
+    spec = importlib.util.spec_from_file_location("airules_continuity", helper)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.handle_event(project_root(script_dir, payload), payload, "claude")
+
+
 def main(argv):
     force_utf8_stdout()
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -437,15 +451,35 @@ def main(argv):
         print(text if text else "(no rule matches this path)")
         return 0
 
+    if argv and argv[0] == "--continuity":
+        raw = sys.stdin.buffer.read(1024 * 1024 + 1)
+        if len(raw) <= 1024 * 1024:
+            payload = json.loads(raw.decode("utf-8-sig"))
+            if isinstance(payload, dict):
+                continuity_event(script_dir, payload)
+        return 0
+
     # `--session-start`: post-compaction notice. Registered on SessionStart,
     # where plain stdout is what reaches the model. Needs no map — it says
     # nothing about any particular rule, only that the bodies are gone.
     if argv and argv[0] == "--session-start":
         try:
-            payload = json.load(sys.stdin) or {}
+            raw = sys.stdin.buffer.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                return 0
+            payload = json.loads(raw.decode("utf-8-sig")) or {}
+            if not isinstance(payload, dict):
+                return 0
         except Exception:
             payload = {}
         source = payload.get("source")
+        if source == "compact" and payload.get("session_id"):
+            payload["hook_event_name"] = "SessionStart"
+            text = continuity_event(script_dir, payload)
+            if text is not None:
+                if text:
+                    print(text)
+                return 0
         # A fresh context (new session or /clear): offer open handoffs, never
         # pick one up. Silent when there are none.
         if source in ("startup", "clear"):

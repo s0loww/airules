@@ -340,6 +340,8 @@ def install_hook(target, problems):
     hooks = os.path.join(target, ".claude", "hooks")
     os.makedirs(hooks, exist_ok=True)
     shutil.copy(dist("core", "hooks", "rule-inject.py"), hooks)
+    shutil.copy(dist("core", "hooks", "continuity.py"), hooks)
+    shutil.copytree(dist("core", "tools", "continuity"), os.path.join(target, "tools", "continuity"), dirs_exist_ok=True)
     map_src = dist("overlays", STACK, "hooks", "rules-map.json")
     if os.path.isfile(map_src):
         shutil.copy(map_src, hooks)
@@ -359,6 +361,12 @@ def install_hook(target, problems):
         ],
     }}, ensure_ascii=False, indent=2) + "\n")
 
+    settings_path = os.path.join(target, ".claude", "settings.json")
+    settings = json.loads(read(settings_path))
+    for event, matcher in (("PreCompact", "manual|auto"), ("PostToolUse", "Read")):
+        settings["hooks"][event] = [{"matcher": matcher, "hooks": [{"type": "command", "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py", "--continuity"]}]}]
+    write(settings_path, json.dumps(settings, ensure_ascii=False, indent=2) + "\n")
     hook = os.path.join(hooks, "rule-inject.py")
     checks = ((["--check-map"], "--check-map"),
               (["--dry-run", "src/Documents/Тест/Ext/ObjectModule.bsl"], "--dry-run"))

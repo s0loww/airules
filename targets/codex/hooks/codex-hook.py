@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Read-only native Codex event adapter for the shared lazy-rule reminders.
+"""Native Codex event adapter for the shared lazy-rule reminders.
 
-Installed next to rule-inject.py and rules-map.json. No subprocess, network,
-project writes, trust mutation, source-file reads or document-body injection.
+Installed next to rule-inject.py, continuity.py and rules-map.json.
+Default reminder mode performs no writes. Optional bounded checkpoints require
+explicit configuration and native writable mode; never changes trust.
 Hook failures fail open with empty stdout; successful responses are JSON only.
 """
 
@@ -120,6 +121,16 @@ def main():
     module = shared_module(directory)
     root = directory.parent.parent
     event = payload.get("hook_event_name")
+    continuity = None
+    helper = directory / "continuity.py"
+    if event in {"PreCompact", "PostToolUse", "SessionStart"} and payload.get("session_id") and regular_inside(root, helper):
+        spec = importlib.util.spec_from_file_location("airules_continuity", helper)
+        continuity = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(continuity)
+    if event in {"PreCompact", "PostToolUse"}:
+        if continuity:
+            continuity.handle_event(root, payload, "codex")
+        return
     if event == "PreToolUse":
         paths = scoped_paths(module, root, payload)
         if not paths:
@@ -139,11 +150,14 @@ def main():
         if text and len(text) > limit:
             text = text[:limit]
     elif event == "SessionStart":
-        text = session_context(module, root, payload.get("source"))
+        text = (continuity.handle_event(root, payload, "codex")
+                if continuity and payload.get("source") == "compact"
+                else session_context(module, root, payload.get("source")))
     else:
         return
     if text:
-        text = text[:MAX_CONTEXT]
+        if not continuity:
+            text = text[:MAX_CONTEXT]
         json.dump({"hookSpecificOutput": {"hookEventName": event, "additionalContext": text}}, sys.stdout, ensure_ascii=False)
         sys.stdout.write("\n")
 

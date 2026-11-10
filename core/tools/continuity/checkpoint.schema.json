@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "airules-continuity-checkpoint-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "projectKey",
+    "sessionId",
+    "origin",
+    "capturedAt",
+    "generation",
+    "state",
+    "git",
+    "refs",
+    "files",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "projectKey": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "origin": {
+      "enum": [
+        "lead",
+        "subagent"
+      ]
+    },
+    "capturedAt": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "generation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ]
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "head": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "branch": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "changedPaths": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "diffstat": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "refs": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "files": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "maxLength": 160
+      }
+    },
+    "openspec": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "version",
+          "total",
+          "done"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "done": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "version"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "rule",
+            "skill",
+            "orchestration",
+            "session-map",
+            "status",
+            "file",
+            "artifact",
+            "job"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "callId": {
+          "type": "string",
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}

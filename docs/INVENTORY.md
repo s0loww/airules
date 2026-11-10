@@ -21,13 +21,13 @@ python ci/simulate_install.py --emit-inventory
 <!-- generated:stats -->
 | | |
 |---|---|
-| версия | 0.12.0 |
+| версия | 0.13.0 |
 | правил | 55 |
 | скиллов | 51 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 430 |
+| файлов в цели | 435 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -55,7 +55,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `rules/` | 55 |
 | `.airules/` | 2 |
 | `openspec/` | 5 |
-| `tools/` | 49 |
+| `tools/` | 53 |
 | `.claude/agents/` | 13 |
 | `.claude/skills/` | 296 |
 | `.claude/commands/` | 4 |

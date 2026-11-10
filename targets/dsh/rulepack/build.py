@@ -307,6 +307,11 @@ def build(
         skill_inventory = _copy_skills(source, stage, renderer)
         _write_contract(source, stage, renderer, meta, roles)
         _write_testing_default(stage)
+        # Canonical continuity policy/data only; native DSH owns the executor.
+        continuity = stage / "contract" / "continuity"
+        continuity.mkdir(parents=True)
+        for name in ("contract.json", "checkpoint.schema.json", "fixtures.json", "README.md"):
+            shutil.copy2(source / "core" / "tools" / "continuity" / name, continuity / name)
         files = _managed_files(stage)
         manifest = {
             "schema_version": SCHEMA_VERSION,

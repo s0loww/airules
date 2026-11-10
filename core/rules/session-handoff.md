@@ -13,6 +13,15 @@ implementing subagents** inside one change is defined in
 `subagent-pipeline.md` — same discipline (inventory, not retelling),
 different scope.
 
+## Mechanical compaction checkpoint
+
+The optional continuity hook (`tools/continuity/README.md`) captures bounded
+mechanical metadata and references, never a model-written handoff or durable
+memory facts. Historical versions and timestamps are evidence to verify, not
+permission to restore Git state or to repeat already completed work. Continue the
+selected task within confirmed scope; ask which handoff to resume only when
+material ambiguity remains and no active task was selected.
+
 ## Fork vs continue
 
 - **Handoff forks.** A handoff document seeds a *fresh* session with a clean

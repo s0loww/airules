@@ -237,6 +237,17 @@ class EmbeddedRulepackTests(unittest.TestCase):
                 self.assertIsNone(WINDOWS_ABSOLUTE.search(text), relative)
             self.assertFalse(CONNECTION_KEYS & set(nested_keys(manifest)))
 
+    def test_continuity_policy_and_oracles_are_canonical_data(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="airules-continuity-pack-") as temporary:
+            output = Path(temporary) / "pack"
+            self.build(output)
+            manifest = read_json(output / "manifest.json")
+            for name in ("contract.json", "checkpoint.schema.json", "fixtures.json", "README.md"):
+                relative = "contract/continuity/" + name
+                self.assertIn(relative, manifest["files"])
+                self.assertEqual((ROOT / "core/tools/continuity" / name).read_bytes(), (output / relative).read_bytes())
+                self.assertEqual("contract", manifest["files"][relative]["kind"])
+
     def test_builder_refuses_nonempty_output(self) -> None:
         with tempfile.TemporaryDirectory(prefix="airules-rulepack-conflict-") as temporary:
             output = Path(temporary) / "output"
