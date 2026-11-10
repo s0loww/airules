@@ -22,3 +22,7 @@ The optional native adapter for repository operations, supplier-update plans
 and binary artifacts is described in [onec-specialized.md](onec-specialized.md).
 Its project bindings and execution protocol remain outside the portable skill
 method and embedded policy manifest.
+
+The optional memory workspace adapter is described in
+[memory-workspace.md](memory-workspace.md). It retains project scope, source and
+processing evidence without making a specific memory backend mandatory.

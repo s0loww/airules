@@ -25,7 +25,7 @@ try:
     SIMULATOR_SPEC.loader.exec_module(SIMULATOR)
 finally:
     sys.path.pop(0)
-CORE_ADAPTATIONS = {"handoff", "skill-maintainer", "security-baseline", "architecture-evolution", "technical-debt"}
+CORE_ADAPTATIONS = {"handoff", "skill-maintainer", "security-baseline", "architecture-evolution", "technical-debt", "memory-workspace"}
 ONEC_ADAPTATIONS = {
     "1c-business-tests", "1c-ui-regression", "1c-verify-project",
     "1c-repository-manage", "1c-ai-merge", "v8unpack-cf", "1c-element",

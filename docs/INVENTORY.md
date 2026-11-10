@@ -23,11 +23,11 @@ python ci/simulate_install.py --emit-inventory
 |---|---|
 | версия | 0.12.0 |
 | правил | 55 |
-| скиллов | 50 |
+| скиллов | 51 |
 | ролей субагентов | 13 |
 | команд | 4 |
 | гейтов | 4 |
-| файлов в цели | 428 |
+| файлов в цели | 430 |
 <!-- /generated:stats -->
 
 ## Что появляется в целевом проекте
@@ -57,7 +57,7 @@ tools/                   библиотеки оверлея (agent-1c, com-tool
 | `openspec/` | 5 |
 | `tools/` | 49 |
 | `.claude/agents/` | 13 |
-| `.claude/skills/` | 294 |
+| `.claude/skills/` | 296 |
 | `.claude/commands/` | 4 |
 <!-- /generated:tree-counts -->
 
@@ -153,6 +153,7 @@ Read, живёт в истории и первым уходит при сжат�
 | `craft-mermaid` | core | Render Mermaid source into a portable Craft-style PNG and inspect its readability |
 | `document-import` | core | Read and search local PDF, DOCX, XLSX or PPTX reference documents with bounded extraction and so |
 | `handoff` | core | Write or receive a compact transfer of an active task between sessions, with current artifacts a |
+| `memory-workspace` | core | Search project memory, preserve an established finding, or inspect memory documents and their gr |
 | `mermaid-diagrams` | core | Practical guide for creating human-readable and agent-parseable diagrams using Mermaid inside Ma |
 | `office` | core | Create or edit local Office documents, spreadsheets and presentations with verified output |
 | `office-docx` | core | Create, inspect and edit Word DOCX files with structure and visual validation |
