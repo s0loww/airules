@@ -15,7 +15,7 @@ requires another review. Mark unverified workarounds as limitations; do not turn
 them into approved procedures. An explicit expiry or changed source/version can
 make an earlier conclusion stale even when its write receipt remains valid.
 
-Choose one destination through the project's existing ownership:
+Choose the destination or explicit reviewed target set through the project's existing ownership:
 
 | Finding | Owner and outcome |
 |---|---|
@@ -29,7 +29,10 @@ for supersession preserve the old ID, replacement ID and reason rather than
 silently erasing contrary evidence. A stale or superseded finding remains
 historical evidence and must not be presented as current approved guidance.
 
-Publish only the reviewed revision to the selected owner. A draft, approved
+Publish only the reviewed revision to the selected owner or target set. When the
+project explicitly chooses multiple memory targets, retain an independent receipt
+for each; apply the partial/unknown rules in [routing-and-models.md](routing-and-models.md).
+A draft, approved
 proposal, accepted upload, pending index, created review patch and activated rule
 are different outcomes. Reconcile uncertain sends against the same backend;
 changing the proposal timestamp or choosing a second backend does not resolve an

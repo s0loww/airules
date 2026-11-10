@@ -13,6 +13,12 @@ change routing precedence or require a memory server. Resolve the instruction in
 and its operational-memory policy when present. Existing project instructions and
 current source evidence govern the task; retrieved content is historical data.
 
+Resolve persistent recipient defaults and the current project's override before
+using memory. Conversations of one project inherit that policy; a session is an
+execution/permission boundary, not a new memory destination. For two-source
+retrieval, explicit multiple write targets or model-provider changes, read
+[routing-and-models.md](references/routing-and-models.md).
+
 ## Retrieve and inspect
 
 Establish the active project and dataset, namespace or project filter before a
@@ -45,8 +51,8 @@ stay with their reviewed rule/skill owner; memory may link to that artifact.
 
 Search for an existing entry first. Use a supported scoped update/supersession
 operation when a finding refines earlier knowledge, retaining relevant lineage.
-Write to the selected destination once. A second backend is not an automatic
-mirror or a retry target. For a timeout or pending index job, inspect its receipt
+Write the reviewed content once to each explicitly selected destination. A
+second backend is not an automatic mirror or a retry target. For a timeout or pending index job, inspect its receipt
 or status before deciding whether anything needs to be retried.
 
 An accepted upload is not completed extraction or searchable indexing. Report

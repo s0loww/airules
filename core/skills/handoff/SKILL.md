@@ -50,3 +50,7 @@ project or stack policy. Do not infer a successful mutation from a source diff.
 If a concrete detail is missing from compacted context, use
 [history-evidence.md](references/history-evidence.md) for bounded retrieval of
 original session events when the host exposes that capability.
+
+For a code-to-decision, document or test-evidence reference that must survive
+the transfer, use [evidence-links.md](references/evidence-links.md). Keep the
+original source in its owning store and recheck evidence freshness on resume.

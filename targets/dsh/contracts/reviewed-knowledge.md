@@ -14,15 +14,21 @@ agents can return drafts, while durable writes retain the orchestrator owner.
 
 The lifecycle is draft, review, approved; stale/superseded are retained historical
 states. Only an unexpired approved revision can yield a publication plan. Select
-one configured Memoria/Cognee owner for a project finding, or a reviewed airules
-patch for a transferable rule/procedure. No automatic mirroring or backend retry.
+the effective project's configured Memoria/Cognee write owner or explicit reviewed
+target set for a finding, or a reviewed airules patch for a transferable
+rule/procedure. The publisher follows the same routing policy as the memory tool;
+it must not bypass Memoria-only selection by sending to a previously configured
+Cognee connection. No automatic mirroring or backend retry.
 
 Before dispatch the adapter must atomically claim an operation in the existing
 native journal as outcome-unknown. The operation identity binds proposal revision,
 destination, project and content hash independently of a retry timestamp. After
 native permission/expiry recheck, use the selected scoped backend only. An
 uncertain send stays unresolved until evidence from that destination reconciles
-it. Accepted content is not proof of searchable processing.
+it. For multiple explicit destinations retain separate target intents/receipts
+under the same logical content operation; partial success is not atomic success,
+and an unknown first send leaves later destinations not-attempted. Accepted
+content is not proof of searchable processing.
 
 An airules patch binds a relative canonical source path and expected target byte
 revision. Use native filesystem/CAS rights and root/symlink containment. Creating
