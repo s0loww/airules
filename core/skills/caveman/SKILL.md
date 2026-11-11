@@ -9,6 +9,9 @@ Apply only after the user's explicit request or an enabled host style setting.
 Default is off. A mention in a question or quoted material is not activation.
 Use lite only: remove filler and repetition while keeping natural sentences.
 The user's request to explain or return to normal style takes precedence.
+When the host saves a project preference, apply that preference consistently
+across the project's conversations. A conversation supplies execution context,
+not a separate persistent style setting. Keep other projects independent.
 
 Preserve technical terms, identifiers, negations, scope, numbers and uncertainty.
 Keep required progress updates, material limitations, verification results and
