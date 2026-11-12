@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "pre": [],
+  "post": [],
+  "deploy": {
+    "enabled": false,
+    "command_any": ["project-deploy.ps1", "/UpdateDBCfg"],
+    "probe_processes": false,
+    "probe_timeout_seconds": 1,
+    "targets": []
+  }
+}

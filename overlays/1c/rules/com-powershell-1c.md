@@ -243,3 +243,39 @@ Invoke-ComMethod -Object $documentObject -Name 'Записать' | Out-Null
   переиспользовать `lib/`-модули, не дублировать логику подключения / обёрток /
   запросов.
 - Generic-контракт скриптов — `rules/script-contract.md`.
+
+## 11. Version-scoped COM diagnostics
+
+The cases below were observed with file infobases on platform **8.3.27**.
+They are diagnostic branches, not promises about every platform version or
+configuration. Reproduce the smallest read-only call on the selected runtime
+before choosing a workaround; retain that version and result in project
+evidence. No new platform compatibility matrix is implied by this rule.
+
+- **Two-level dispatch fails while a direct export works.** Resolve the
+  common-module object with `Get-ComPropertySafe`, then call it with
+  `Invoke-ComMethod` (section 2). This distinguishes a dispatch/marshalling
+  failure from a failure inside the exported routine; do not replace the
+  existing wrapper library.
+- **Global-context functions or typed parameters fail through reflection.**
+  `DISP_E_UNKNOWNNAME` for a global function does not prove a missing server
+  capability. A native query literal can supply a platform date when a .NET
+  `DateTime` is rejected as a virtual-table period. For a reference-parameter
+  type error, compare the reflected value with one returned by a native
+  query; preserve the intended type and empty/non-empty semantics.
+- **Nested external connection fails.** If code already running through COM
+  cannot connect to a second file infobase, test the same target through a
+  separate top-level connection first. A nesting/runtime limitation can
+  precede any business code. Do not silently change target or permissions.
+- **Event-log export rejects a marshalled event filter.** First test a narrow
+  date interval without the event-array filter, then filter the returned rows
+  outside the connection. Keep the interval bounded and redact exported data.
+- **Metadata flags and runtime exposure disagree.** A static
+  `ExternalConnection=false` flag alone is not a tested access-denial
+  boundary. Confirm the actual allowed runtime surface under the intended
+  identity and retain native authorization controls; a successful call is
+  not permission to broaden access.
+
+Connection-helper return shapes remain the helper's own contract. Inspect the
+installed helper before using a `.Connection` member; no common return shape
+is established by these cases.

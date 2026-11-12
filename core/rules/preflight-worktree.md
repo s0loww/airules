@@ -39,3 +39,12 @@ an explicit user instruction.
 
 Keep the summary for the user short: goal, write scope, risks, backup path
 if one was created.
+
+## Commits in a shared working copy
+
+Stage only the paths changed for this task, named explicitly in `git add`.
+Avoid `git add -A`, `git add .` and broad directory arguments when other
+sessions share the checkout: they can absorb another session's work.
+Inspect the staged paths and full staged diff before committing; leave
+unrelated changes unstaged. If foreign files entered a commit, report them
+and agree on recovery before rewriting shared history.

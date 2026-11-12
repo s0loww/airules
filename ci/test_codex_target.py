@@ -107,6 +107,32 @@ class CodexTargetTests(unittest.TestCase):
         self.assertFalse((self.stage / ".codex/config.toml").exists())
         self.assertFalse((self.stage / ".claude").exists())
 
+    def test_command_advisories_require_explicit_boolean_opt_in(self):
+        default = target.load_json(self.stage / ".codex/hooks.json")
+        self.assertNotIn("command-advisory.py", json.dumps(default))
+        self.assertNotIn("deploy-advisory.py", json.dumps(default))
+        self.assertFalse((self.stage / ".airules/command-advisories.json").exists())
+        for value in ("true", 1, None, {}):
+            bindings = dict(self.bindings, command_advisories=value)
+            with self.assertRaisesRegex(target.RenderError, "command_advisories"):
+                target.validate_bindings(bindings)
+
+    def test_opt_in_installs_both_command_event_handlers_without_project_table(self):
+        candidate = self.work / "advisory-stage"
+        target.build(ROOT, self.project, candidate, dict(self.bindings, command_advisories=True))
+        config = target.load_json(candidate / ".codex/hooks.json")
+        for event in ("PreToolUse", "PostToolUse"):
+            groups = [g for g in config["hooks"][event]
+                      if any("command-advisory.py" in h.get("command", "") for h in g["hooks"])]
+            self.assertEqual(1, len(groups))
+            self.assertRegex("Bash", groups[0]["matcher"])
+        pre = json.dumps(config["hooks"]["PreToolUse"])
+        self.assertIn("deploy-advisory.py", pre)
+        for name in ("command-advisory.py", "command-advisories.schema.json", "deploy-advisory.py"):
+            self.assertTrue((candidate / ".codex/hooks" / name).is_file(), name)
+        self.assertFalse((candidate / ".airules/command-advisories.json").exists())
+        self.assertFalse((self.project / ".codex").exists())
+
     def test_apply_rollback_preserve_project_context_openspec_and_config(self):
         preserved = {"openspec/project.md": "# Existing project passport\n", ".airules/project-context.md": "Keep local project facts\n", ".codex/config.toml": 'model = "user-selected-model"\n'}
         for rel, value in preserved.items():

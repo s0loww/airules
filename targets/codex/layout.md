@@ -39,6 +39,15 @@ Removed source files are retained until separately reviewed. A failed write roll
 back the transaction, and explicit rollback refuses to erase later local edits.
 Backups preserve overwritten bytes and record newly created paths.
 
+Optional command advisories use the boolean build binding
+`"command_advisories": true` (default `false`). The renderer emits shell-event
+registrations only after that opt-in and records it in the target manifest.
+It ships the scripts/schema/examples for review but never writes the active
+`.airules/command-advisories.json` project table. Merge existing project Bash
+handlers and review hook trust separately. Configuration, limits and the 1C
+deployment advisory are described in
+[COMMAND-ADVISORIES](../../docs/COMMAND-ADVISORIES.md).
+
 The manifest records composition, native resource hashes, source revision/dirty
 state and the imported port provenance. It is a development snapshot unless
 built from an independently verified release tag. Tests prove offline assembly,

@@ -27,7 +27,7 @@ context window. Measured on real repositories: `git diff` −80%, `git log`
 High-volume, read-only commands whose full output is navigation, not an
 artifact:
 
-- `rtk git log / diff / status / show` — history and change review;
+- `rtk git log / diff / status / show` — history and change-scope navigation;
 - `rtk ls / tree / find` — structure scouting (requires coreutils on PATH:
   available in a bash session, usually absent in plain PowerShell — there
   fall back to raw commands);
@@ -43,6 +43,10 @@ instead of requesting everything at once.
 
 ## What never to wrap
 
+- **Content review of a diff**: when assessing changes line by line, read
+  the complete uncompressed diff, including context. Use raw `git diff` or
+  the proxy's explicit passthrough; a compressed summary can omit the exact
+  lines under review. Scope/history navigation may remain compressed.
 - **Mutations**: any command that changes state — applies, deploys, data
   migrations (including `-Apply` runs of contract scripts). Their full log
   is the verification artifact.

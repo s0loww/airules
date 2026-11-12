@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Optional deployment advisory section",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": { "type": "boolean", "default": false },
+    "command_any": { "$ref": "#/$defs/markers" },
+    "probe_processes": { "type": "boolean", "default": false },
+    "probe_timeout_seconds": { "type": "number", "minimum": 0.1, "maximum": 2, "default": 1 },
+    "dynamic_minus_hint": { "$ref": "#/$defs/hint" },
+    "process_hint": { "$ref": "#/$defs/hint" },
+    "apache_hint": { "$ref": "#/$defs/hint" },
+    "targets": {
+      "type": "array", "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["command_any", "path"],
+        "properties": {
+          "command_any": { "allOf": [{ "$ref": "#/$defs/markers" }, { "minItems": 1 }] },
+          "path": { "type": "string", "minLength": 2, "maxLength": 512, "description": "Explicit absolute database path. No environment or credential file is read." }
+        }
+      }
+    }
+  },
+  "allOf": [{ "if": { "required": ["enabled"], "properties": { "enabled": { "const": true } } }, "then": { "required": ["command_any"], "properties": { "command_any": { "minItems": 1 } } } }],
+  "$defs": {
+    "markers": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+    "hint": { "type": "string", "minLength": 1, "maxLength": 1600 }
+  },
+  "$comment": "This schema validates the deploy property of .airules/command-advisories.json. Runtime also requires literal markers and one unambiguous configured absolute target before the optional fixed Windows probe. Presence of a process/service is advisory, not proof of a lock."
+}

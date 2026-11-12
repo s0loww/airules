@@ -272,3 +272,27 @@ unsafe-action protection lifted for test infobases only).
 Cheap automation next to it: a script that lists call names undefined in the
 module, scans `&НаКлиенте` bodies for server-only names, and checks quote parity
 and per-query alias clashes catches most of the list in seconds.
+
+## 12. DCS settings `use` and an apparently hung XML load
+
+Observed on platform **8.3.27**, file-infobase load: the enabled flag of a
+`settingsVariant/settings` item is a child element such as
+`<dcsset:use>false</dcsset:use>`, not a `use="false"` attribute on
+`dcsset:item`. Preserve the element order from an export of the matching item
+type; this case does not establish one schema/order for every settings type.
+For a new version, compare a native export or validate against that version's
+XDTO schema before relying on a hand-authored shape.
+
+A batch `/LoadConfigFromFiles` may stop at a modal XDTO-reader dialog while
+the `/Out` file remains empty, even with startup messages disabled. An empty
+log and a non-terminating loader are therefore a **diagnostic candidate** for
+schema-invalid XML, not proof of a database lock or a successful load.
+Inspect the owned loader's window/diagnostics and compare DCS attributes and
+children with the native reference. Well-formed XML alone does not validate
+XDTO semantics. Process termination follows the project's ownership and
+cleanup policy; never kill unrelated Designer sessions as a workaround.
+
+This release carries the scoped diagnostic observation, not a newly executed
+platform/schema acceptance test. XML mutation mechanics remain in the
+`1c-metadata-manage` skill; avoid maintaining a second full DCS schema recipe
+here.

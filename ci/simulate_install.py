@@ -96,12 +96,14 @@ KIND_ORDER = ("invariant", "case", "recipe", "process", "router")
 
 
 def read(path):
-    return io.open(path, encoding="utf-8-sig").read()
+    with io.open(path, encoding="utf-8-sig") as stream:
+        return stream.read()
 
 
 def write(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    io.open(path, "w", encoding="utf-8", newline="\n").write(text)
+    with io.open(path, "w", encoding="utf-8", newline="\n") as stream:
+        stream.write(text)
 
 
 def dist(*parts):
@@ -109,7 +111,7 @@ def dist(*parts):
 
 
 # --------------------------------------------------------------- сборка цели
-def build(target, problems):
+def build(target, problems, command_advisories=False):
     """Исполнить ONBOARD §4–§8 механически. Возвращает сводку по составу."""
     if os.path.isdir(target):
         shutil.rmtree(target)
@@ -206,7 +208,7 @@ def build(target, problems):
         ensure_ascii=False, indent=2) + "\n")
 
     # §5.1 хук
-    install_hook(target, problems)
+    install_hook(target, problems, command_advisories=command_advisories)
 
     # §8 манифест
     files = {}
@@ -218,7 +220,8 @@ def build(target, problems):
             if rel.startswith("src/"):
                 continue
             import hashlib
-            files[rel] = hashlib.sha256(io.open(path, "rb").read()).hexdigest()
+            with io.open(path, "rb") as stream:
+                files[rel] = hashlib.sha256(stream.read()).hexdigest()
     # Resolve the declarations as part of the legacy Claude simulation. The
     # compact descriptor goes into the install manifest; the full composition
     # stays reproducible from the distribution declarations.
@@ -231,6 +234,7 @@ def build(target, problems):
     )
     write(os.path.join(target, ".airules-manifest.json"), json.dumps({
         "version": read(dist("VERSION")).strip(),
+        "command_advisories": command_advisories,
         "installed_at": "1970-01-01T00:00:00Z",
         "files": files,
         "placeholders": ANSWERS,
@@ -336,9 +340,16 @@ def render_agents(target, roles, problems):
         write(os.path.join(target, ".claude", "agents", r["role"] + ".md"), text)
 
 
-def install_hook(target, problems):
+def install_hook(target, problems, command_advisories=False):
     hooks = os.path.join(target, ".claude", "hooks")
     os.makedirs(hooks, exist_ok=True)
+    if not isinstance(command_advisories, bool):
+        raise ValueError("command_advisories must be a boolean")
+    for base in (dist("core", "hooks"), dist("overlays", STACK, "hooks")):
+        for name in os.listdir(base):
+            source = os.path.join(base, name)
+            if os.path.isfile(source) and name.endswith((".py", ".json")):
+                shutil.copy2(source, os.path.join(hooks, name))
     shutil.copy(dist("core", "hooks", "rule-inject.py"), hooks)
     shutil.copy(dist("core", "hooks", "continuity.py"), hooks)
     shutil.copytree(dist("core", "tools", "continuity"), os.path.join(target, "tools", "continuity"), dirs_exist_ok=True)
@@ -366,6 +377,15 @@ def install_hook(target, problems):
     for event, matcher in (("PreCompact", "manual|auto"), ("PostToolUse", "Read")):
         settings["hooks"][event] = [{"matcher": matcher, "hooks": [{"type": "command", "command": "python",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/rule-inject.py", "--continuity"]}]}]
+    if command_advisories:
+        def advisory(filename):
+            return {"type": "command", "command": "python", "timeout": 10,
+                    "args": ["-B", "${CLAUDE_PROJECT_DIR}/.claude/hooks/" + filename]}
+        for event in ("PreToolUse", "PostToolUse"):
+            settings["hooks"][event].append({"matcher": "^(?:Bash|PowerShell)$",
+                "hooks": [advisory("command-advisory.py")]})
+        settings["hooks"]["PreToolUse"].append({"matcher": "^(?:Bash|PowerShell)$",
+            "hooks": [advisory("deploy-advisory.py")]})
     write(settings_path, json.dumps(settings, ensure_ascii=False, indent=2) + "\n")
     hook = os.path.join(hooks, "rule-inject.py")
     checks = ((["--check-map"], "--check-map"),
@@ -637,7 +657,8 @@ def apply_inventory(blocks, write):
         text = pattern.sub(lambda _match, value=replacement: value, text, count=1)
     changed = text != original
     if write and changed:
-        io.open(path, "w", encoding="utf-8", newline="\n").write(text)
+        with io.open(path, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(text)
     return changed, missing
 
 
@@ -651,12 +672,14 @@ def main(argv=None):
                         help="собрать в DIR и не удалять (по умолчанию — временный каталог)")
     parser.add_argument("--emit-inventory", action="store_true",
                         help="перезаписать генерируемые блоки docs/INVENTORY.md")
+    parser.add_argument("--command-advisories", action="store_true",
+                        help="включить opt-in регистрации advisory-хуков в чистой симуляции")
     args = parser.parse_args(argv)
 
     target = os.path.abspath(args.keep) if args.keep else tempfile.mkdtemp(prefix="airules-sim-")
     problems = []
     try:
-        summary = build(target, problems)
+        summary = build(target, problems, command_advisories=args.command_advisories)
         results = verify(target)
         stale, missing = apply_inventory(collect_inventory(target, summary),
                                          write=args.emit_inventory)

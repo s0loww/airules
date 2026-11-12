@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project-owned command advisories",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "enabled"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "enabled": { "type": "boolean" },
+    "pre": {
+      "type": "array", "maxItems": 64,
+      "items": { "allOf": [{ "$ref": "#/$defs/entry" }, { "required": ["command_any"], "properties": { "command_any": { "minItems": 1 }, "output_any": { "maxItems": 0 }, "output_all": { "maxItems": 0 } } }] }
+    },
+    "post": {
+      "type": "array", "maxItems": 64,
+      "items": { "allOf": [{ "$ref": "#/$defs/entry" }, { "anyOf": [{ "required": ["output_any"], "properties": { "output_any": { "minItems": 1 } } }, { "required": ["output_all"], "properties": { "output_all": { "minItems": 1 } } }] }] }
+    },
+    "deploy": { "type": "object", "description": "Optional stack adapter configuration; validated by that adapter. The core never probes processes." }
+  },
+  "$defs": {
+    "literals": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+    "entry": {
+      "type": "object", "additionalProperties": false, "required": ["id", "hint"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+        "hint": { "type": "string", "minLength": 1, "maxLength": 1600, "description": "Static text only; no command/output interpolation or credentials." },
+        "command_any": { "$ref": "#/$defs/literals" },
+        "output_any": { "$ref": "#/$defs/literals" },
+        "output_all": { "$ref": "#/$defs/literals" },
+        "ignore_case": { "type": "boolean", "default": true }
+      }
+    }
+  },
+  "$comment": "Runtime additionally limits combined pre+post to 64 distinct IDs, input to 256 KiB, config to 64 KiB and emitted context to four unique hints/4096 characters. All match strings are literals, not regular expressions."
+}

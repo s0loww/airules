@@ -10,6 +10,12 @@ Use the smallest set of checks that matches the real risk. If a check cannot
 be performed — say why and name the residual risk. Concrete tool names are
 supplied by the project profile; below they are described as categories.
 
+Start from the existing project runner and reviewed bindings in
+`.airules/testing-contour.md` or the project's declared equivalent. Keep its
+environment selection, baseline and evidence format; do not invent another
+runner or create a test environment merely to fit this matrix. Missing
+bindings remain an explicit unavailable check until resolved.
+
 | Change type | Minimal checks | Add as risk grows |
 | --- | --- | --- |
 | Docs/rules/playbook only | loader/routing smoke if routing changed | — |

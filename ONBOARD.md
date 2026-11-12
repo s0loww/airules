@@ -305,6 +305,17 @@ handoff-документы (`var/tmp/handoff-*.md`, не `Status: completed`, м
 файла) ставится вместе с оверлеем, см. §5.1.
 
 <a id="hook-liveness"></a>
+**Опциональные командные подсказки (0.17+).** По умолчанию не регистрировать.
+При явном opt-in скопировать `command-advisory.py`, его schema/example и
+выбранный overlay `deploy-advisory.py` рядом с reminder-хуками; активную
+`.airules/command-advisories.json` создаёт и ведёт сам проект. Добавить
+generic handler на `PreToolUse` и `PostToolUse` с matcher `Bash|PowerShell`,
+overlay deploy handler — только на `PreToolUse`. В Claude использовать
+`command: python`, `args: ["-B", "${CLAUDE_PROJECT_DIR}/.claude/hooks/<script>"]`.
+Слить с существующими группами, не заменить их. Codex следует своему target
+renderer и opt-in binding. Спецификация и безопасные примеры —
+[`docs/COMMAND-ADVISORIES.md`](docs/COMMAND-ADVISORIES.md).
+
 **Регистрация — не запуск.** Проверка выше показывает только, что скрипт
 корректно отвечает на вызов. Она ничего не говорит о том, зовёт ли его среда.
 Замерено 2026-08-14 на `claude-desktop 2.1.229` и `claude` CLI 2.1.224

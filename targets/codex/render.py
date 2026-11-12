@@ -174,9 +174,11 @@ def composition(source, profile, stack):
 
 
 def validate_bindings(bindings):
-    allowed = {"placeholders", "models", "mcp_servers", "mcp_bindings"}
+    allowed = {"placeholders", "models", "mcp_servers", "mcp_bindings", "command_advisories"}
     if set(bindings) - allowed:
         raise RenderError("unsupported binding keys")
+    if "command_advisories" in bindings and not isinstance(bindings["command_advisories"], bool):
+        raise RenderError("command_advisories must be a boolean")
     facts = bindings.get("placeholders", {})
     if not isinstance(facts, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in facts.items()):
         raise RenderError("placeholders must be strings")
@@ -353,6 +355,7 @@ def build(source, project, output, bindings, profile="public"):
         for file in (output / "openspec").rglob("*.md"):
             put(file, expand(read(file), facts))
         copy_tree(source / "core/hooks", output / ".codex/hooks")
+        copy_tree(source / "overlays" / stack / "hooks", output / ".codex/hooks")
         hook_root = source / "targets/codex/hooks"
         if not (hook_root / "config.py").is_file():
             raise RenderError("Codex hook configuration helper unavailable")
@@ -364,7 +367,9 @@ def build(source, project, output, bindings, profile="public"):
         map_file = source / "overlays" / stack / "hooks/rules-map.json"
         if map_file.exists():
             shutil.copy2(map_file, output / ".codex/hooks/rules-map.json")
-        put(output / ".codex/hooks.json", json.dumps(helper.render_config(), ensure_ascii=False, indent=2) + "\n")
+        put(output / ".codex/hooks.json", json.dumps(helper.render_config(
+            command_advisories=bindings.get("command_advisories", False),
+            deploy_advisory=stack == "1c"), ensure_ascii=False, indent=2) + "\n")
         if bindings.get("mcp_servers"):
             put(output / ".codex/config.toml", render_mcp(bindings["mcp_servers"]))
         mcp_bindings = bindings.get("mcp_bindings", {})
@@ -372,6 +377,7 @@ def build(source, project, output, bindings, profile="public"):
             raise RenderError("mcp_bindings must be an object")
         missing = [row["role"] for row in composed["profile"].get("mcp", {}).get("logical_servers", []) if row.get("required") and mcp_bindings.get(row["role"]) not in bindings.get("mcp_servers", {})]
         manifest = {"schema_version": 1, "target": "codex", "version": read(source / "VERSION").strip(), "project_id": facts["PROJECT_ID"],
+            "command_advisories": bindings.get("command_advisories", False),
             "composition": composed, "source": git_source(source), "bindings_sha256": data_hash(bindings),
             "port_provenance": {"version": "0.13.0-dev.1", "upstream_version": "0.12.0", "upstream_commit": "05181aa", "scope": "runtime adapter only; canonical content from current source"},
             "counts": {"rules": len(meta), "agents": len(registry), "skills": len(skill_names), "canonical_skills": len(skill_names) - len(commands), "converted_commands": len(commands)},

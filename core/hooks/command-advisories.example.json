@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "pre": [
+    {
+      "id": "review-target",
+      "command_any": ["project-deploy"],
+      "hint": "Confirm the reviewed test target and use the existing project deployment workflow."
+    }
+  ],
+  "post": [
+    {
+      "id": "exclusive-lock",
+      "command_any": ["project-deploy"],
+      "output_any": ["exclusive lock", "resource is busy"],
+      "hint": "The output reports contention. Inspect the target's active sessions before diagnosing a damaged input artifact."
+    }
+  ]
+}

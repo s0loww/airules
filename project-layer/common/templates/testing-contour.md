@@ -25,6 +25,14 @@ project context.
 
 ## Project binding
 
+Reuse an existing project runner and its reviewed commands. Record its entry
+point and configuration/profile below; installing this template does not
+authorize creating a runner, environment or test database. Keep unknown
+bindings explicit. Analyzer baselines belong to this project and revision:
+gate new diagnostics, and report unrelated existing diagnostics separately.
+
+- Existing runner entry point and reviewed profile: project-defined or unavailable.
+- Baseline source/revision and comparison rule: project-defined or unavailable.
 - Doctor command: `{{DOCTOR_COMMAND}}`
 - Analyze command: `{{ANALYZE_COMMAND}}`
 - Deploy command: `{{DEPLOY_COMMAND}}`
