@@ -637,9 +637,12 @@ def rollback(project, backup, fail_after=None):
         raise RenderError("rollback manifest backup changed")
     attempt = backup / ("rollback-" + uuid.uuid4().hex)
     attempt.mkdir()
+    # Короткие имена копий не добавляют вложенность ресурсов к пути rollback в Windows.
+    snapshots = {op["path"]: safe(attempt, "after/" + str(index))
+                 for index, op in enumerate(receipt["operations"])}
     for op in receipt["operations"]:
         current = safe(project, op["path"])
-        saved = safe(attempt, "after/" + op["path"])
+        saved = snapshots[op["path"]]
         saved.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(current, saved)
         if sha(saved) != op["after"]:
@@ -660,7 +663,7 @@ def rollback(project, backup, fail_after=None):
         recovery = []
         for op in reversed(restored):
             try:
-                owned_restore(safe(project, op["path"]), op["before"], (attempt / "after" / op["path"]).read_bytes())
+                owned_restore(safe(project, op["path"]), op["before"], snapshots[op["path"]].read_bytes())
             except (OSError, RenderError):
                 recovery.append(op["path"])
         current_manifest = maybe_hash(manifest)

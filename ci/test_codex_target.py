@@ -200,6 +200,23 @@ class CodexTargetTests(unittest.TestCase):
         target.rollback(self.project, update["backup"])
         self.assertNotIn("updated fixture", target.read(self.project / ".codex/agents/developer.toml"))
 
+    def test_nested_skill_resources_rollback_compensates_and_can_be_retried(self):
+        # Пути проекта укладываются в MAX_PATH, а их копии внутри rollback — уже нет.
+        resource = ".agents/skills/rollback-fixture/" + "nested-resource-" * 4 + ".txt"
+        self.save(self.stage / resource, "original resource\n")
+        self.reseal()
+        target.apply(self.project, self.stage, self.backups)
+        self.save(self.stage / resource, "updated resource\n")
+        self.reseal()
+        update = target.apply(self.project, self.stage, self.backups)
+        before = target.files(self.project)
+        with self.assertRaisesRegex(target.RenderError, "injected rollback failure"):
+            target.rollback(self.project, update["backup"], fail_after=1)
+        self.assertEqual(before, target.files(self.project))
+        self.assertEqual("applied", target.load_json(Path(update["backup"]) / "receipt.json")["status"])
+        target.rollback(self.project, update["backup"])
+        self.assertEqual("original resource\n", target.read(self.project / resource))
+
     def test_compensation_preserves_concurrent_local_edit(self):
         original = target.atomic
         calls = []
